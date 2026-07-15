@@ -15,6 +15,7 @@ MASKED_SECRET_VALUE = "__configured__"
 SECRET_FIELDS = {
     "oidc": {"client_secret"},
     "person_lookup": {"http_auth_value"},
+    "ntp_ack_bridge": {"shared_secret"},
     "servicenow": {"password", "oauth_client_secret"},
     "box": {"client_secret", "jwt_private_key", "jwt_passphrase"},
     "google_workspace": {"service_account_private_key"},
@@ -243,6 +244,37 @@ def validate_integration_settings(
         if missing:
             errors.append(f"SMTP is enabled but missing {', '.join(missing)}")
         _validate_number(errors, "SMTP timeout seconds", smtp_values.get("timeout_seconds"), minimum=1, maximum=300)
+
+    if _enabled(enabled, "ntp_ack_bridge"):
+        bridge = config_values.get("ntp_ack_bridge") or {}
+        missing = [
+            label
+            for key, label in (
+                ("bridge_url", "external acknowledgement bridge URL"),
+                ("display_url", "acknowledgement display URL"),
+                ("shared_secret", "shared secret"),
+            )
+            if not _has_config_value(bridge, key)
+        ]
+        if missing:
+            errors.append(
+                f"DMZ NTP Acknowledgment Server is enabled but missing {', '.join(missing)}"
+            )
+        _validate_https_url(
+            errors,
+            "DMZ NTP external acknowledgement bridge URL",
+            bridge.get("bridge_url"),
+        )
+        _validate_https_url(
+            errors,
+            "DMZ NTP acknowledgement display URL",
+            bridge.get("display_url"),
+        )
+        bridge_url = str(bridge.get("bridge_url") or "").strip()
+        if bridge_url and "{token}" not in bridge_url:
+            errors.append(
+                "DMZ NTP external acknowledgement bridge URL must include {token}"
+            )
 
     if _enabled(enabled, "ai"):
         ai = config_values.get("ai") or {}

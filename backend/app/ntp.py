@@ -89,14 +89,49 @@ def _ntp_bool(key: str, env_name: str, default: bool = False) -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _ntp_ack_bridge_config() -> Optional[Dict[str, str]]:
+    """Return enabled bridge settings, an empty dict when disabled, or None for legacy fallback."""
+    try:
+        settings = load_system_settings()
+    except Exception:
+        settings = {}
+    configs = settings.get("integration_configs") or {}
+    raw = configs.get("ntp_ack_bridge") if isinstance(configs, dict) else None
+    if not isinstance(raw, dict):
+        return None
+    keys = ("bridge_url", "display_url", "shared_secret")
+    if not any(str(raw.get(key) or "").strip() for key in keys):
+        return None
+    enabled = settings.get("enabled_integrations") or {}
+    if not isinstance(enabled, dict) or not bool(enabled.get("ntp_ack_bridge")):
+        return {}
+    return {
+        "bridge_url": str(raw.get("bridge_url") or "").strip(),
+        "display_url": str(raw.get("display_url") or "").strip(),
+        "shared_secret": decrypt_secret(raw.get("shared_secret")),
+    }
+
+
 def ntp_ack_automate_url() -> str:
+    bridge = _ntp_ack_bridge_config()
+    if bridge is not None:
+        return bridge.get("bridge_url", "")
     return _ntp_value("ack_automate_url", "NTP_ACK_AUTOMATE_URL")
 
 
 def ntp_ack_automate_secret() -> str:
+    bridge = _ntp_ack_bridge_config()
+    if bridge is not None:
+        return bridge.get("shared_secret", "")
     raw = _ntp_value("ack_automate_secret", "NTP_ACK_AUTOMATE_SECRET")
     return decrypt_secret(raw) if raw.startswith("enc:v1:") else raw
 
+
+def ntp_ack_display_url() -> str:
+    bridge = _ntp_ack_bridge_config()
+    if bridge is not None:
+        return bridge.get("display_url", "")
+    return _ntp_value("ack_display_url", "NTP_ACK_DISPLAY_URL")
 
 def ntp_reminder_interval_days() -> int:
     return _ntp_int("reminder_interval_days", "NTP_REMINDER_INTERVAL_DAYS", 14, minimum=1, maximum=365)
@@ -310,7 +345,7 @@ class NTPReminderBulkUpdatePayload(NTPReminderUpdatePayload):
     custodian_ids: list[int] = Field(default_factory=list)
 
 
-class PowerAutomateAckPayload(BaseModel):
+class DMZAckPayload(BaseModel):
     token: str = Field(min_length=8)
     secret: str = Field(min_length=8)
     metadata: Optional[Dict[str, str]] = None
@@ -892,12 +927,12 @@ def acknowledge_ntp(token: str):
 
 
 @router.post("/ntp/ack/automate")
-def acknowledge_ntp_via_automate(payload: PowerAutomateAckPayload):
+def acknowledge_ntp_via_bridge(payload: DMZAckPayload):
     ack_secret = ntp_ack_automate_secret()
     if not ack_secret:
         raise HTTPException(
             status_code=503,
-            detail="Power Automate integration is not configured",
+            detail="DMZ NTP acknowledgement integration is not configured",
         )
     if payload.secret.strip() != ack_secret:
         raise HTTPException(status_code=403, detail="Invalid secret")
@@ -951,7 +986,7 @@ def _build_ack_link(base_url: str, token_value: str) -> str:
 
 
 def _ack_display_url(base_url: str) -> str:
-    configured = _ntp_value("ack_display_url", "NTP_ACK_DISPLAY_URL")
+    configured = ntp_ack_display_url()
     if configured:
         return configured
     return f"{base_url.rstrip('/')}/ntp/ack"

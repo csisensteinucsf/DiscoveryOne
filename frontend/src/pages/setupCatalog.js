@@ -18,6 +18,7 @@ export const SETUP_INTEGRATION_FLAGS = [
 
 export const SYSTEM_INTEGRATION_FLAGS = [
   ['person_lookup', 'Person lookup'],
+  ['ntp_ack_bridge', 'DMZ NTP Acknowledgment Server'],
   ...SETUP_INTEGRATION_FLAGS,
 ]
 
@@ -239,6 +240,7 @@ export const INTEGRATION_REQUIREMENTS = {
 export const INTEGRATION_CONFIG_DEFAULTS = {
   oidc: {},
   person_lookup: { max_custodians: 100, http_timeout_seconds: 10 },
+  ntp_ack_bridge: { bridge_url: '', display_url: '', shared_secret: '' },
   servicenow: SERVICENOW_DEFAULTS,
   box: BOX_DEFAULTS,
   google_workspace: GOOGLE_WORKSPACE_DEFAULTS,
@@ -263,6 +265,7 @@ export const INTEGRATION_CONFIG_DEFAULTS = {
 export const EMPTY_INTEGRATION_CONFIG_DEFAULTS = {
   oidc: {},
   person_lookup: {},
+  ntp_ack_bridge: {},
   servicenow: {},
   box: {},
   google_workspace: {},

@@ -1,5 +1,3 @@
-import { MASKED_SECRET_VALUE, secretInputValue } from './systemUtils.js'
-
 export default function SystemNtpPanel({
   titleStyle,
   isSysAdmin,
@@ -29,7 +27,7 @@ export default function SystemNtpPanel({
         <div style={{ marginBottom: 12, padding: 12, border: '1px solid var(--border,#e5e7eb)', borderRadius: 10, background: 'var(--card,#f8fafc)' }}>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>NTP Settings</div>
           <div style={{ color: 'var(--muted,#6b7280)', fontSize: 13, marginBottom: 12 }}>
-            Configure Notice to Preserve archive copies, acknowledgement links, and reminder cadence from stored System settings. These values are used when NTPs are sent and when reminders are processed.
+            Configure Notice to Preserve archive copies and reminder cadence from stored System settings. External acknowledgement bridges are configured in the System Integrations section.
           </div>
           <div className="form-grid">
             <label>
@@ -58,34 +56,6 @@ export default function SystemNtpPanel({
                 onChange={e => setNtpSettings(prev => ({ ...prev, archive_copy_required: e.target.checked }))}
               />
               Require archive copy delivery
-            </label>
-            <label>
-              External acknowledgement bridge URL
-              <input
-                value={ntpSettings.ack_automate_url || ''}
-                onChange={e => setNtpSettings(prev => ({ ...prev, ack_automate_url: e.target.value }))}
-                placeholder="https://dmz.example.edu/ack?token={token}"
-              />
-              <small style={{ color: 'var(--muted,#6b7280)' }}>Optional HTTPS URL for an external acknowledgement bridge. Use {'{token}'} or DiscoveryOne will append token as a query parameter.</small>
-            </label>
-            <label>
-              Acknowledgement display URL
-              <input
-                value={ntpSettings.ack_display_url || ''}
-                onChange={e => setNtpSettings(prev => ({ ...prev, ack_display_url: e.target.value }))}
-                placeholder="https://ediscovery.example.edu/acknowledge"
-              />
-              <small style={{ color: 'var(--muted,#6b7280)' }}>Optional friendly HTTPS address shown as the acknowledgement link text in NTP messages. Leave blank to use this application's acknowledgement path.</small>
-            </label>
-            <label>
-              Acknowledgement bridge shared secret
-              <input
-                type="password"
-                value={secretInputValue(ntpSettings.ack_automate_secret)}
-                onChange={e => setNtpSettings(prev => ({ ...prev, ack_automate_secret: e.target.value }))}
-                placeholder={ntpSettings.ack_automate_secret === MASKED_SECRET_VALUE ? 'Configured' : ''}
-              />
-              <small style={{ color: 'var(--muted,#6b7280)' }}>This secret is encrypted before storage and is required for the external bridge to call back into DiscoveryOne.</small>
             </label>
             <label>
               Default reminder interval days

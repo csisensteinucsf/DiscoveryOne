@@ -69,6 +69,7 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
         "crowdstrike": False,
         "log_shipping": False,
         "person_lookup": False,
+        "ntp_ack_bridge": False,
         "smtp": False,
         "ai": False,
     },
@@ -84,6 +85,11 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     "integration_configs": {
         "oidc": {},
         "person_lookup": {},
+        "ntp_ack_bridge": {
+            "bridge_url": "",
+            "display_url": "",
+            "shared_secret": "",
+        },
         "servicenow": {},
         "box": {},
         "google_workspace": {},

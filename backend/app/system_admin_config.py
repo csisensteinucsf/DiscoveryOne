@@ -659,6 +659,7 @@ def public_integration_admin_config() -> Dict[str, Any]:
         for name in (
             "oidc",
             "person_lookup",
+            "ntp_ack_bridge",
             "servicenow",
             "box",
             "google_workspace",

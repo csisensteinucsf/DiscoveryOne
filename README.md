@@ -130,12 +130,19 @@ The backend can create external tickets for configured legal hold and restore wo
 - The ClamAV service persists `/var/lib/clamav`, explicitly starts `freshclam`, and checks for definition updates with `FRESHCLAM_CHECKS` times per day. Runtime health exposes the loaded signature version/date and marks definitions stale when they exceed `CLAMAV_SIGNATURE_MAX_AGE_HOURS`.
 - SMTP and branding assets can be configured from the System area after you authenticate.
 - Sys admin / analyst alerts can post to Microsoft Teams. Configure the webhook and per-event messages in System > Notifications; the webhook is encrypted in app-managed settings.
-- NTP acknowledgement proxy: `DiscoveryOne_DMZ.sh` builds a small DMZ host that receives one-click acknowledgement hits from NTP emails (via `/ack?token=...`) and relays them to the internal API. It provisions a FastAPI + Gunicorn app behind Nginx with TLS, validates a shared secret, and returns a branded confirmation page so recipients know their preservation notice was recorded.
+- NTP acknowledgement bridge: `DiscoveryOne_DMZ.sh` installs a minimal public bridge that receives one-click NTP acknowledgement links and relays them to the internal DiscoveryOne API. It is optional and is intended for deployments where the primary application is not directly internet-accessible.
 
-### NTP acknowledgement proxy setup (DMZ)
-1) Copy `DiscoveryOne_DMZ.sh` to your DMZ host (RHEL-based), make it executable, and edit the variables at the top: `UPSTREAM_URL` (your internal `.../api/ntp/ack/automate` endpoint), `SHARED_SECRET`, `SERVER_NAME`, `TLS_CERT`/`TLS_KEY`, and optional `RETURN_HTML`.
-2) Run the script with sudo (`sudo ./DiscoveryOne_DMZ.sh`). It installs Python/Nginx, builds the FastAPI + Gunicorn app under a dedicated user, configures TLS, firewalld, and sets up systemd + Nginx.
-3) Point DNS for `SERVER_NAME` at the DMZ host. In DiscoveryOne, open System > NTP Templates and set the Power Automate acknowledgement URL to `https://SERVER_NAME/ack?token={token}` and the shared secret to match `SHARED_SECRET` so outbound NTP links work end-to-end.
+### NTP acknowledgement bridge setup (DMZ)
+
+The helper targets RHEL 9-compatible hosts with Python 3.9 or newer, `dnf`, systemd, Nginx, and a TLS certificate for the public acknowledgement hostname. The DMZ host needs inbound TCP 443, optional TCP 80 for HTTPS redirects, and outbound HTTPS access to the internal DiscoveryOne callback URL.
+
+1. Copy `DiscoveryOne_DMZ.sh` to the DMZ host along with the public certificate chain and its unencrypted private key.
+2. Run `sudo bash ./DiscoveryOne_DMZ.sh`. The installer prompts for the public DNS name, internal `https://.../api/ntp/ack/automate` URL, and certificate paths.
+3. The installer creates a dedicated service account, generates a strong bridge secret, stores it with restricted permissions, installs a hardened systemd service, and configures Nginx TLS and per-client rate limiting.
+4. Point the public DNS name to the DMZ host. The certificate must match that name, and the internal callback certificate must be trusted by the DMZ host. Use `--upstream-ca-cert` when the internal service uses a private CA.
+5. In DiscoveryOne, open System > Integrations, enable **DMZ NTP Acknowledgment Server**, and enter the external acknowledgement URL, display URL, and shared secret printed by the installer. Do not configure this integration until the helper has successfully built the DMZ server. DiscoveryOne encrypts the secret before storing it.
+
+Run `sudo bash ./DiscoveryOne_DMZ.sh --help` for non-interactive options and secret-rotation behavior. The installer contains no organization-specific hostnames or credentials, does not forward DocuSign traffic, and configures Nginx access logs to omit acknowledgement-token query strings.
 
 
 

@@ -50,6 +50,51 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
             </div>
           )}
 
+          {integrationSettings.enabled?.ntp_ack_bridge && (
+            <div style={{ marginTop: 18 }}>
+              <h3 style={{ margin: '0 0 8px' }}>DMZ NTP Acknowledgment Server</h3>
+              <p style={{ color: '#b45309', fontWeight: 700, marginBottom: 6 }}>
+                Do not set this up until you have run the DMZ helper script to build the DMZ Server.
+              </p>
+              <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
+                After the helper completes, enter the values it prints below. DiscoveryOne uses the external URL in NTP messages and the shared secret to authenticate acknowledgements sent back from the DMZ server.
+              </p>
+              <div className="form-grid">
+                <label>
+                  External acknowledgement bridge URL
+                  <input
+                    className="input"
+                    value={integrationSettings.configs?.ntp_ack_bridge?.bridge_url || ''}
+                    onChange={e => updateIntegrationConfig('ntp_ack_bridge', 'bridge_url', e.target.value)}
+                    placeholder="https://dmz.example.edu/ack?token={token}"
+                  />
+                  <small style={{ color: 'var(--muted,#6b7280)' }}>Paste the Public acknowledgement URL printed by the helper. The URL must use HTTPS and include {'{token}'}.</small>
+                </label>
+                <label>
+                  Acknowledgement display URL
+                  <input
+                    className="input"
+                    value={integrationSettings.configs?.ntp_ack_bridge?.display_url || ''}
+                    onChange={e => updateIntegrationConfig('ntp_ack_bridge', 'display_url', e.target.value)}
+                    placeholder="https://dmz.example.edu/"
+                  />
+                  <small style={{ color: 'var(--muted,#6b7280)' }}>Paste the Acknowledgement display URL printed by the helper. This is the friendly address shown as link text in NTP messages.</small>
+                </label>
+                <label>
+                  Bridge shared secret
+                  <input
+                    className="input"
+                    type="password"
+                    value={secretInputValue(integrationSettings.configs?.ntp_ack_bridge?.shared_secret)}
+                    onChange={e => updateIntegrationConfig('ntp_ack_bridge', 'shared_secret', e.target.value)}
+                    placeholder={integrationSettings.configs?.ntp_ack_bridge?.shared_secret === MASKED_SECRET_VALUE ? 'Configured' : ''}
+                  />
+                  <small style={{ color: 'var(--muted,#6b7280)' }}>On the DMZ server, run the command printed by the helper to display the shared secret, then enter it here. DiscoveryOne encrypts it before storage.</small>
+                </label>
+              </div>
+            </div>
+          )}
+
           {integrationSettings.enabled?.servicenow && (
             <div style={{ marginTop: 18 }}>
               <h3 style={{ margin: '0 0 8px' }}>ServiceNow</h3>

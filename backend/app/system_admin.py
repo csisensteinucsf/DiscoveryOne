@@ -887,12 +887,20 @@ def sys_update_ntp(
         "archive_bcc_address": archive_bcc_address,
         "archive_copy_required": bool(payload.archive_copy_required),
         "reserved_archive_bcc_addresses": _normalize_ntp_email_csv(payload.reserved_archive_bcc_addresses),
-        "ack_automate_url": _normalize_optional_https_url(payload.ack_automate_url, field_label="Acknowledgement bridge URL"),
-        "ack_display_url": _normalize_optional_https_url(payload.ack_display_url, field_label="Acknowledgement display URL"),
         "reminder_interval_days": _bounded_int(payload.reminder_interval_days, 14, minimum=1, maximum=365),
         "reminder_duration_days": _bounded_int(payload.reminder_duration_days, 90, minimum=1, maximum=3650),
         "reminder_loop_seconds": _bounded_int(payload.reminder_loop_seconds, 900, minimum=30, maximum=86400),
     })
+    if payload.ack_automate_url is not None:
+        ntp["ack_automate_url"] = _normalize_optional_https_url(
+            payload.ack_automate_url,
+            field_label="Acknowledgement bridge URL",
+        )
+    if payload.ack_display_url is not None:
+        ntp["ack_display_url"] = _normalize_optional_https_url(
+            payload.ack_display_url,
+            field_label="Acknowledgement display URL",
+        )
     settings["ntp"] = ntp
     save_system_settings(settings)
     try:

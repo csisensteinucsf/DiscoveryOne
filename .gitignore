@@ -6,7 +6,6 @@ secrets/*.env
 secrets/*.env.dec
 secrets/*.env.plain
 .env.gpg
-DiscoveryOne_DMZ.sh
 deploy/certs/*
 backend/logs/*
 frontend/dist/
