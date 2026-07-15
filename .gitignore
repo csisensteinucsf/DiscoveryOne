@@ -1,0 +1,27 @@
+# keep secrets out of VCS
+.env
+.env.*
+!.env.example
+secrets/*.env
+secrets/*.env.dec
+secrets/*.env.plain
+.env.gpg
+DiscoveryOne_DMZ.sh
+deploy/certs/*
+backend/logs/*
+frontend/dist/
+node_modules/
+__pycache__/
+case_request_uploads/
+logs/
+backups/
+tmp-test/
+instructions/
+output.txt
+bandit-*
+pip-audit-*
+Thumbs.db
+.DS_Store
+**/.DS_Store
+*.cpython-*.py
+backend/app/data/system_settings.json

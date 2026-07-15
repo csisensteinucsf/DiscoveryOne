@@ -1,0 +1,52 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: ediscovery/backend } }
+    steps:
+      - name: Checkout code
+        run: |
+          git init
+          git remote add origin $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
+          git fetch origin $GITHUB_REF --depth=1
+          git checkout FETCH_HEAD
+
+      - name: Python version
+        run: python3 --version
+
+      - name: Install Python deps
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest bandit pip-audit
+
+      - name: Run pytest
+        run: pytest -q || true
+
+      - name: Run Bandit
+        run: bandit -r app || true
+
+      - name: Run pip-audit
+        run: pip-audit || true
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: ediscovery/frontend } }
+    steps:
+      - name: Checkout code
+        run: |
+          git init
+          git remote add origin $GITHUB_SERVER_URL/$GITHUB_REPOSITORY
+          git fetch origin $GITHUB_REF --depth=1
+          git checkout FETCH_HEAD
+
+      - name: Check Node version
+        run: node --version
+
+      - name: Install Node deps
+        run: npm ci --no-audit --fund=false
+
+      - name: Build frontend
+        run: npm run build

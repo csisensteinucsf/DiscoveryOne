@@ -1,0 +1,3 @@
+ALTER TABLE IF EXISTS cases
+    ADD COLUMN IF NOT EXISTS rubrik_restore_ticket VARCHAR(64),
+    ADD COLUMN IF NOT EXISTS box_hold_ticket VARCHAR(64);

@@ -1,0 +1,2 @@
+ALTER TABLE searches
+  ADD COLUMN IF NOT EXISTS export_without_consent BOOLEAN NOT NULL DEFAULT FALSE;

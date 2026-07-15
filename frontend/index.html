@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DiscoveryOne</title>
+    <link rel="icon" type="image/png" href="/img/D1_Logo.png" />
+    <link rel="shortcut icon" type="image/png" href="/img/D1_Logo.png" />
+    <style>
+      :root {
+        --accent:#00598C;
+        --accent-2:#0b5394;
+        --muted:#eef2f7;
+        --sidebar-bg:#e9eef7;
+        --sidebar-fg:#1f2a44;
+      }
+      html, body { height:100%; }
+      body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial; background:var(--bg); color:var(--text); }
+      .layout { display:flex; min-height:100vh; }
+      .sidebar {
+        width: 240px; background: var(--sidebar-bg); color: var(--sidebar-fg); padding:1rem 0;
+        display:flex; flex-direction:column; gap:.25rem; position:sticky; top:0; align-self:flex-start; height:100vh;
+        border-right: 1px solid #e5e7eb;
+      }
+      .brand { padding:0 0 1rem 0; }
+      .brand-logo { display:block; max-width:160px; height:auto; margin: 0 1rem; }
+      .brand-sub { font-size:.9rem; color:var(--sidebar-fg); opacity:.85; padding:.5rem 1rem 0 1rem; font-weight:600; }
+      .nav a, .nav button {
+        display:block; width:100%; text-align:left; padding:.6rem 1rem; color: var(--sidebar-fg); background:transparent; border:none; cursor:pointer;
+        text-decoration: none; font-weight: 500; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica Neue, Arial; border-radius: 10px; margin: 0 .5rem;
+      }
+      .nav a:hover, .nav button:hover { background: rgba(31,42,68,.08); }
+      .content { flex:1; padding:1rem; }
+      .wrap{ max-width:1200px; margin:0 auto; }
+      .card { background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow: 0 1px 2px rgba(0,0,0,.05); padding:1rem; }
+      .btn { border-radius:10px; padding:.5rem .9rem; border:1px solid transparent; background:var(--accent); color:#fff; cursor:pointer; }
+      .btn.secondary { background:#334155; }
+      .input, select, textarea { border:1px solid #e5e7eb; border-radius:10px; padding:.5rem .75rem; width:100%; background:#fff; }
+      table { border-collapse: collapse; width:100%; } th, td { padding:.5rem; text-align:left; }
+      thead { background: var(--muted); color:#334155; }
+      .row { display:flex; gap:.5rem; align-items:center; }
+      .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem; }
+      .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; }
+      .modal { background:white; border-radius:16px; width:520px; max-width:calc(100% - 2rem); padding:1rem; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
+      .modal * { box-sizing: border-box; }
+      .modal h3 { margin-top:0; }
+      .modal form > label { display:block; margin-top:.5rem; }
+      .modal .input, .modal select, .modal textarea { display:block; width:100%; max-width:100%; }
+      .modal .row { gap:.5rem; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

@@ -1,0 +1,2 @@
+ALTER TABLE case_requests
+  ADD COLUMN IF NOT EXISTS attachment_bytes INTEGER NOT NULL DEFAULT 0;

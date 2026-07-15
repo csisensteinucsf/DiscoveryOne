@@ -1,0 +1,2 @@
+ALTER TABLE ntp_templates
+  ADD COLUMN IF NOT EXISTS bcc TEXT;

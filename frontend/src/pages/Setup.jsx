@@ -1,0 +1,450 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Navigate, useNavigate } from 'react-router-dom'
+import { useAuth } from '../auth.jsx'
+import {
+  AdminStep,
+  BrandingStep,
+  CaseNamingStep,
+  CASE_NAMING_OPTIONS,
+  DeploymentStep,
+  InstitutionStep,
+  SetupHeader,
+} from './SetupCoreSteps.jsx'
+import { PersonLookupStep, PreservationStep } from './SetupLookupSteps.jsx'
+import SetupIntegrationsStep from './SetupIntegrationsStep.jsx'
+import { preservationSourceKey } from './preservationCatalog.js'
+import { useBrandingSettings } from '../lib/useBrandingSettings.js'
+
+import {
+  BUILT_IN_PRESERVATION,
+  ENABLED_INTEGRATION_DEFAULTS,
+  INTEGRATION_CONFIG_DEFAULTS,
+  INTEGRATION_FLAGS,
+  INTEGRATION_REQUIREMENTS,
+  PRESERVATION_SOURCE_DEFAULTS,
+  PROVIDER_DEFAULTS,
+  SMTP_DEFAULTS,
+} from './setupCatalog.js'
+const SETUP_STEPS = [
+  {
+    key: 'deployment',
+    title: 'Deployment',
+    context: 'This tells DiscoveryOne what public HTTPS URL to use in emails, approvals, and generated links. TLS is required; the default self-signed certificate works for first run but browsers will warn until you install a trusted certificate.',
+  },
+  {
+    key: 'institution',
+    title: 'Institution',
+    context: 'These settings replace organization-specific language throughout the app. Domains control which requestor email addresses are treated as organization-owned.',
+  },
+  {
+    key: 'admin',
+    title: 'Administrator',
+    context: 'This creates the first local sys-admin account. After setup completes, this wizard closes and all further changes are made from System.',
+  },
+  {
+    key: 'branding',
+    title: 'Branding',
+    context: 'Upload the logo your users should see in the app. If you skip this, DiscoveryOne uses the default D1 logo.',
+  },
+  {
+    key: 'case_naming',
+    title: 'eDiscovery Case Naming',
+    context: 'Choose how DiscoveryOne names the eDiscovery case record. This affects new cases created after setup and can be changed later from System.',
+  },
+  {
+    key: 'preservation',
+    title: 'Preservation',
+    context: 'Choose the preservation sources your team tracks. Built-in sources map to existing hold fields; custom sources are saved as configured tracking items for future workflows.',
+  },
+  {
+    key: 'person_lookup',
+    title: 'Person Lookup',
+    context: 'Person lookup lets DiscoveryOne search your identity or HR source for custodians and return normalized details such as names, email, employee ID, department, title, and separation status.',
+  },
+  {
+    key: 'integrations',
+    title: 'Integrations',
+    context: 'Enable only the integration workflows this deployment should expose. Enter connection values here when available; after setup, system administrators can manage these values from System > Integrations without editing the .env file.',
+  },
+  {
+    key: 'review',
+    title: 'Review',
+    context: 'Confirm the configuration before DiscoveryOne saves it, creates the sys-admin account, and locks first-time setup.',
+  },
+]
+
+
+export default function Setup({ apiBase = '/api' }) {
+  const { loading, setupRequired, refreshSetupStatus, refreshAuthConfig } = useAuth()
+  const { appName } = useBrandingSettings(apiBase, { updateTitle: true })
+  const nav = useNavigate()
+  const [stepIndex, setStepIndex] = useState(0)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [logoFile, setLogoFile] = useState(null)
+  const [logoPreview, setLogoPreview] = useState('')
+  const [tlsCertificateFile, setTlsCertificateFile] = useState(null)
+  const [tlsPrivateKeyFile, setTlsPrivateKeyFile] = useState(null)
+  const [form, setForm] = useState({
+    app_base_url: '',
+    allowed_hosts: '',
+    tls_mode: 'self_signed',
+    tls_common_name: '',
+    org_name: '',
+    org_short_name: '',
+    app_name: 'DiscoveryOne',
+    app_tagline: 'eDiscovery Case Manager',
+    allowed_requestor_email_domains: '',
+    requestor_email_exceptions: '',
+    sso_display_name: 'Single sign-on',
+    support_email: '',
+    admin_username: 'admin',
+    admin_password: '',
+    confirm_password: '',
+    case_naming: { mode: 'legal_case_name' },
+    preservation_sources: { ...PRESERVATION_SOURCE_DEFAULTS },
+    custom_preservation_sources: '',
+    enabled_integrations: { ...ENABLED_INTEGRATION_DEFAULTS },
+    smtp: { ...SMTP_DEFAULTS },
+    integrations: { ...PROVIDER_DEFAULTS },
+    integration_configs: Object.fromEntries(
+      Object.entries(INTEGRATION_CONFIG_DEFAULTS).map(([key, value]) => [key, { ...value }])
+    ),
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setForm(prev => {
+      if (prev.app_base_url || prev.allowed_hosts) return prev
+      return {
+        ...prev,
+        app_base_url: window.location.protocol === 'https:' ? window.location.origin : `https://${window.location.host}`,
+        allowed_hosts: window.location.hostname,
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!logoFile) {
+      setLogoPreview('')
+      return undefined
+    }
+    const url = URL.createObjectURL(logoFile)
+    setLogoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [logoFile])
+
+  const passwordMismatch = form.admin_password && form.confirm_password && form.admin_password !== form.confirm_password
+  const passwordTooShort = form.admin_password && form.admin_password.length < 12
+  const customSources = useMemo(() => {
+    const seen = new Set(BUILT_IN_PRESERVATION.map(([key]) => key))
+    return form.custom_preservation_sources
+      .split(/[\n,]+/)
+      .map(item => item.trim())
+      .filter(Boolean)
+      .map(label => ({ key: preservationSourceKey(label).slice(0, 80), label }))
+      .filter(item => item.key && !seen.has(item.key) && !seen.has(item.label.toLowerCase()))
+      .filter(item => {
+        if (seen.has(item.key)) return false
+        seen.add(item.key)
+        return true
+      })
+  }, [form.custom_preservation_sources])
+
+  const preservationPayload = useMemo(() => {
+    const builtIns = BUILT_IN_PRESERVATION.map(([key, label]) => ({
+      key,
+      label,
+      enabled: !!form.preservation_sources[key],
+      built_in: true,
+    }))
+    const custom = customSources.map(item => ({
+      ...item,
+      enabled: true,
+      built_in: false,
+    }))
+    return [...builtIns, ...custom]
+  }, [customSources, form.preservation_sources])
+
+  const canComplete = useMemo(() => {
+    return form.admin_username.trim() && form.admin_password && form.confirm_password && !passwordMismatch && !passwordTooShort
+  }, [form.admin_password, form.admin_username, form.confirm_password, passwordMismatch, passwordTooShort])
+
+  const currentStep = SETUP_STEPS[stepIndex]
+  const isFirst = stepIndex === 0
+  const isLast = stepIndex === SETUP_STEPS.length - 1
+
+  if (!loading && !setupRequired) {
+    return <Navigate to="/login" replace />
+  }
+
+  const update = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
+  const toggleIntegration = (key) => {
+    const providerUpdatesFor = (enabled) => {
+      if (key === 'servicenow') return { ticket_provider: enabled ? 'servicenow' : 'none' }
+      if (key === 'docusign') return { esign_provider: enabled ? 'docusign' : 'none' }
+      if (key === 'purview') return { preservation_provider: enabled ? 'purview' : 'none', search_export_provider: enabled ? 'purview' : 'none' }
+
+
+      if (key === 'smtp') return { mail_provider: enabled ? 'smtp' : 'none' }
+      return {}
+    }
+    setForm(prev => ({
+      ...prev,
+      enabled_integrations: {
+        ...prev.enabled_integrations,
+        [key]: !prev.enabled_integrations[key],
+      },
+      integrations: {
+        ...prev.integrations,
+        ...providerUpdatesFor(!prev.enabled_integrations[key]),
+      },
+    }))
+  }
+  const setPersonLookupEnabled = (enabled) => {
+    setForm(prev => ({
+      ...prev,
+      enabled_integrations: {
+        ...prev.enabled_integrations,
+        person_lookup: enabled,
+      },
+      integrations: {
+        ...prev.integrations,
+        person_lookup_provider: enabled ? (prev.integrations.person_lookup_provider === 'none' ? 'csv' : prev.integrations.person_lookup_provider) : 'none',
+      },
+    }))
+  }
+  const togglePreservationSource = (key) => {
+    setForm(prev => ({
+      ...prev,
+      preservation_sources: {
+        ...prev.preservation_sources,
+        [key]: !prev.preservation_sources[key],
+      },
+    }))
+  }
+  const updateProvider = (key, value) => {
+    setForm(prev => ({
+      ...prev,
+      integrations: {
+        ...prev.integrations,
+        [key]: value,
+      },
+    }))
+  }
+  const updateIntegrationConfig = (name, key, value) => {
+    setForm(prev => ({
+      ...prev,
+      integration_configs: {
+        ...prev.integration_configs,
+        [name]: {
+          ...(prev.integration_configs?.[name] || {}),
+          [key]: value,
+        },
+      },
+    }))
+  }
+  const updateSmtp = (key, value) => {
+    setForm(prev => ({
+      ...prev,
+      smtp: {
+        ...(prev.smtp || {}),
+        [key]: value,
+      },
+    }))
+  }
+  const updateCaseNamingMode = (mode) => {
+    setForm(prev => ({
+      ...prev,
+      case_naming: {
+        ...(prev.case_naming || {}),
+        mode,
+      },
+    }))
+  }
+
+  const buildPayload = () => {
+    const payload = {
+      ...form,
+      allowed_hosts: form.allowed_hosts
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean),
+      allowed_requestor_email_domains: form.allowed_requestor_email_domains
+        .split(',')
+        .map(item => item.trim())
+        .filter(Boolean),
+      requestor_email_exceptions: form.requestor_email_exceptions
+        .split(/[,\n]+/)
+        .map(item => item.trim())
+        .filter(Boolean),
+      preservation_sources: preservationPayload,
+    }
+    delete payload.confirm_password
+    delete payload.custom_preservation_sources
+    return payload
+  }
+
+  const complete = async (event) => {
+    event.preventDefault()
+    if (!isLast) {
+      setStepIndex(prev => Math.min(SETUP_STEPS.length - 1, prev + 1))
+      setError('')
+      return
+    }
+    if (busy || !canComplete) return
+    setError('')
+    setBusy(true)
+    try {
+      const body = new FormData()
+      body.set('payload', JSON.stringify(buildPayload()))
+      if (logoFile) body.set('logo', logoFile)
+      if (tlsCertificateFile) body.set('tls_certificate', tlsCertificateFile)
+      if (tlsPrivateKeyFile) body.set('tls_private_key', tlsPrivateKeyFile)
+
+      const res = await fetch(`${apiBase}/setup/complete`, {
+        method: 'POST',
+        body,
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        let message = 'Unable to complete setup.'
+        try {
+          const data = await res.json()
+          if (typeof data?.detail === 'string') message = data.detail
+        } catch {
+          const text = await res.text().catch(() => '')
+          if (text) message = text
+        }
+        throw new Error(message)
+      }
+      await Promise.all([refreshSetupStatus(), refreshAuthConfig()])
+      window.dispatchEvent(new Event('branding:update'))
+      nav('/login', { replace: true })
+    } catch (err) {
+      setError(err?.message || 'Unable to complete setup.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const back = () => {
+    setError('')
+    setStepIndex(prev => Math.max(0, prev - 1))
+  }
+
+  return (
+    <div className="wrap" style={{ maxWidth: 1280 }}>
+      <div className="card" style={{ marginTop: 24 }}>
+        <SetupHeader apiBase={apiBase} appName={appName} />
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, minmax(120px, 1fr))', gap: 8, marginBottom: 20, overflowX: 'auto', paddingBottom: 2 }}>
+          {SETUP_STEPS.map((step, idx) => (
+            <button
+              key={step.key}
+              type="button"
+              className={`btn ${idx === stepIndex ? '' : 'secondary'}`}
+              onClick={() => setStepIndex(idx)}
+              style={{ minHeight: 38, padding: '6px 8px', fontSize: 13 }}
+              aria-current={idx === stepIndex ? 'step' : undefined}
+            >
+              {idx + 1}. {step.title}
+            </button>
+          ))}
+        </div>
+
+        <form onSubmit={complete} style={{ display: 'grid', gap: 18 }}>
+          <section>
+            <h3 style={{ margin: '0 0 8px' }}>{currentStep.title}</h3>
+            <p style={{ margin: '0 0 16px', color: 'var(--muted,#6b7280)', maxWidth: 820 }}>{currentStep.context}</p>
+            {currentStep.key === 'deployment' && (
+              <DeploymentStep
+                form={form}
+                update={update}
+                setTlsCertificateFile={setTlsCertificateFile}
+                setTlsPrivateKeyFile={setTlsPrivateKeyFile}
+              />
+            )}
+
+            {currentStep.key === 'institution' && (
+              <InstitutionStep form={form} update={update} />
+            )}
+
+            {currentStep.key === 'admin' && (
+              <AdminStep
+                form={form}
+                update={update}
+                passwordTooShort={passwordTooShort}
+                passwordMismatch={passwordMismatch}
+              />
+            )}
+
+            {currentStep.key === 'branding' && (
+              <BrandingStep form={form} update={update} logoFile={logoFile} logoPreview={logoPreview} setLogoFile={setLogoFile} />
+            )}
+
+            {currentStep.key === 'case_naming' && (
+              <CaseNamingStep form={form} updateCaseNamingMode={updateCaseNamingMode} />
+            )}
+            {currentStep.key === 'preservation' && (
+              <PreservationStep
+                form={form}
+                builtInPreservation={BUILT_IN_PRESERVATION}
+                togglePreservationSource={togglePreservationSource}
+                update={update}
+                customSources={customSources}
+              />
+            )}
+
+            {currentStep.key === 'person_lookup' && (
+              <PersonLookupStep
+                form={form}
+                setPersonLookupEnabled={setPersonLookupEnabled}
+                updateProvider={updateProvider}
+                updateIntegrationConfig={updateIntegrationConfig}
+              />
+            )}
+            {currentStep.key === 'integrations' && (
+              <SetupIntegrationsStep
+                form={form}
+                INTEGRATION_FLAGS={INTEGRATION_FLAGS}
+                INTEGRATION_REQUIREMENTS={INTEGRATION_REQUIREMENTS}
+                toggleIntegration={toggleIntegration}
+                updateProvider={updateProvider}
+                updateIntegrationConfig={updateIntegrationConfig}
+                updateSmtp={updateSmtp}
+              />
+            )}
+            {currentStep.key === 'review' && (
+              <div style={{ display: 'grid', gap: 10, color: 'var(--muted,#6b7280)' }}>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Public URL:</strong> {form.app_base_url || 'Not set'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>TLS:</strong> {form.tls_mode === 'uploaded' ? 'Uploaded certificate' : 'Self-signed certificate'}{form.tls_common_name ? ` for ${form.tls_common_name}` : ''}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Organization:</strong> {form.org_name || 'Not set'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Admin:</strong> {form.admin_username || 'Not set'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>App name:</strong> {form.app_name || 'DiscoveryOne'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Tagline:</strong> {form.app_tagline || 'None'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Logo:</strong> {logoFile?.name || 'Default D1 logo'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Case naming:</strong> {CASE_NAMING_OPTIONS.find(([mode]) => mode === form.case_naming?.mode)?.[1] || 'Use Legal Case Name'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Preservation:</strong> {preservationPayload.filter(item => item.enabled).map(item => item.label).join(', ') || 'None selected'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Person lookup:</strong> {form.enabled_integrations.person_lookup ? form.integrations.person_lookup_provider : 'Disabled'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>SMTP:</strong> {form.enabled_integrations.smtp ? `${form.smtp?.host || 'missing host'}:${form.smtp?.port || 587}` : 'Disabled'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>ServiceNow auth:</strong> {form.enabled_integrations.servicenow ? (form.integration_configs.servicenow?.auth_type || 'basic') : 'Disabled'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Enabled integrations:</strong> {Object.entries(form.enabled_integrations).filter(([, enabled]) => enabled).map(([key]) => key).join(', ') || 'None'}</div>
+              </div>
+            )}
+          </section>
+
+          {error && <p role="alert" style={{ color: '#b91c1c', margin: 0 }}>{error}</p>}
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <button className="btn secondary" type="button" onClick={back} disabled={busy || isFirst}>
+              Back
+            </button>
+            <button className="btn" type="submit" disabled={busy || (isLast && !canComplete)}>
+              {isLast ? (busy ? 'Saving Setup...' : 'Complete Setup') : 'Next'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

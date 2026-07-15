@@ -1,0 +1,2 @@
+ALTER TABLE cases
+  ADD COLUMN IF NOT EXISTS ler_representative VARCHAR(255);
