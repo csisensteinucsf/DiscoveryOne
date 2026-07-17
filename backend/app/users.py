@@ -12,7 +12,7 @@ from .notifications import notify_user_password_change
 from .security import hash_password
 from .permissions import is_sys_admin, is_valid_tech_group
 from .requestor_email_policy import require_allowed_requestor_email
-from .session_tokens import revoke_all_sessions_for_user
+from .session_tokens import revoke_all_auth_tokens_for_user
 from .safe_log import debug_suppressed as _debug_suppressed
 from .login_history import last_login_map
 
@@ -437,11 +437,10 @@ def update_user(
         u.last_name = last
 
     db.add(u)
+    if password_changed or auth_mode_changed or active_state_changed:
+        revoke_all_auth_tokens_for_user(db, u.id, commit=False)
     db.commit()
     db.refresh(u)
-
-    if password_changed or auth_mode_changed or active_state_changed:
-        revoke_all_sessions_for_user(db, u.id)
     if password_changed:
         try:
             notify_user_password_change(u)
@@ -524,8 +523,8 @@ def reset_password(
         raise HTTPException(status_code=403, detail="Admin privileges required")
     user.password_hash = hash_password(pw)
     db.add(user)
+    revoke_all_auth_tokens_for_user(db, user.id, commit=False)
     db.commit()
-    revoke_all_sessions_for_user(db, user.id)
     try:
         log_event(
             db,
@@ -571,9 +570,9 @@ def delete_user(
     _username = u.username
     _email = getattr(u, "email", None)
 
+    revoke_all_auth_tokens_for_user(db, _uid, commit=False)
     db.delete(u)
     db.commit()
-    revoke_all_sessions_for_user(db, _uid)
     try:
         log_event(db,
             action="user_delete",

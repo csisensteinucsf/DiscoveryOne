@@ -345,10 +345,9 @@ def _normalize_variables(raw: Dict[str, str]) -> Dict[str, str]:
             cleaned[key] = ""
         else:
             cleaned[key] = str(value).strip()
-    if "cc" in cleaned:
-        cleaned["cc"] = ", ".join(_parse_email_list(cleaned["cc"]))
-    if "bcc" in cleaned:
-        cleaned["bcc"] = ", ".join(_normalize_template_bcc_for_storage(cleaned["bcc"]))
+    # Message recipients are controlled by administrator-managed templates, never sender variables.
+    cleaned.pop("cc", None)
+    cleaned.pop("bcc", None)
     return cleaned
 
 

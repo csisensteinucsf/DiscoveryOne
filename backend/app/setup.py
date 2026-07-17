@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import os
 import re
+import secrets
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -12,7 +14,7 @@ from uuid import uuid4
 from email_validator import EmailNotValidError, validate_email
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel, Field
-from sqlalchemy import func
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from . import models
@@ -39,9 +41,12 @@ ALLOWED_CERT_TYPES = {"application/x-pem-file", "application/pem-certificate-cha
 LOGO_MAX_BYTES = int(os.getenv("LOGO_MAX_BYTES", str(2 * 1024 * 1024)))
 TLS_FILE_MAX_BYTES = int(os.getenv("TLS_FILE_MAX_BYTES", str(128 * 1024)))
 SETUP_VERSION = 1
+SETUP_LOCK_KEY = 0x44314F4E45
+_SETUP_PROCESS_LOCK = threading.RLock()
 
 
 class InitialSetupPayload(BaseModel):
+    bootstrap_secret: str = ""
     app_base_url: str = ""
     allowed_hosts: list[str] = Field(default_factory=list)
     tls_mode: str = "self_signed"
@@ -67,6 +72,27 @@ class InitialSetupPayload(BaseModel):
 def _truthy(value: Any) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on"}
 
+
+def _verify_bootstrap_secret(provided: Any) -> None:
+    expected = str(os.getenv("SETUP_BOOTSTRAP_SECRET") or "").strip()
+    if len(expected) < 24:
+        raise HTTPException(
+            status_code=503,
+            detail="The one-time setup code is unavailable. Restart the backend to generate it.",
+        )
+    supplied = str(provided or "").strip()
+    if not supplied or not secrets.compare_digest(supplied, expected):
+        raise HTTPException(status_code=403, detail="The one-time setup code is invalid")
+
+
+def _acquire_setup_transaction_lock(db: Session) -> None:
+    bind = db.get_bind()
+    dialect_name = str(getattr(getattr(bind, "dialect", None), "name", "") or "")
+    if dialect_name == "postgresql":
+        db.execute(
+            text("SELECT pg_advisory_xact_lock(:setup_lock_key)"),
+            {"setup_lock_key": SETUP_LOCK_KEY},
+        )
 
 def _strong_password(value: str) -> bool:
     text = value or ""
@@ -457,7 +483,7 @@ def _store_tls_file(
     dest = TLS_DIR / safe_name
     dest.write_bytes(payload)
     try:
-        dest.chmod(0o644)
+        dest.chmod(0o600 if kind == "private_key" else 0o644)
     except Exception as exc:
         _debug_suppressed(f"suppressed exception in setup.py:{kind}_chmod", exc)
 
@@ -479,73 +505,77 @@ def complete_setup(
     request: Request = None,
     db: Session = Depends(get_db),
 ):
-    settings = load_system_settings()
-    if _setup_completed(settings, db):
-        raise HTTPException(status_code=409, detail="Initial setup is already complete")
-
     parsed = _validate_payload(payload)
-    existing_username = (
-        db.query(models.User)
-        .filter(func.lower(models.User.username) == parsed.admin_username.lower())
-        .first()
-    )
-    if existing_username:
-        raise HTTPException(status_code=409, detail="Admin username already exists")
+    _verify_bootstrap_secret(parsed.bootstrap_secret)
 
-    settings = _merge_setup_settings(settings, parsed)
-    logo_entry = _store_logo_if_present(settings=settings, logo=logo, request=request)
-    cert_name = _store_tls_file(settings=settings, file=tls_certificate, request=request, kind="certificate")
-    key_name = _store_tls_file(settings=settings, file=tls_private_key, request=request, kind="private_key")
-    if parsed.tls_mode == "uploaded" and not (
-        (cert_name or settings.get("deployment", {}).get("tls", {}).get("certificate_filename"))
-        and (key_name or settings.get("deployment", {}).get("tls", {}).get("private_key_filename"))
-    ):
-        raise HTTPException(status_code=422, detail="Uploaded TLS mode requires both a certificate and private key")
-    now = datetime.now(timezone.utc).isoformat()
-    settings["initial_setup_completed"] = True
-    settings["initial_setup_completed_at"] = now
-    settings["initial_setup_version"] = SETUP_VERSION
+    with _SETUP_PROCESS_LOCK:
+        _acquire_setup_transaction_lock(db)
+        settings = load_system_settings()
+        if _setup_completed(settings, db):
+            raise HTTPException(status_code=409, detail="Initial setup is already complete")
 
-    admin = models.User(
-        username=parsed.admin_username,
-        email=None,
-        first_name="System",
-        last_name="Administrator",
-        password_hash=hash_password(parsed.admin_password),
-        is_admin=True,
-        role="sys_admin",
-        local_auth_only=True,
-        is_active=True,
-    )
-    db.add(admin)
-    try:
-        db.commit()
-        db.refresh(admin)
-    except Exception as exc:
-        db.rollback()
-        raise HTTPException(status_code=400, detail="Unable to create initial administrator") from exc
-
-    save_system_settings(settings)
-    try:
-        log_event(
-            db,
-            action="initial_setup_complete",
-            actor_id=admin.id,
-            target_type="system",
-            details={
-                "admin_username": admin.username,
-                "org_name": parsed.org_name,
-                "logo_uploaded": bool(logo_entry),
-                "tls_mode": parsed.tls_mode,
-            },
-            request=request,
+        existing_username = (
+            db.query(models.User)
+            .filter(func.lower(models.User.username) == parsed.admin_username.lower())
+            .first()
         )
-    except Exception as exc:
-        _debug_suppressed("suppressed exception in setup.py:audit", exc)
+        if existing_username:
+            raise HTTPException(status_code=409, detail="Admin username already exists")
 
-    return {
-        "ok": True,
-        "setup": _setup_status_payload(db),
-        "admin": {"id": admin.id, "username": admin.username, "email": admin.email},
-        "logo": logo_entry,
-    }
+        settings = _merge_setup_settings(settings, parsed)
+        logo_entry = _store_logo_if_present(settings=settings, logo=logo, request=request)
+        cert_name = _store_tls_file(settings=settings, file=tls_certificate, request=request, kind="certificate")
+        key_name = _store_tls_file(settings=settings, file=tls_private_key, request=request, kind="private_key")
+        if parsed.tls_mode == "uploaded" and not (
+            (cert_name or settings.get("deployment", {}).get("tls", {}).get("certificate_filename"))
+            and (key_name or settings.get("deployment", {}).get("tls", {}).get("private_key_filename"))
+        ):
+            raise HTTPException(status_code=422, detail="Uploaded TLS mode requires both a certificate and private key")
+        now = datetime.now(timezone.utc).isoformat()
+        settings["initial_setup_completed"] = True
+        settings["initial_setup_completed_at"] = now
+        settings["initial_setup_version"] = SETUP_VERSION
+
+        admin = models.User(
+            username=parsed.admin_username,
+            email=None,
+            first_name="System",
+            last_name="Administrator",
+            password_hash=hash_password(parsed.admin_password),
+            is_admin=True,
+            role="sys_admin",
+            local_auth_only=True,
+            is_active=True,
+        )
+        db.add(admin)
+        try:
+            db.commit()
+            db.refresh(admin)
+        except Exception as exc:
+            db.rollback()
+            raise HTTPException(status_code=400, detail="Unable to create initial administrator") from exc
+
+        save_system_settings(settings)
+        try:
+            log_event(
+                db,
+                action="initial_setup_complete",
+                actor_id=admin.id,
+                target_type="system",
+                details={
+                    "admin_username": admin.username,
+                    "org_name": parsed.org_name,
+                    "logo_uploaded": bool(logo_entry),
+                    "tls_mode": parsed.tls_mode,
+                },
+                request=request,
+            )
+        except Exception as exc:
+            _debug_suppressed("suppressed exception in setup.py:audit", exc)
+
+        return {
+            "ok": True,
+            "setup": _setup_status_payload(db),
+            "admin": {"id": admin.id, "username": admin.username, "email": admin.email},
+            "logo": logo_entry,
+        }

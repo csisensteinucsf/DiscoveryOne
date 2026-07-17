@@ -167,6 +167,31 @@ export function AuthProvider({ apiBase, children }) {
       throw new Error(message)
     }
     const data = await res.json()
+    if (!data?.mfa_required) {
+      setUser(normalizeUser(data.user))
+      emitBrandingUpdate()
+    }
+    return data
+  }
+
+  const verifyMfa = async (mfaToken, code, rememberBrowser = false) => {
+    const res = await fetch(`${apiBase}/auth/mfa/verify`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mfa_token: mfaToken, code, remember_browser: !!rememberBrowser }),
+    })
+    if (!res.ok) {
+      let message = 'Invalid verification code'
+      try {
+        const data = await res.json()
+        if (typeof data?.detail === 'string' && data.detail.trim()) message = data.detail
+      } catch {
+        /* ignore */
+      }
+      throw new Error(message)
+    }
+    const data = await res.json()
     setUser(normalizeUser(data.user))
     emitBrandingUpdate()
     return data
@@ -191,7 +216,7 @@ export function AuthProvider({ apiBase, children }) {
     return { redirected: false }
   }
 
-  return <AuthCtx.Provider value={{ user, loading, authConfig, setupStatus, setupRequired: !!setupStatus.required, login, logout, refreshUser, refreshAuthConfig, refreshSetupStatus, beginSsoLogin }}>{children}</AuthCtx.Provider>
+  return <AuthCtx.Provider value={{ user, loading, authConfig, setupStatus, setupRequired: !!setupStatus.required, login, verifyMfa, logout, refreshUser, refreshAuthConfig, refreshSetupStatus, beginSsoLogin }}>{children}</AuthCtx.Provider>
 }
 
 export function useAuth() { return useContext(AuthCtx) }

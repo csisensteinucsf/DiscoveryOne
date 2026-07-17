@@ -1,4 +1,8 @@
 import json
+import threading
+from concurrent.futures import ThreadPoolExecutor
+from io import BytesIO
+from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
@@ -23,6 +27,7 @@ def db_session():
 
 @pytest.fixture()
 def settings_store(monkeypatch):
+    monkeypatch.setenv("SETUP_BOOTSTRAP_SECRET", "test-bootstrap-secret-1234567890")
     store = {
         "initial_setup_completed": False,
         "initial_setup_completed_at": None,
@@ -75,6 +80,7 @@ def test_setup_complete_creates_admin_and_persists_settings(db_session, settings
         "sso_display_name": "Example SSO",
         "support_email": "support@example.edu",
         "admin_username": "admin",
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
         "admin_password": "ChangeMeNow!123",
         "enabled_integrations": {"smtp": True, "person_lookup": True},
         "integrations": {"person_lookup_provider": "csv", "sso_provider": "local"},
@@ -144,7 +150,7 @@ def test_setup_complete_is_rejected_after_sys_admin_exists(db_session, settings_
 
     with pytest.raises(HTTPException) as exc:
         setup.complete_setup(
-            payload=json.dumps({"admin_username": "admin", "admin_password": "ChangeMeNow!123"}),
+            payload=json.dumps({"bootstrap_secret": "test-bootstrap-secret-1234567890", "admin_username": "admin", "admin_password": "ChangeMeNow!123"}),
             logo=None,
             request=None,
             db=db_session,
@@ -155,6 +161,7 @@ def test_setup_complete_is_rejected_after_sys_admin_exists(db_session, settings_
 
 def test_setup_complete_accepts_servicenow_oauth_credentials(db_session, settings_store):
     payload = {
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
         "admin_password": "ChangeMeNow!123",
         "enabled_integrations": {"servicenow": True},
         "integrations": {"ticket_provider": "servicenow"},
@@ -180,6 +187,7 @@ def test_setup_complete_accepts_servicenow_oauth_credentials(db_session, setting
 
 def test_setup_complete_encrypts_docusign_connect_keys(db_session, settings_store):
     payload = {
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
         "admin_password": "ChangeMeNow!123",
         "enabled_integrations": {"docusign": True},
         "integrations": {"esign_provider": "docusign"},
@@ -207,6 +215,7 @@ def test_setup_complete_encrypts_docusign_connect_keys(db_session, settings_stor
 
 def test_setup_complete_persists_ai_enabled_flag_and_config(db_session, settings_store):
     payload = {
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
         "admin_password": "ChangeMeNow!123",
         "enabled_integrations": {"ai": True},
         "integration_configs": {
@@ -263,6 +272,7 @@ def test_integration_config_merge_replaces_secret():
 
 def test_setup_complete_normalizes_case_naming_alias(db_session, settings_store):
     payload = {
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
         "admin_password": "ChangeMeNow!123",
         "case_naming": {"mode": "date"},
     }
@@ -274,6 +284,7 @@ def test_setup_complete_normalizes_case_naming_alias(db_session, settings_store)
 
 def test_setup_complete_rejects_unsupported_case_naming(db_session, settings_store):
     payload = {
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
         "admin_password": "ChangeMeNow!123",
         "case_naming": {"mode": "campus_specific_sequence"},
     }
@@ -284,3 +295,147 @@ def test_setup_complete_rejects_unsupported_case_naming(db_session, settings_sto
     assert exc.value.status_code == 422
     assert "Unsupported eDiscovery case naming option" in exc.value.detail
 
+
+
+def test_setup_complete_rejects_missing_or_invalid_bootstrap_secret(db_session, settings_store):
+    for supplied in ("", "attacker-controlled-code"):
+        with pytest.raises(HTTPException) as exc:
+            setup.complete_setup(
+                payload=json.dumps(
+                    {
+                        "bootstrap_secret": supplied,
+                        "admin_password": "ChangeMeNow!123",
+                    }
+                ),
+                logo=None,
+                request=None,
+                db=db_session,
+            )
+        assert exc.value.status_code == 403
+
+    assert db_session.query(models.User).count() == 0
+    assert settings_store["initial_setup_completed"] is False
+
+
+def test_setup_lock_uses_postgresql_transaction_advisory_lock():
+    calls = []
+
+    class Dialect:
+        name = "postgresql"
+
+    class Bind:
+        dialect = Dialect()
+
+    class FakeSession:
+        def get_bind(self):
+            return Bind()
+
+        def execute(self, statement, params):
+            calls.append((str(statement), params))
+
+    setup._acquire_setup_transaction_lock(FakeSession())
+
+    assert len(calls) == 1
+    assert "pg_advisory_xact_lock" in calls[0][0]
+    assert calls[0][1] == {"setup_lock_key": setup.SETUP_LOCK_KEY}
+
+
+def test_concurrent_setup_completions_create_exactly_one_admin(tmp_path, monkeypatch):
+    engine = create_engine(
+        f"sqlite:///{tmp_path / 'setup-race.db'}",
+        connect_args={"check_same_thread": False},
+    )
+    SessionLocal = sessionmaker(bind=engine)
+    models.Base.metadata.create_all(bind=engine)
+    store_lock = threading.Lock()
+    store = {
+        "initial_setup_completed": False,
+        "initial_setup_completed_at": None,
+        "initial_setup_version": 1,
+        "institution": {},
+        "enabled_integrations": {},
+        "integrations": {},
+        "logos": [],
+        "active_logo": None,
+    }
+
+    def load():
+        with store_lock:
+            return dict(store)
+
+    def save(data):
+        with store_lock:
+            store.clear()
+            store.update(data)
+
+    monkeypatch.setenv("SETUP_BOOTSTRAP_SECRET", "test-bootstrap-secret-1234567890")
+    monkeypatch.setattr(setup, "load_system_settings", load)
+    monkeypatch.setattr(setup, "save_system_settings", save)
+    monkeypatch.setattr(setup, "log_event", lambda *args, **kwargs: None)
+    monkeypatch.setattr(setup, "hash_password", lambda value: "hashed-password")
+    payload = json.dumps(
+        {
+            "bootstrap_secret": "test-bootstrap-secret-1234567890",
+            "admin_password": "ChangeMeNow!123",
+        }
+    )
+    barrier = threading.Barrier(2)
+
+    def run_attempt():
+        with SessionLocal() as db:
+            barrier.wait(timeout=5)
+            try:
+                setup.complete_setup(
+                    payload=payload,
+                    logo=None,
+                    request=None,
+                    db=db,
+                )
+                return 200
+            except HTTPException as exc:
+                return exc.status_code
+
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            statuses = sorted(pool.map(lambda _: run_attempt(), range(2)))
+        with SessionLocal() as db:
+            assert db.query(models.User).count() == 1
+            assert db.query(models.User).one().username == "admin"
+    finally:
+        engine.dispose()
+
+    assert statuses == [200, 409]
+
+
+def test_tls_private_key_uses_owner_only_permissions(tmp_path, monkeypatch):
+    chmod_calls = []
+    monkeypatch.setattr(setup, "TLS_DIR", tmp_path)
+    monkeypatch.setattr(setup, "scan_payload", lambda *args, **kwargs: None)
+    monkeypatch.setattr(
+        Path,
+        "chmod",
+        lambda self, mode: chmod_calls.append((self.name, mode)),
+    )
+
+    class Upload:
+        def __init__(self, filename, payload):
+            self.filename = filename
+            self.content_type = "application/x-pem-file"
+            self.file = BytesIO(payload)
+
+    settings = {}
+    setup._store_tls_file(
+        settings=settings,
+        file=Upload("server.key", b"-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----\n"),
+        request=None,
+        kind="private_key",
+    )
+    setup._store_tls_file(
+        settings=settings,
+        file=Upload("server.crt", b"-----BEGIN CERTIFICATE-----\ncert\n-----END CERTIFICATE-----\n"),
+        request=None,
+        kind="certificate",
+    )
+
+    assert any(mode == 0o600 for _name, mode in chmod_calls)
+    assert any(mode == 0o644 for _name, mode in chmod_calls)

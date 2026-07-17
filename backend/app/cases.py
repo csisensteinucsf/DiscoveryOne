@@ -35,6 +35,8 @@ from .permissions import (
     filter_ticket_entries_for_user,
     get_requestor_allowed_emails,
     get_requestor_visible_groups,
+    get_visible_case_ids,
+    requestor_case_visibility_filter,
     get_role,
     is_requestor,
     is_sys_admin,
@@ -446,42 +448,7 @@ def _sync_case_documentation_counters(db: Session, case_id: int) -> None:
 
 
 def _requestor_case_visibility_filter(user: models.User, db: Session):
-    direct_values = {
-        value
-        for value in (
-            _normalize_email(getattr(user, "email", None)),
-            _normalize_email(getattr(user, "username", None)),
-        )
-        if value and "@" in value
-    }
-    direct_filters = []
-    if direct_values:
-        lowered_direct = list(direct_values)
-        direct_filters.append(func.lower(models.Case.requestor).in_(lowered_direct))
-        direct_filters.append(func.lower(models.CaseRequestor.email).in_(lowered_direct))
-    if getattr(user, "id", None):
-        direct_filters.append(models.CaseRequestor.user_id == user.id)
-
-    allowed = get_requestor_allowed_emails(user, db)
-    allowed.update(direct_values)
-    visible_groups = get_requestor_visible_groups(user, db)
-    shared_filters = []
-    if allowed:
-        lowered = list(allowed)
-        shared_filters.append(func.lower(models.Case.requestor).in_(lowered))
-        shared_filters.append(func.lower(models.CaseRequestor.email).in_(lowered))
-    if visible_groups:
-        shared_filters.append(func.lower(models.CaseRequestor.requestor_group).in_(list(visible_groups)))
-
-    filters = []
-    if direct_filters:
-        filters.append(or_(*direct_filters))
-    if shared_filters:
-        non_private = or_(models.Case.is_private.is_(False), models.Case.is_private.is_(None))
-        filters.append(non_private & or_(*shared_filters))
-    if not filters:
-        return None
-    return or_(*filters)
+    return requestor_case_visibility_filter(user, db)
 
 
 def _repair_case_note_counters_if_empty(db: Session, case: models.Case) -> None:
@@ -633,25 +600,12 @@ def list_cases(
     q = db.query(models.Case).options(selectinload(models.Case.requestors))
     if closed is not None:
         q = q.filter(models.Case.closed == closed)
-    if is_requestor(_user):
-        visibility_filter = _requestor_case_visibility_filter(_user, db)
-        if visibility_filter is None:
+    visible_case_ids = get_visible_case_ids(_user, db)
+    if visible_case_ids is not None:
+        if not visible_case_ids:
             return []
-        q = (
-            q.outerjoin(models.CaseRequestor, models.CaseRequestor.case_id == models.Case.id)
-            .filter(visibility_filter)
-            .distinct()
-        )
+        q = q.filter(models.Case.id.in_(visible_case_ids))
     items = q.order_by(desc(models.Case.created_at)).all()
-    if is_tech(_user):
-        allowed_categories = tech_allowed_ticket_categories(_user)
-        if not allowed_categories:
-            return []
-        filtered = []
-        for case in items:
-            if case_has_ticket_category(case, allowed_categories):
-                filtered.append(case)
-        items = filtered
     case_ids = []
     for case in items:
         try:
@@ -686,43 +640,10 @@ def _visible_case_ids_for_user(db: Session, user: models.User, candidate_ids: li
         return []
     unique_ids = sorted(set(normalized_ids))
 
-    q = db.query(models.Case.id).filter(models.Case.id.in_(unique_ids))
-    if is_requestor(user):
-        visibility_filter = _requestor_case_visibility_filter(user, db)
-        if visibility_filter is None:
-            return []
-        q = (
-            q.outerjoin(models.CaseRequestor, models.CaseRequestor.case_id == models.Case.id)
-            .filter(visibility_filter)
-            .distinct()
-        )
-
-    rows = q.all()
-    visible_ids = []
-    for row in rows:
-        value = row[0] if isinstance(row, tuple) else getattr(row, "id", None)
-        try:
-            cid = int(value)
-        except Exception:
-            continue
-        if cid > 0:
-            visible_ids.append(cid)
-
-    if is_tech(user):
-        allowed_categories = tech_allowed_ticket_categories(user)
-        if not allowed_categories:
-            return []
-        filtered = []
-        cases = db.query(models.Case).filter(models.Case.id.in_(visible_ids)).all()
-        for case in cases:
-            if case_has_ticket_category(case, allowed_categories):
-                try:
-                    filtered.append(int(getattr(case, "id", 0) or 0))
-                except Exception:
-                    continue
-        visible_ids = filtered
-
-    return sorted(set([cid for cid in visible_ids if cid > 0]))
+    scoped_ids = get_visible_case_ids(user, db)
+    if scoped_ids is None:
+        return unique_ids
+    return sorted(set(unique_ids).intersection(scoped_ids))
 
 
 @router.post("/stats")
@@ -1048,6 +969,8 @@ def delete_case(
     case = db.get(models.Case, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+    ensure_case_visible(case, _user, db)
+    ensure_case_editable(_user)
     case_name = getattr(case, 'name', None)
     (
         db.query(models.CaseRequest)

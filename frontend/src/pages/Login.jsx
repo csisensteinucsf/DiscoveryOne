@@ -4,13 +4,16 @@ import { useAuth } from '../auth.jsx'
 import { useBrandingSettings } from '../lib/useBrandingSettings.js'
 
 export default function Login({ apiBase }) {
-  const { login, authConfig, beginSsoLogin } = useAuth()
+  const { login, verifyMfa, authConfig, beginSsoLogin } = useAuth()
   const { appName } = useBrandingSettings(apiBase, { updateTitle: true })
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [showLocalAdmin, setShowLocalAdmin] = useState(false)
+  const [mfaToken, setMfaToken] = useState('')
+  const [mfaCode, setMfaCode] = useState('')
+  const [rememberBrowser, setRememberBrowser] = useState(false)
   const nav = useNavigate()
   const loc = useLocation()
   const searchParams = useMemo(() => new URLSearchParams(loc.search), [loc.search])
@@ -42,7 +45,13 @@ export default function Login({ apiBase }) {
     setErr('')
     try {
       setBusy(true)
-      await login(email.trim().toLowerCase(), password)
+      const result = await login(email.trim().toLowerCase(), password)
+      if (result?.mfa_required) {
+        setMfaToken(result.mfa_token || '')
+        setMfaCode('')
+        setPassword('')
+        return
+      }
       const to = loc.state?.from?.pathname || '/'
       nav(to, { replace: true })
     } catch (e) {
@@ -54,6 +63,29 @@ export default function Login({ apiBase }) {
     } finally {
       setBusy(false)
     }
+  }
+
+  const submitMfa = async (e) => {
+    e.preventDefault()
+    if (busy || !mfaToken) return
+    setErr('')
+    try {
+      setBusy(true)
+      await verifyMfa(mfaToken, mfaCode, rememberBrowser)
+      const to = loc.state?.from?.pathname || '/'
+      nav(to, { replace: true })
+    } catch (e) {
+      setErr(e?.message || 'Invalid verification code')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const cancelMfa = () => {
+    setMfaToken('')
+    setMfaCode('')
+    setRememberBrowser(false)
+    setErr('')
   }
 
   const startSso = () => {
@@ -137,7 +169,7 @@ export default function Login({ apiBase }) {
             </div>
           </>
         )}
-        {showPasswordForm && (
+        {showPasswordForm && !mfaToken && (
           <form onSubmit={submit}>
             {ssoEnabled && (
               <p style={{ color: 'var(--muted,#6b7280)' }}>
@@ -158,6 +190,42 @@ export default function Login({ apiBase }) {
                   Back to {ssoDisplayName} sign-in
                 </button>
               )}
+            </div>
+          </form>
+        )}
+        {showPasswordForm && mfaToken && (
+          <form onSubmit={submitMfa}>
+            <p style={{ color: 'var(--muted,#6b7280)' }}>
+              Enter the current six-digit code from your authenticator app to finish signing in.
+            </p>
+            <label htmlFor="login-mfa-code">Verification Code</label>
+            <input
+              id="login-mfa-code"
+              className="input"
+              value={mfaCode}
+              onChange={e => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              pattern="[0-9]{6}"
+              autoFocus
+              required
+            />
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: '.75rem' }}>
+              <input
+                type="checkbox"
+                checked={rememberBrowser}
+                onChange={e => setRememberBrowser(e.target.checked)}
+              />
+              Trust this browser for 30 days
+            </label>
+            {displayError && <p role="alert" aria-live="assertive" style={{color:'#b91c1c'}}>{displayError}</p>}
+            <div style={{marginTop:'.75rem', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <button className="btn" type="submit" disabled={busy || mfaCode.length !== 6}>
+                {busy ? 'Verifying...' : 'Verify'}
+              </button>
+              <button className="btn secondary" type="button" onClick={cancelMfa} disabled={busy}>
+                Back
+              </button>
             </div>
           </form>
         )}

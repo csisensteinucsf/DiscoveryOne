@@ -311,21 +311,31 @@ def _sso_unregistered_response(request: Optional[Request], claims: dict):
 
 
 def _sso_user_from_claims(claims: dict, db: Session) -> Optional[models.User]:
-    subject = (claims.get('sub') or '').strip()
-    if subject:
-        user = db.query(models.User).filter(models.User.sso_subject == subject).first()
-        if user:
-            return user
-    candidates = []
-    for key in ("email", "preferred_username", "upn"):
-        value = (claims.get(key) or "").strip().lower()
-        if value and value not in candidates:
-            candidates.append(value)
-    for identifier in candidates:
-        user = _find_user_by_identifier(identifier, db)
-        if user:
-            return user
-    return None
+    subject = (claims.get("sub") or "").strip()
+    if not subject:
+        raise HTTPException(status_code=401, detail=f"{_sso_display_name()} identity is missing a subject")
+
+    user = db.query(models.User).filter(models.User.sso_subject == subject).first()
+    if user:
+        return user
+
+    email_verified = claims.get("email_verified")
+    if isinstance(email_verified, str):
+        email_verified = email_verified.strip().lower() == "true"
+    email = (claims.get("email") or "").strip().lower()
+    if not email or email_verified is not True:
+        return None
+
+    user = db.query(models.User).filter(func.lower(models.User.email) == email).first()
+    if not user:
+        return None
+    persisted_subject = (getattr(user, "sso_subject", None) or "").strip()
+    if persisted_subject and not secrets.compare_digest(persisted_subject, subject):
+        raise HTTPException(
+            status_code=401,
+            detail=f"This {_sso_display_name()} identity does not match the identity linked to this account",
+        )
+    return user
 
 
 def _validate_oidc_id_token(id_token: str, metadata: dict, *, nonce: str) -> dict:
@@ -1213,7 +1223,68 @@ def login(
     if user and not _user_is_active(user):
         raise HTTPException(status_code=403, detail="Account disabled")
 
+    if _totp_enabled(user) and not _has_valid_trusted_device(user, request, db):
+        return {
+            "mfa_required": True,
+            "mfa_token": _create_mfa_challenge(user, request),
+            "expires_in": MFA_CHALLENGE_EXPIRE_MINUTES * 60,
+        }
+
     return _complete_login(user, response, db, request)
+
+
+@router.post("/mfa/verify")
+async def verify_mfa(
+    payload: dict = Body(...),
+    response: Response = None,
+    db: Session = Depends(get_db),
+    request: Request = None,
+):
+    challenge = str(payload.get("mfa_token") or "").strip()
+    code = str(payload.get("code") or "").strip()
+    if not challenge or not code:
+        raise HTTPException(status_code=422, detail="MFA token and verification code are required")
+    try:
+        claims = _decode_token(challenge, purpose="mfa_challenge")
+    except JWTError as exc:
+        raise HTTPException(status_code=401, detail="MFA challenge is invalid or expired") from exc
+
+    user_id = claims.get("uid")
+    username = (claims.get("sub") or "").strip().lower()
+    if not user_id or not username:
+        raise HTTPException(status_code=401, detail="MFA challenge is invalid")
+    user = (
+        db.query(models.User)
+        .filter(models.User.id == user_id, func.lower(models.User.username) == username)
+        .first()
+    )
+    if not user or not _user_is_active(user) or not _totp_enabled(user):
+        raise HTTPException(status_code=401, detail="MFA challenge is no longer valid")
+
+    expected_fp = (claims.get("fp") or "").strip()
+    actual_fp = _challenge_fingerprint(request) or ""
+    if expected_fp and not secrets.compare_digest(expected_fp, actual_fp):
+        raise HTTPException(status_code=401, detail="MFA challenge does not match this browser")
+
+    rate_key = f"{user.id}:{_client_ip(request) or 'unknown'}"
+    allowed, retry_after = await _mfa_rate_limiter.allow(
+        rate_key,
+        window=MFA_ATTEMPT_WINDOW,
+        limit=MFA_MAX_ATTEMPTS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail="Too many MFA attempts. Try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+    if not _verify_totp_code(user.totp_secret, code):
+        raise HTTPException(status_code=401, detail="Invalid verification code")
+
+    if bool(payload.get("remember_browser")):
+        _remember_browser(user, response, db, request)
+    return _complete_login(user, response, db, request)
+
 
 def current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
     token = request.cookies.get(SESSION_COOKIE_NAME) or request.headers.get("Authorization", "").replace("Bearer ", "")

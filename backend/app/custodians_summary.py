@@ -7,6 +7,7 @@ from .database import get_db
 from . import models
 from .auth import current_user as get_current_user
 from .permissions import (
+    get_visible_case_ids,
     is_requestor,
     is_tester,
     is_tech,
@@ -72,29 +73,7 @@ def _is_separated(custodian: models.Custodian) -> bool:
 
 
 def _visible_case_ids(db: Session, actor: Optional[models.User]) -> Optional[Set[int]]:
-    if not actor:
-        return None
-    if is_requestor(actor):
-        allowed = get_requestor_allowed_emails(actor, db)
-        if not allowed:
-            return set()
-        rows = (
-            db.query(models.Case.id)
-            .filter(models.Case.requestor.isnot(None))
-            .filter(func.lower(models.Case.requestor).in_(list(allowed)))
-            .all()
-        )
-        return {row.id for row in rows}
-    if is_tech(actor):
-        return get_tech_visible_case_ids(actor, db)
-    if is_tester(actor):
-        rows = (
-            db.query(models.Case.id)
-            .filter(func.lower(models.Case.name).like("%-test"))
-            .all()
-        )
-        return {row.id for row in rows}
-    return None
+    return get_visible_case_ids(actor, db)
 
 
 def _filter_by_case_ids(query, column, case_ids: Optional[Set[int]]):

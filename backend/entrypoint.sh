@@ -132,6 +132,28 @@ else
   export BACKUP_ENCRYPTION_KEY
 fi
 
+if [ -z "${SETUP_BOOTSTRAP_SECRET:-}" ] || [ "${#SETUP_BOOTSTRAP_SECRET}" -lt 24 ]; then
+  SETUP_BOOTSTRAP_SECRET="$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
+  umask 077
+  tmp_file="${BOOTSTRAP_ENV_FILE}.tmp"
+  if [ -f "$BOOTSTRAP_ENV_FILE" ]; then
+    grep -v '^SETUP_BOOTSTRAP_SECRET=' "$BOOTSTRAP_ENV_FILE" > "$tmp_file" || true
+  else
+    : > "$tmp_file"
+  fi
+  printf "SETUP_BOOTSTRAP_SECRET='%s'\n" "$SETUP_BOOTSTRAP_SECRET" >> "$tmp_file"
+  mv "$tmp_file" "$BOOTSTRAP_ENV_FILE"
+  chown app:app "$BOOTSTRAP_ENV_FILE" || true
+  chmod 600 "$BOOTSTRAP_ENV_FILE" || true
+  echo "[entrypoint] Generated and persisted one-time setup code in $BOOTSTRAP_ENV_FILE"
+fi
+export SETUP_BOOTSTRAP_SECRET
+
+SYSTEM_SETTINGS_FILE="$APP_CONFIG_DIR/system_settings.json"
+if [ ! -f "$SYSTEM_SETTINGS_FILE" ] || ! grep -Eq '"initial_setup_completed"[[:space:]]*:[[:space:]]*true' "$SYSTEM_SETTINGS_FILE"; then
+  echo "[setup] One-time setup code: $SETUP_BOOTSTRAP_SECRET"
+  echo "[setup] Enter this code on the Administrator step. It is required only for initial setup."
+fi
 if [ -z "${DATABASE_URL:-}" ]; then
   POSTGRES_USER="${POSTGRES_USER:-ediscovery}"
   POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-ediscovery-internal-db}"

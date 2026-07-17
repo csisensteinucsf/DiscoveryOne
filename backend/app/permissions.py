@@ -4,7 +4,7 @@ from typing import Optional, Set
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, or_
 
 from . import models
 from .safe_log import debug_suppressed as _debug_suppressed
@@ -185,6 +185,68 @@ def get_requestor_allowed_emails(user, db: Optional[Session] = None) -> Set[str]
                 allowed.add(norm_username)
 
     return allowed
+
+
+def requestor_case_visibility_filter(user, db: Session):
+    """Return the SQL predicate implementing direct-private and shared-public requestor access."""
+    direct_values = {
+        value
+        for value in (
+            _normalize_email_candidate(getattr(user, "email", None)),
+            _normalize_email_candidate(getattr(user, "username", None)),
+        )
+        if value
+    }
+    direct_filters = []
+    if direct_values:
+        lowered_direct = list(direct_values)
+        direct_filters.append(func.lower(models.Case.requestor).in_(lowered_direct))
+        direct_filters.append(func.lower(models.CaseRequestor.email).in_(lowered_direct))
+    if getattr(user, "id", None):
+        direct_filters.append(models.CaseRequestor.user_id == user.id)
+
+    allowed = get_requestor_allowed_emails(user, db)
+    allowed.update(direct_values)
+    visible_groups = get_requestor_visible_groups(user, db)
+    shared_filters = []
+    if allowed:
+        lowered = list(allowed)
+        shared_filters.append(func.lower(models.Case.requestor).in_(lowered))
+        shared_filters.append(func.lower(models.CaseRequestor.email).in_(lowered))
+    if visible_groups:
+        shared_filters.append(func.lower(models.CaseRequestor.requestor_group).in_(list(visible_groups)))
+
+    filters = []
+    if direct_filters:
+        filters.append(or_(*direct_filters))
+    if shared_filters:
+        non_private = or_(models.Case.is_private.is_(False), models.Case.is_private.is_(None))
+        filters.append(non_private & or_(*shared_filters))
+    return or_(*filters) if filters else None
+
+
+def get_visible_case_ids(user, db: Optional[Session]) -> Optional[Set[int]]:
+    """Return a role-scoped case-id set, or None when the role has full case visibility."""
+    if not user or db is None:
+        return None
+    if is_requestor(user):
+        visibility_filter = requestor_case_visibility_filter(user, db)
+        if visibility_filter is None:
+            return set()
+        rows = (
+            db.query(models.Case.id)
+            .outerjoin(models.CaseRequestor, models.CaseRequestor.case_id == models.Case.id)
+            .filter(visibility_filter)
+            .distinct()
+            .all()
+        )
+        return {int(row.id) for row in rows}
+    if is_tech(user):
+        return get_tech_visible_case_ids(user, db)
+    if is_tester(user):
+        rows = db.query(models.Case.id).filter(func.lower(models.Case.name).like("%-test")).all()
+        return {int(row.id) for row in rows}
+    return None
 
 
 def ensure_case_visible(case, user, db: Optional[Session] = None) -> None:

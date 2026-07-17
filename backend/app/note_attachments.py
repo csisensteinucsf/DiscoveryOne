@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
@@ -32,6 +32,19 @@ def _store_attachment(file: UploadFile, payload: bytes, mime: str) -> tuple[str,
     return original_name, stored_name, len(payload)
 
 
+def _ensure_note_attachment_access(note: models.CaseNote, user: models.User, *, write: bool) -> None:
+    audience = (getattr(note, "audience", None) or "internal").strip().lower()
+    if audience == "active":
+        notes_core._ensure_active_note_access(user)
+    elif audience == "requestor":
+        if write:
+            notes_core._ensure_requestor_note_editable(note, user)
+    elif audience == "ticket":
+        notes_core._ensure_ticket_note_access(user)
+    else:
+        notes_core.ensure_case_editable(user)
+
+
 @router.post("/{case_id}/notes/{note_id}/attachments", response_model=notes_core.AttachmentOut)
 def upload_note_attachment(
     case_id: int,
@@ -43,13 +56,7 @@ def upload_note_attachment(
 ):
     notes_core._ensure_case(db, case_id, user)
     note = notes_core._get_note_or_404(db, case_id, note_id)
-    audience = getattr(note, "audience", None) or "internal"
-    if audience == "requestor":
-        notes_core._ensure_requestor_note_editable(note, user)
-    elif audience == "ticket":
-        notes_core._ensure_ticket_note_access(user)
-    else:
-        notes_core.ensure_case_editable(user)
+    _ensure_note_attachment_access(note, user, write=True)
     payload = file.file.read()
     try:
         file.file.close()
@@ -115,13 +122,7 @@ def delete_note_attachment(
 ):
     notes_core._ensure_case(db, case_id, user)
     note = notes_core._get_note_or_404(db, case_id, note_id)
-    audience = getattr(note, "audience", None) or "internal"
-    if audience == "requestor":
-        notes_core._ensure_requestor_note_editable(note, user)
-    elif audience == "ticket":
-        notes_core._ensure_ticket_note_access(user)
-    else:
-        notes_core.ensure_case_editable(user)
+    _ensure_note_attachment_access(note, user, write=True)
     attachment = notes_core._get_attachment_from_note(note, attachment_id)
     notes_core._remove_attachment_file(attachment)
     db.delete(attachment)
@@ -157,13 +158,7 @@ def download_note_attachment(
 ):
     case = notes_core._ensure_case(db, case_id, user)
     note = notes_core._get_note_or_404(db, case_id, note_id)
-    audience = getattr(note, "audience", None) or "internal"
-    if audience == "requestor":
-        pass
-    elif audience == "ticket":
-        notes_core._ensure_ticket_note_access(user)
-    else:
-        notes_core.ensure_case_editable(user)
+    _ensure_note_attachment_access(note, user, write=False)
     attachment = notes_core._get_attachment_from_note(note, attachment_id)
     path = notes_core.NOTE_ATTACHMENT_DIR / attachment.stored_filename
     if not path.exists():

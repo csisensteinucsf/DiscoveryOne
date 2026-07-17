@@ -91,6 +91,25 @@ def revoke_all_sessions_for_user(db: Session, user_id: int) -> None:
         db.rollback()
 
 
+def revoke_all_auth_tokens_for_user(db: Session, user_id: int, *, commit: bool = True) -> None:
+    """Revoke access and refresh records together, optionally in the caller's transaction."""
+    try:
+        revoked_at = _now()
+        db.query(models.SessionToken).filter(
+            models.SessionToken.user_id == str(user_id),
+            models.SessionToken.revoked_at.is_(None),
+        ).update({"revoked_at": revoked_at}, synchronize_session=False)
+        db.query(models.RefreshToken).filter(
+            models.RefreshToken.user_id == str(user_id),
+            models.RefreshToken.revoked_at.is_(None),
+        ).update({"revoked_at": revoked_at}, synchronize_session=False)
+        if commit:
+            db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
 def revoke_session_by_id(db: Session, session_id: Optional[str], *, user_id: Optional[int] = None) -> None:
     if not session_id:
         return

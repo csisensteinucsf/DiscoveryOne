@@ -67,7 +67,7 @@ def submit_registration_request(
         .filter(func.lower(models.User.email) == email.lower())
         .first()
     )
-    if exists:
+    if exists and not sso_subject:
         # Email the user guidance instead of creating another registration request.
         # Keep the response generic to avoid account enumeration.
         try:

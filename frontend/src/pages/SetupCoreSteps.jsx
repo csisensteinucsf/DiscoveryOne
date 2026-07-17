@@ -105,6 +105,18 @@ export function AdminStep({ form, update, passwordTooShort, passwordMismatch }) 
     <>
       <div className="form-grid">
         <label>
+          One-Time Setup Code
+          <input
+            className="input"
+            type="password"
+            autoComplete="one-time-code"
+            value={form.bootstrap_secret}
+            onChange={e => update('bootstrap_secret', e.target.value)}
+            required
+          />
+          <FieldHelp>Find the code in the backend startup output with docker compose logs backend. The backend generates and persists it automatically; it is not the administrator password.</FieldHelp>
+        </label>
+        <label>
           Username
           <input className="input" value={form.admin_username} readOnly required />
           <FieldHelp>The first local sys-admin account is always named admin; use it only to finish setup and create named user accounts.</FieldHelp>

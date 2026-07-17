@@ -1,4 +1,4 @@
-﻿import json
+import json
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,9 +107,9 @@ async def create_case_request(
         existing_custodian_lookup = case_request_core._custodian_lookup_for_case(db, linked_case.id) if (request_type == "custodian" and linked_case and getattr(linked_case, "id", None)) else None
         case_request_core._ensure_unique_custodian_emails(requested_custodians, existing_lookup=existing_custodian_lookup)
 
-    auto_approve = bool(case_request_core.is_requestor(actor) and request_type == "custodian" and linked_case is not None and getattr(linked_case, "id", None))
-    auto_approver = case_request_core._pick_auto_approver(db, linked_case) if auto_approve else None
-    reviewed_by_id = getattr(auto_approver, "id", None) if auto_approver else None
+    # Custodian additions can trigger privileged preservation workflows, so they always require review.
+    auto_approve = False
+    reviewed_by_id = None
 
     custodian_mode = body.get("custodian_entry_mode")
     if request_type in {"new_case", "custodian"} and custodian_mode == "upload" and not attachment_path:

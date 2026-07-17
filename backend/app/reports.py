@@ -34,6 +34,7 @@ from . import models
 from .preservation_catalog import configured_hold_catalog, custodian_configured_hold_flags, custodian_has_configured_hold
 from .auth import current_user as get_current_user
 from .permissions import (
+    get_visible_case_ids,
     is_requestor,
     get_requestor_allowed_emails,
     get_tech_visible_case_ids,
@@ -72,33 +73,7 @@ def _paginate_payload(items: list[dict], *, page: int, per_page: int) -> dict:
 
 
 def _visible_case_ids(db: Session, actor) -> Optional[set]:
-    """
-    Returns None for full-access roles. Requestors get a limited set by email.
-    Testers can only see cases ending with -TEST.
-    """
-    if not actor:
-        return None
-    if is_requestor(actor):
-        allowed = get_requestor_allowed_emails(actor, db)
-        if not allowed:
-            return set()
-        rows = (
-            db.query(models.Case.id)
-            .filter(models.Case.requestor.isnot(None))
-            .filter(func.lower(models.Case.requestor).in_(list(allowed)))
-            .all()
-        )
-        return {row.id for row in rows}
-    if is_tech(actor):
-        return get_tech_visible_case_ids(actor, db)
-    if is_tester(actor):
-        rows = (
-            db.query(models.Case.id)
-            .filter(func.lower(models.Case.name).like("%-test"))
-            .all()
-        )
-        return {row.id for row in rows}
-    return None
+    return get_visible_case_ids(actor, db)
 
 
 def _filter_cases_query(query, case_ids: Optional[set]):
