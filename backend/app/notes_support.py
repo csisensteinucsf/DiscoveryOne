@@ -126,9 +126,11 @@ def _ensure_requestor_note_editable(note: models.CaseNote, user: models.User) ->
     raise HTTPException(status_code=403, detail="Only the author can modify this requestor note")
 
 
-def _ensure_ticket_note_access(user: models.User) -> None:
+def _ensure_ticket_note_access(user: models.User, *, write: bool = False) -> None:
     if notes_core.is_requestor(user):
         raise HTTPException(status_code=403, detail="Requestor accounts cannot access ticket notes")
+    if write:
+        notes_core.ensure_case_editable(user)
 
 
 def _ensure_active_note_access(user: models.User) -> None:

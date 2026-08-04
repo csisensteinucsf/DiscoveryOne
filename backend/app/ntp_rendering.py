@@ -324,12 +324,14 @@ def _create_ntp_token(
     case_id: int,
     custodian_id: int,
     template_id: Optional[int],
+    hold_custodian_id: Optional[int] = None,
 ) -> tuple[models.NTPTargetToken, str]:
     token_value = secrets.token_urlsafe(32)
     token = models.NTPTargetToken(
         token=_hash_ntp_token(token_value),
         case_id=case_id,
         custodian_id=custodian_id,
+        hold_custodian_id=hold_custodian_id,
         template_id=template_id,
     )
     db.add(token)

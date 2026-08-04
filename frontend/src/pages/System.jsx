@@ -1,5 +1,6 @@
 // frontend/src/pages/System.jsx
 import { useEffect, useState, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
 import Modal from '../components/Modal.jsx'
 import { useToast } from '../components/ToastProvider.jsx'
@@ -17,6 +18,7 @@ import SystemNtpPanel from './SystemNtpPanel.jsx'
 import { SystemNotificationsPanel, SystemSmtpPanel } from './SystemMessagingPanels.jsx'
 import SystemClamavPanel from './SystemClamavPanel.jsx'
 import SystemPreferencesPanel from './SystemPreferencesPanel.jsx'
+import Logs from './Logs.jsx'
 import { useSystemNtpTemplates } from './useSystemNtpTemplates.js'
 import { useSystemImportsWorkflow } from './useSystemImportsWorkflow.js'
 import { useSystemBackupsWorkflow } from './useSystemBackupsWorkflow.js'
@@ -31,6 +33,7 @@ import { useSystemInstitutionWorkflow } from './useSystemInstitutionWorkflow.js'
 export default function System({ apiBase = '/api' }) {
 
   const { user, refreshUser, authConfig } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { showToast } = useToast()
   const role = user?.role || (user?.is_admin ? 'sys_admin' : 'analyst')
   const ssoEnabled = !!authConfig?.sso_enabled
@@ -390,22 +393,71 @@ export default function System({ apiBase = '/api' }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [loadBackups, loadClamavMonitor, isSysAdmin, closeModal])
 
-  const tabs = [
-    { id: 'users', label: 'User Management' },
-    { id: 'backups', label: 'Backups & Restore' },
-    { id: 'clamav', label: 'ClamAV' },
-    { id: 'institution', label: 'Institution' },
-    { id: 'integrations', label: 'Integrations' },
-    { id: 'preservation', label: 'Preservation' },
-    { id: 'ticket_workflows', label: 'Ticket Workflows' },
-    { id: 'case_naming', label: 'Case Naming' },
-    { id: 'smtp', label: 'SMTP Settings' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'imports', label: 'Bulk Case Import' },
-    { id: 'ntp', label: 'NTP Templates' },
-    { id: 'branding', label: 'Branding' },
+  const sections = [
+    {
+      id: 'access',
+      label: 'Access',
+      views: [{ id: 'users', label: 'Users & Groups' }],
+    },
+    {
+      id: 'organization',
+      label: 'Organization',
+      views: [
+        { id: 'institution', label: 'Institution' },
+        { id: 'branding', label: 'Branding' },
+        { id: 'case_naming', label: 'Case Settings' },
+        { id: 'preferences', label: 'My Preferences' },
+      ],
+    },
+    {
+      id: 'workflows',
+      label: 'Workflows',
+      views: [
+        { id: 'preservation', label: 'Preservation' },
+        { id: 'ticket_workflows', label: 'Ticket Workflows' },
+        { id: 'ntp', label: 'NTP Templates' },
+        { id: 'notifications', label: 'Notifications' },
+        { id: 'imports', label: 'Bulk Case Import' },
+      ],
+    },
+    {
+      id: 'integrations',
+      label: 'Integrations',
+      views: [
+        { id: 'integrations', label: 'Integration Providers' },
+        { id: 'smtp', label: 'SMTP' },
+      ],
+    },
+    {
+      id: 'operations',
+      label: 'Operations',
+      views: [
+        { id: 'backups', label: 'Backups & Restore' },
+        { id: 'clamav', label: 'ClamAV' },
+        { id: 'logs', label: 'Logs' },
+      ],
+    },
   ]
-  const [activeTab, setActiveTab] = useState(tabs[0].id)
+  const allViews = sections.flatMap(section => section.views)
+  const requestedView = searchParams.get('view')
+  const initialView = allViews.some(view => view.id === requestedView) ? requestedView : 'users'
+  const initialSection = sections.find(section => section.views.some(view => view.id === initialView))?.id || 'access'
+  const [activeSection, setActiveSection] = useState(initialSection)
+  const [activeTab, setActiveTab] = useState(initialView)
+
+  useEffect(() => {
+    const nextView = searchParams.get('view')
+    if (!allViews.some(view => view.id === nextView)) return
+    const nextSection = sections.find(section => section.views.some(view => view.id === nextView))
+    setActiveTab(nextView)
+    if (nextSection) setActiveSection(nextSection.id)
+  }, [searchParams])
+
+  const selectSystemView = (sectionId, viewId) => {
+    setActiveSection(sectionId)
+    setActiveTab(viewId)
+    setSearchParams({ section: sectionId, view: viewId }, { replace: true })
+  }
   useEffect(() => {
     if (!isSysAdmin || activeTab !== 'clamav') return undefined
     loadClamavMonitor()
@@ -427,36 +479,47 @@ export default function System({ apiBase = '/api' }) {
     <div style={{ padding: 24 }}>
       <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>System Management</h1>
 
-      <SystemPreferencesPanel
-        titleStyle={titleStyle}
-        userTheme={userTheme}
-        themeSaving={themeSaving}
-        updateThemePreference={updateThemePreference}
-        caseSortMode={caseSortMode}
-        caseSortSaving={caseSortSaving}
-        updateCaseSortPreference={updateCaseSortPreference}
-      />
-      <div
-        style={{
-          margin: '24px 0 16px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
-          gap: 10,
-        }}
-      >
-        {tabs.map(tab => (
+      <div className="system-section-nav" role="tablist" aria-label="System sections">
+        {sections.map(section => (
           <button
-            key={tab.id}
+            key={section.id}
             type="button"
-            className={tab.id === activeTab ? 'btn' : 'btn secondary'}
-            onClick={() => setActiveTab(tab.id)}
-            style={{ width: '100%' }}
+            role="tab"
+            aria-selected={section.id === activeSection}
+            className={section.id === activeSection ? 'btn' : 'btn secondary'}
+            onClick={() => selectSystemView(section.id, section.views[0].id)}
           >
-            {tab.label}
+            {section.label}
           </button>
         ))}
       </div>
 
+      <div className="system-view-nav" role="tablist" aria-label="Section views">
+        {sections.find(section => section.id === activeSection)?.views.map(view => (
+          <button
+            key={view.id}
+            type="button"
+            role="tab"
+            aria-selected={view.id === activeTab}
+            className={view.id === activeTab ? 'system-view-nav__button is-active' : 'system-view-nav__button'}
+            onClick={() => selectSystemView(activeSection, view.id)}
+          >
+            {view.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === 'preferences' && (
+        <SystemPreferencesPanel
+          titleStyle={titleStyle}
+          userTheme={userTheme}
+          themeSaving={themeSaving}
+          updateThemePreference={updateThemePreference}
+          caseSortMode={caseSortMode}
+          caseSortSaving={caseSortSaving}
+          updateCaseSortPreference={updateCaseSortPreference}
+        />
+      )}
       {status && (
         <div className="card" style={{ marginBottom: 16 }}>
           <span style={{ color: 'var(--muted,#6b7280)' }}>{status}</span>
@@ -554,6 +617,8 @@ export default function System({ apiBase = '/api' }) {
           saveIntegrationSettings={saveIntegrationSettings}
           integrationSaving={integrationSaving}
           integrationStatus={integrationStatus}
+          apiBase={apiBase}
+          showToast={showToast}
         />
       )}
 
@@ -615,6 +680,7 @@ export default function System({ apiBase = '/api' }) {
           notificationsStatus={notificationsStatus}
         />
       )}
+      {activeTab === 'logs' && <Logs apiBase={apiBase} />}
       {activeTab === 'clamav' && (
         <SystemClamavPanel
           isSysAdmin={isSysAdmin}

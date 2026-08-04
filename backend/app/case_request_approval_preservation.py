@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from . import case_requests as case_request_core
 from . import models, preservation_provider, schemas
+from .case_holds import ensure_default_hold
+from .hold_workflows import sync_legacy_custodian_to_default_hold
 
 
 def run_approval_preservation_holds(
@@ -22,6 +24,13 @@ def run_approval_preservation_holds(
 ) -> list[models.Custodian]:
     provider_label = preservation_provider.preservation_provider_label()
     automation_ready = preservation_provider.preservation_automation_ready()
+    default_hold_id: Optional[int] = None
+    if automation_ready and preservation_hold_groups and record.case_id:
+        case = db.get(models.Case, int(record.case_id))
+        if case is not None:
+            default_hold = ensure_default_hold(db, case, assign_existing=True)
+            db.flush()
+            default_hold_id = int(default_hold.id)
     if record.request_type in {"new_case", "custodian"} and preservation_hold_groups and automation_ready:
         log_progress("preservation_case", f"Setting up {provider_label} case...")
     else:
@@ -110,6 +119,7 @@ def run_approval_preservation_holds(
                         payload = schemas.PreservationHoldRequest(
                             custodian_ids=custodian_ids_clean,
                             included_sources=list(sources_key),
+                            case_hold_id=default_hold_id,
                         )
                         hold_result = None
                         max_attempts = max(1, case_request_core.preservation_auto_apply_max_attempts())
@@ -122,9 +132,15 @@ def run_approval_preservation_holds(
                                     request=request,
                                     user=actor,
                                 )
-                                # Provider adapters may mutate custodian hold flags without committing.
-                                # Commit here so the Case Detail page reflects updated holds immediately,
-                                # even when no external ticket creation happens later in this request.
+                                # Provider adapters may mutate legacy custodian flags. Mirror those
+                                # changes into the request case's default named hold before committing.
+                                updated_custodians = (
+                                    db.query(models.Custodian)
+                                    .filter(models.Custodian.id.in_(custodian_ids_clean))
+                                    .all()
+                                )
+                                for updated_custodian in updated_custodians:
+                                    sync_legacy_custodian_to_default_hold(db, updated_custodian)
                                 try:
                                     db.commit()
                                 except Exception:
@@ -264,9 +280,9 @@ def run_approval_preservation_holds(
                 # External providers may take time to reflect accurate hold status.
                 # Schedule a short retry poll so the Case Detail page shows correct hold flags sooner.
                 try:
-                    case_request_core._schedule_preservation_status_poll(case_id_val, "case_request_approve", delay_seconds=5)
-                    case_request_core._schedule_preservation_status_poll(case_id_val, "case_request_approve", delay_seconds=20)
-                    case_request_core._schedule_preservation_status_poll(case_id_val, "case_request_approve", delay_seconds=120)
+                    case_request_core._schedule_preservation_status_poll(case_id_val, "case_request_approve", delay_seconds=5, case_hold_id=default_hold_id)
+                    case_request_core._schedule_preservation_status_poll(case_id_val, "case_request_approve", delay_seconds=20, case_hold_id=default_hold_id)
+                    case_request_core._schedule_preservation_status_poll(case_id_val, "case_request_approve", delay_seconds=120, case_hold_id=default_hold_id)
                 except Exception as exc:
                     case_request_core._debug_suppressed("suppressed exception in case_requests.py:3488", exc)
 
@@ -299,7 +315,7 @@ def run_approval_preservation_holds(
                                 break
                             attempt += 1
                             try:
-                                preservation_provider.get_status(case_id=case_id_val, db=db, request=request, user=actor)
+                                preservation_provider.get_status(case_id=case_id_val, db=db, request=request, user=actor, case_hold_id=default_hold_id)
                             except Exception as exc:
                                 case_request_core.logger.warning(
                                     "preservation_status_settle_failed ts=%s record=%s case=%s attempt=%s error=%s",

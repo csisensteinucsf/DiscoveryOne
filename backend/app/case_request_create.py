@@ -193,6 +193,12 @@ async def create_case_request(
         db.flush()
         for model in built_models:
             case_request_core._sync_custom_preservation(db, model, getattr(model, "_custom_preservation_payload", []) or [])
+        if linked_case:
+            from .case_holds import ensure_default_hold
+
+            ensure_default_hold(db, linked_case, assign_existing=True)
+            db.flush()
+            case_request_core._assign_request_proofs_to_default_hold(db, record)
         built_ids = [int(model.id) for model in built_models if getattr(model, "id", None) is not None]
         if built_ids:
             body["approved_custodian_ids"] = built_ids

@@ -25,6 +25,7 @@ export function useCaseDetailTicketWorkflow({
   userRole,
   employeeIdLabel,
   custodians,
+  namedHolds = [],
   custodianOptionLookup,
   techTicketCategorySet,
   ticketCategories,
@@ -47,9 +48,15 @@ export function useCaseDetailTicketWorkflow({
   const [ticketSelfHealBusy, setTicketSelfHealBusy] = useState(false)
   const [showBulkRequestModal, setShowBulkRequestModal] = useState(false)
   const [bulkCategory, setBulkCategory] = useState(null)
+  const [bulkHoldId, setBulkHoldId] = useState('')
   const [bulkSelection, setBulkSelection] = useState(new Set())
   const [bulkSearch, setBulkSearch] = useState('')
   const [accessLogInfoEntryId, setAccessLogInfoEntryId] = useState(null)
+
+  const activeTicketHolds = useMemo(
+    () => (Array.isArray(namedHolds) ? namedHolds : []).filter(hold => hold?.status === 'active'),
+    [namedHolds],
+  )
 
   const accessLogInfoEntry = useMemo(
     () => (requestEntries || []).find(entry => entry.id === accessLogInfoEntryId) || null,
@@ -98,7 +105,8 @@ export function useCaseDetailTicketWorkflow({
     const map = new Map()
     ;(requestEntries || []).forEach(entry => {
       if (!entry || !entry.category) return
-      const bucket = map.get(entry.category) || new Set()
+      const bucketKey = entry.category + ':' + String(entry.case_hold_id || 'none')
+      const bucket = map.get(bucketKey) || new Set()
       const addKey = (cust) => {
         if (!cust) return
         const key = cust.id
@@ -110,7 +118,7 @@ export function useCaseDetailTicketWorkflow({
       if (Array.isArray(entry.bulk_custodians)) {
         entry.bulk_custodians.forEach(c => addKey({ id: c?.id, email: c?.email }))
       }
-      if (bucket.size) map.set(entry.category, bucket)
+      if (bucket.size) map.set(bucketKey, bucket)
     })
     return map
   }, [requestEntries])
@@ -255,6 +263,7 @@ export function useCaseDetailTicketWorkflow({
       {
         id: uuid(),
         category,
+        case_hold_id: activeTicketHolds[0]?.id ?? null,
         ticket: '',
         custodian_id: null,
         custodian_name: '',
@@ -273,6 +282,7 @@ export function useCaseDetailTicketWorkflow({
     if (isRequestor) return
     if (isTech && !techTicketCategorySet.has(categoryKey)) return
     setBulkCategory(categoryKey)
+    setBulkHoldId(activeTicketHolds[0] ? String(activeTicketHolds[0].id) : '')
     setBulkSelection(new Set())
     setShowBulkRequestModal(true)
   }
@@ -287,7 +297,8 @@ export function useCaseDetailTicketWorkflow({
   const toggleBulkCustodian = (custodianId) => {
     const singleSelect = workflowUsesAccessLogDetails(bulkCategory)
     const custodian = (custodians || []).find(c => Number(c.id) === Number(custodianId))
-    const reason = bulkCustodianDisabledReason(bulkCategory, custodian, usedCustodianKeysByCategory.get(bulkCategory) || new Set())
+    const requestKey = bulkCategory + ':' + String(bulkHoldId || 'none')
+    const reason = bulkCustodianDisabledReason(bulkCategory, custodian, usedCustodianKeysByCategory.get(requestKey) || new Set())
     if (reason) {
       showToast(reason === 'Unmatched or missing email'
         ? matchedEmailWorkflowWarning
@@ -313,12 +324,17 @@ export function useCaseDetailTicketWorkflow({
       setShowBulkRequestModal(false)
       return
     }
+    if (!bulkHoldId) {
+      showToast('Select an active hold for this request.', { variant: 'error' })
+      return
+    }
     const selectedIds = Array.from(bulkSelection || []).map(Number).filter(Number.isFinite)
     if (!selectedIds.length) {
       showToast('Select at least one custodian to add.', { variant: 'error' })
       return
     }
-    const usedKeys = usedCustodianKeysByCategory.get(bulkCategory) || new Set()
+    const requestKey = bulkCategory + ':' + String(bulkHoldId || 'none')
+    const usedKeys = usedCustodianKeysByCategory.get(requestKey) || new Set()
     const invalidSelected = (custodians || [])
       .filter(c => selectedIds.includes(Number(c.id)))
       .some(c => requiresMatchedEmailForTicketWorkflow(bulkCategory, ticketCategories) && isSnowUnmatchedCustodian(c))
@@ -349,6 +365,7 @@ export function useCaseDetailTicketWorkflow({
     const newEntry = {
       id: uuid(),
       category: bulkCategory,
+      case_hold_id: Number(bulkHoldId),
       ticket: '',
       custodian_id: primary.id,
       custodian_name: primary.name || '',
@@ -363,12 +380,14 @@ export function useCaseDetailTicketWorkflow({
     updateRequestEntriesState((prev = []) => (Array.isArray(prev) ? prev : []).concat([newEntry]))
     setShowBulkRequestModal(false)
     setBulkCategory(null)
+    setBulkHoldId('')
     setBulkSelection(new Set())
   }
 
   const closeBulkModal = () => {
     setShowBulkRequestModal(false)
     setBulkCategory(null)
+    setBulkHoldId('')
     setBulkSelection(new Set())
     setBulkSearch('')
   }
@@ -477,6 +496,7 @@ export function useCaseDetailTicketWorkflow({
         body: JSON.stringify({
           category: entry.category,
           entry_id: entry.id,
+          case_hold_id: entry.case_hold_id ?? null,
           custodian_name: primary.name || primary.email || '',
           custodian_email: primary.email || '',
           custodian_id: entry.custodian_id ?? null,
@@ -660,6 +680,9 @@ export function useCaseDetailTicketWorkflow({
     ticketSelfHealBusy,
     showBulkRequestModal,
     bulkCategory,
+    bulkHoldId,
+    setBulkHoldId,
+    activeTicketHolds,
     bulkSelection,
     bulkSearch,
     setBulkSearch,

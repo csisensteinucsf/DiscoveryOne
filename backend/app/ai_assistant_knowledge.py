@@ -37,7 +37,7 @@ REQUESTOR_ACTIVITY_PLAYBOOKS: list[dict[str, Any]] = [
         "title": "Cases Page Navigation",
         "keywords": ["cases", "find case", "open case", "filter", "missing case", "case list"],
         "steps": [
-            "Open Cases from the left sidebar.",
+            "Select Cases from the left sidebar.",
             "Use filters (Name, Legal Name, Analyst, Requestor) to find your matter.",
             "Open the case row to enter Case Detail.",
             "If a case is missing, verify requestor assignment/visibility before escalating.",
@@ -141,7 +141,7 @@ REQUESTOR_ACTIVITY_PLAYBOOKS: list[dict[str, Any]] = [
             "Open Dashboards.",
             "Refresh metrics before interpreting data.",
             "Use widgets/drilldowns to investigate case status.",
-            "Open cases from drilldowns for validation.",
+            "Open active case records from drilldowns for validation.",
         ],
         "citations": ["help:dashboards"],
     },
@@ -302,7 +302,7 @@ def _direct_help_answer(
         lines: list[str] = []
         if role_norm == "tech":
             if case_id is None:
-                lines.append("1. Open Cases and select the target case.")
+                lines.append("1. Select Cases and open the target case.")
             lines.append("2. In tech mode, custodian additions are usually handled via request workflow.")
             lines.append("3. Use Requests > custodian update (or ask analyst/sys admin) to add custodians.")
             lines.append("4. After approval, verify the new custodian in Case Detail > Custodians.")
@@ -314,7 +314,7 @@ def _direct_help_answer(
             }
 
         if case_id is None:
-            lines.append("1. Open Cases and select the target case.")
+            lines.append("1. Select Cases and open the target case.")
         lines.append("2. In Case Detail, open the Custodians tab.")
         lines.append("3. Click `Add Custodians` (or use import for bulk adds).")
         lines.append("4. Enter name and email for each row.")

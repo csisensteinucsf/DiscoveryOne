@@ -32,12 +32,12 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
         <Stat
           label="Open"
           value={data.open}
-          onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'Open cases', config: { closed: false } })}
+          onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'Active cases', config: { closed: false } })}
         />
         <Stat
           label="Closed"
           value={data.closed}
-          onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'Closed cases', config: { closed: true } })}
+          onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'Inactive cases', config: { closed: true } })}
         />
         <Stat
           label="Total"

@@ -40,7 +40,7 @@ def _ensure_note_attachment_access(note: models.CaseNote, user: models.User, *, 
         if write:
             notes_core._ensure_requestor_note_editable(note, user)
     elif audience == "ticket":
-        notes_core._ensure_ticket_note_access(user)
+        notes_core._ensure_ticket_note_access(user, write=write)
     else:
         notes_core.ensure_case_editable(user)
 

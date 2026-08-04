@@ -22,6 +22,7 @@ export default function CaseDetailHeader({
   ntpButtonDisabled,
   setShowCloseCaseModal,
   useLegalCaseNameAsPrimary = false,
+  internalCounselLabel = 'Internal Counsel',
 }) {
   const primaryCaseName = useLegalCaseNameAsPrimary ? (caseData?.legal_case_name || caseData?.name) : caseData?.name
   return (
@@ -53,7 +54,7 @@ export default function CaseDetailHeader({
                   </span>
                 ) : null}
               </h2>
-              {caseData?.closed ? <Badge variant="danger">CLOSED</Badge> : null}
+              {caseData?.closed ? <Badge variant="danger">INACTIVE</Badge> : <Badge variant="success">ACTIVE</Badge>}
             </div>
             {!isReadOnly && (
               <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
@@ -96,10 +97,20 @@ export default function CaseDetailHeader({
             </p>
           )}
           {!isTech && (
-            <p style={{ color: 'var(--muted,#6b7280)', fontSize: '0.85rem', marginTop: 0, marginBottom: 4 }}>
-              Claimant: {caseData?.claimant || '-'}
-            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '6px 16px', margin: '8px 0 10px', color: 'var(--muted,#6b7280)', fontSize: '0.85rem' }}>
+              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Matter / Claim Number:</strong> {caseData?.matter_number || '-'}</div>
+              <div><strong style={{ color: 'var(--text,#0f172a)' }}>{internalCounselLabel}:</strong> {caseData?.internal_counsel || '-'}</div>
+              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Outside Counsel:</strong> {caseData?.outside_counsel || '-'}</div>
+              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Claimant:</strong> {caseData?.claimant || '-'}</div>
+              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Start Date:</strong> {caseData?.start_date ? formatDate(caseData.start_date) : '-'}</div>
+              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Last Updated:</strong> {caseData?.updated_at ? formatDate(caseData.updated_at) : '-'}</div>
+            </div>
           )}
+          {!isTech && caseData?.description ? (
+            <div style={{ margin: '0 0 10px', padding: '8px 10px', borderLeft: '3px solid #94a3b8', background: 'var(--muted-bg,#f8fafc)', color: 'var(--text,#0f172a)', fontSize: '0.85rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+              <strong>Additional Notes / Comments:</strong> {caseData.description}
+            </div>
+          ) : null}
           <p style={{ color: 'var(--muted,#6b7280)', fontSize: '0.85rem', marginTop: 0, marginBottom: 4 }}>
             Analyst: {analystName || '-'}
           </p>

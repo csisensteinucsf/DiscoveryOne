@@ -16,6 +16,10 @@ export default function CaseDetailNtpModals({
   selectedTemplateId,
   setSelectedTemplateId,
   ntpSelection,
+  ntpHolds,
+  ntpHoldsLoading,
+  ntpHoldId,
+  setNtpHoldId,
   ntpModalScrollStyle,
   ntpFieldLabelStyle,
   ntpSelectStyle,
@@ -97,7 +101,7 @@ export default function CaseDetailNtpModals({
               <button
                 className="btn primary"
                 onClick={sendNtpNotices}
-                disabled={sendingNtp || !selectedTemplateId || !ntpSelection.length}
+                disabled={sendingNtp || !ntpHoldId || !selectedTemplateId || !ntpSelection.length}
               >
                 {sendingNtp ? 'Sending...' : 'Send Notices'}
               </button>
@@ -109,6 +113,23 @@ export default function CaseDetailNtpModals({
               className="form-grid"
               style={{ display:'grid', gap:12, gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', marginTop:8 }}
             >
+              <label style={{ ...ntpFieldLabelStyle, gridColumn: '1 / -1' }}>
+                <span>Hold</span>
+                <select
+                  value={ntpHoldId || ''}
+                  onChange={e => setNtpHoldId(Number(e.target.value) || null)}
+                  style={ntpSelectStyle}
+                  disabled={ntpHoldsLoading}
+                >
+                  <option value="">Select a hold</option>
+                  {ntpHolds.map(hold => (
+                    <option key={hold.id} value={hold.id}>{hold.name} ({hold.custodian_count || 0} custodians)</option>
+                  ))}
+                </select>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>
+                  NTP recipients, reminders, acknowledgments, and history are tracked separately for each hold.
+                </div>
+              </label>
               <label style={{ ...ntpFieldLabelStyle, gridColumn: '1 / -1' }}>
                 <span>Template</span>
                 <select

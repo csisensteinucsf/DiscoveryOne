@@ -1,5 +1,7 @@
 import { INTEGRATION_FLAGS } from './systemUtils.js'
 import SystemIntegrationConfigSections from './SystemIntegrationConfigSections.jsx'
+import SystemEmailIntakeConfig from './SystemEmailIntakeConfig.jsx'
+import SystemEmailIntakeWorkspace from './SystemEmailIntakeWorkspace.jsx'
 
 const PROVIDER_LABELS = {
   none: 'None',
@@ -42,6 +44,8 @@ export default function SystemIntegrationsPanel({
   saveIntegrationSettings,
   integrationSaving,
   integrationStatus,
+  apiBase,
+  showToast,
 }) {
   return (
     <>
@@ -127,6 +131,12 @@ export default function SystemIntegrationsPanel({
             integrationSettings={integrationSettings}
             updateIntegrationConfig={updateIntegrationConfig}
           />
+          {integrationSettings.enabled?.email_intake && (
+            <SystemEmailIntakeConfig
+              integrationSettings={integrationSettings}
+              updateIntegrationConfig={updateIntegrationConfig}
+            />
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18, flexWrap: 'wrap' }}>
             <button className="btn secondary" onClick={saveIntegrationSettings} disabled={integrationSaving}>
               {integrationSaving ? 'Saving' : 'Save Integration Settings'}
@@ -137,6 +147,13 @@ export default function SystemIntegrationsPanel({
               </span>
             )}
           </div>
+          {integrationSettings.enabled?.email_intake && (
+            <SystemEmailIntakeWorkspace
+              apiBase={apiBase}
+              enabled={!!integrationSettings.enabled?.email_intake}
+              showToast={showToast}
+            />
+          )}
         </div>
       ) : adminOnlyCard('Only system administrators can configure integrations.')}
     </>

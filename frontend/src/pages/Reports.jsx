@@ -61,7 +61,7 @@ const REPORT_SECTIONS = [
   {
     title: "Analyst Summary",
     exportUrl: "/api/reports/analysts/export",
-    description: "Shows how many open and closed cases are assigned to each analyst so leads can balance workloads and staffing."
+    description: "Shows how many active and inactive cases are assigned to each analyst so leads can balance workloads and staffing."
   },
   {
     title: "Consent Status",
@@ -74,7 +74,7 @@ const REPORT_SECTIONS = [
     description: "Buckets all cases by whether any custodian holds are in place, giving a quick view into preservation coverage."
   },
   {
-    title: "Per-Case Summary (Open Cases Only)",
+    title: "Per-Case Summary (Active Cases Only)",
     exportUrl: "/api/reports/cases_summary/export?open_only=1",
     description: "Provides per-case counts of custodians, search/export/delivery progress, and NTP/consent milestones for active matters."
   },

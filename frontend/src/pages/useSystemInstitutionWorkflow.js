@@ -7,6 +7,7 @@ const emptyInstitution = () => ({
   requestor_email_exceptions: '',
   sso_display_name: 'Single sign-on',
   support_email: '',
+  internal_counsel_label: 'Internal Counsel',
 })
 
 const joinValues = value => (Array.isArray(value) ? value : [])

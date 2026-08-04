@@ -45,11 +45,11 @@ export const REQUESTOR_HELP_SECTIONS = [
     id: 'cases',
     title: 'Cases Page (Requestor Navigation)',
     paragraphs: [
-      'Cases is your index of matters you can see. It contains Open Cases and Closed Cases in separate grouped tables.',
+      'Cases is your index of matters you can see. It contains Active Cases and Inactive Cases in separate tables.',
       'Requestor accounts are read-only here for case records. Use this page to locate and open cases, not to edit case metadata.',
     ],
     steps: [
-      'Open Cases from the left sidebar.',
+      'Select Cases from the left sidebar.',
       'Use Show Filters to reveal filter inputs at the top of each table.',
       'Filter by Name for broad lookup across both internal and legal naming patterns.',
       'Use Filter Legal Name for legal naming only when legal naming is consistently maintained.',
@@ -474,7 +474,7 @@ export const TECH_HELP_SECTIONS = [
       'Tech page includes a ticket-only access notice and read-only case table controls.',
     ],
     steps: [
-      'Open Cases.',
+      'Select Cases.',
       'Use Show Filters and narrow by case name, analyst, or requestor context as needed.',
       'Expand year and letter groups to locate the case faster.',
       'Open case detail for ticket and hold work.',

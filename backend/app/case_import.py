@@ -18,6 +18,11 @@ from sqlalchemy.orm import Session
 
 from . import models
 from .safe_log import debug_suppressed as _debug_suppressed
+from .hold_workflows import (
+    set_search_holds,
+    sync_legacy_custodian_to_default_hold,
+    sync_search_hold_statuses,
+)
 from .ticket_provider_labels import external_ticket_label
 
 
@@ -623,6 +628,7 @@ class CaseSpreadsheetImporter:
                     search.custodian_ids = json.dumps([custodian.id])
                     self.db.add(search)
                     self.db.flush()
+                    set_search_holds(self.db, search=search, hold_ids=None)
                     searches[lookup] = search
                     result.searches_created += 1
                 else:
@@ -656,7 +662,12 @@ class CaseSpreadsheetImporter:
                         search.custodian_ids = json.dumps(ids)
                         updated = True
                     if updated:
+                        sync_search_hold_statuses(self.db, search)
                         result.searches_updated += 1
+
+        # Spreadsheet imports use legacy columns; treat them as updates to the default named hold.
+        for imported_custodian in existing_custodians.values():
+            sync_legacy_custodian_to_default_hold(self.db, imported_custodian)
 
         if result.servicenow_case and not case.description:
             case.description = f"{external_ticket_label()} {result.servicenow_case}"

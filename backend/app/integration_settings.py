@@ -30,6 +30,7 @@ SECRET_FIELDS = {
     "docusign": {"private_key", "connect_key", "connect_keys"},
     "slack": {"legal_holds_token", "client_secret", "shared_secret", "oauth_state_secret"},
     "ai": {"api_key"},
+    "email_intake": {"client_secret"},
 }
 
 _SECRET_FIELD_SUFFIXES = (
@@ -477,6 +478,43 @@ def validate_integration_settings(
                 errors.append(
                     f"Log shipping {label} must be between {minimum:g} and {maximum:g}"
                 )
+
+    if _enabled(enabled, "email_intake"):
+        email_intake = config_values.get("email_intake") or {}
+        missing = [label for key, label in (
+            ("tenant_id", "tenant ID"),
+            ("client_id", "client ID"),
+            ("client_secret", "client secret"),
+            ("mailbox", "mailbox address"),
+            ("folder_id", "mail folder ID or well-known name"),
+        ) if not _has_config_value(email_intake, key)]
+        if missing:
+            errors.append(f"Email Intake is enabled but missing {', '.join(missing)}")
+        _validate_https_url(errors, "Email Intake Graph base", email_intake.get("graph_base"))
+        _validate_number(
+            errors,
+            "Email Intake polling interval seconds",
+            email_intake.get("poll_interval_seconds"),
+            minimum=15,
+            maximum=86400,
+            integer_only=True,
+        )
+        _validate_number(
+            errors,
+            "Email Intake maximum messages per poll",
+            email_intake.get("max_messages_per_poll"),
+            minimum=1,
+            maximum=500,
+            integer_only=True,
+        )
+        policy = str(email_intake.get("sender_policy") or "any").strip().lower()
+        if policy not in {"any", "organization", "allowlist"}:
+            errors.append("Email Intake sender policy must be any, organization, or allowlist")
+        if policy == "allowlist" and not (
+            _has_config_value(email_intake, "allowed_senders")
+            or _has_config_value(email_intake, "allowed_sender_domains")
+        ):
+            errors.append("Email Intake allowlist policy requires allowed senders or sender domains")
 
     if _enabled(enabled, "docusign") or str(provider_values.get("esign_provider") or "none").strip().lower() == "docusign":
         docusign = config_values.get("docusign") or {}

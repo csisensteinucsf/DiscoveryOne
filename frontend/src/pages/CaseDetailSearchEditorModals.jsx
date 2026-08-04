@@ -277,9 +277,10 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
   )
 }
 // Search Modal
-export function SearchModal({ mode, draft, suggestedName, readOnly = false, custodians, onClose, onSave, searchQueryLabel = 'Provider query' }) {
+export function SearchModal({ mode, draft, suggestedName, readOnly = false, custodians, holds, onClose, onSave, searchQueryLabel = 'Provider query' }) {
   const hydrateDraft = (value) => {
     const next = { ...value, ...normalizeSearchDraftFields(value) }
+    next.holdIds = (next.holdIds ?? next.hold_ids ?? []).map(Number).filter(Number.isFinite)
     if (mode === 'create' && !(String(next.name || '').trim()) && suggestedName) next.name = suggestedName
     return next
   }
@@ -352,12 +353,19 @@ export function SearchModal({ mode, draft, suggestedName, readOnly = false, cust
   if (current.has(n)) current.delete(n); else current.add(n);
   setD({ ...d, custodianIds: Array.from(current) });
 }
+  function toggleHold(id) {
+    const holdId = Number(id)
+    const current = new Set((d.holdIds || []).map(Number))
+    if (current.has(holdId)) current.delete(holdId)
+    else current.add(holdId)
+    setD({ ...d, holdIds: Array.from(current) })
+  }
   function updateSearchDraftFields(updates) {
     const next = { ...d, ...updates }
     setD({ ...next, ...normalizeSearchDraftFields(next) })
   }
   // allow zero when editing so you can unassign all custodians
-  const canSave = !readOnly && (mode === 'edit' ? true : (d.custodianIds || []).length > 0)
+  const canSave = !readOnly && (d.holdIds || []).length > 0 && (mode === 'edit' ? true : (d.custodianIds || []).length > 0)
   return (
     <Modal
       open
@@ -376,6 +384,24 @@ export function SearchModal({ mode, draft, suggestedName, readOnly = false, cust
         <TextInput value={d.name || ''} onChange={e => setD({ ...d, name: e.target.value })} placeholder="e.g., 2025-Yellow-Search 2" />
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
           Leave blank to auto-name. You can rename existing searches here to fix duplicates.
+        </div>
+      </Field>
+      <Field label="Holds">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: '9px 10px', border: '1px solid #dce0e5', borderRadius: 8 }}>
+          {(holds || []).map(hold => (
+            <label key={hold.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <input
+                type="checkbox"
+                checked={(d.holdIds || []).includes(Number(hold.id))}
+                onChange={() => toggleHold(hold.id)}
+              />
+              <span>{hold.name}</span>
+            </label>
+          ))}
+          {!(holds || []).length ? <span style={{ color: '#b45309', fontSize: 12 }}>Create an active hold before saving this search.</span> : null}
+        </div>
+        <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
+          Assign this search to one or more holds. Search, export, and delivery status will appear on each selected hold.
         </div>
       </Field>
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>

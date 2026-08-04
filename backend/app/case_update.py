@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import HTTPException, Request
@@ -88,10 +88,25 @@ def update_case_record(
     case_core.ensure_case_editable(user)
     payload_fields = set(getattr(payload, "model_fields_set", set()) or set())
 
-    tracked_fields = ("name","legal_case_name","is_ler_hr","servicenow_inc_number","claimant","ler_representative","requestor","closed","is_private","color","description","analyst_id","start_date","rubrik_restore_ticket","box_hold_ticket","is_active_case","closure_nag_days")
+    tracked_fields = ("name","legal_case_name","is_ler_hr","servicenow_inc_number","claimant","ler_representative","internal_counsel","outside_counsel","matter_number","requestor","closed","closed_at","is_private","color","description","analyst_id","start_date","rubrik_restore_ticket","box_hold_ticket","is_active_case","closure_nag_days")
     _before = {k: getattr(case, k, None) for k in tracked_fields}
     _before["request_ticket_entries"] = getattr(case, "request_ticket_entries", []) or []
     was_closed = bool(case.closed)
+    closing_case = "closed" in payload_fields and bool(payload.closed) and not was_closed
+    active_holds_to_close: list[dict[str, object]] = []
+    if closing_case:
+        from .hold_workflows import active_hold_summary
+
+        active_holds_to_close = active_hold_summary(db, case_id)
+        if active_holds_to_close and not bool(payload.close_active_holds):
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "active_holds_require_confirmation",
+                    "message": "This case still has active holds. Confirm that they should be closed with the case.",
+                    "active_holds": active_holds_to_close,
+                },
+            )
     old_claimant = getattr(case, "claimant", None)
     # handle analyst change safely
     if payload.analyst_id is not None:
@@ -150,6 +165,14 @@ def update_case_record(
         if value is not None:
             setattr(case, field, value)
 
+    for field in ("internal_counsel", "outside_counsel", "matter_number"):
+        if field in payload_fields:
+            value = getattr(payload, field, None)
+            setattr(case, field, value.strip() if isinstance(value, str) and value.strip() else None)
+
+    if "closed" in payload_fields:
+        case.closed_at = datetime.now(timezone.utc) if bool(case.closed) and not was_closed else (None if not case.closed else case.closed_at)
+
     case.is_ler_hr = False
     case.servicenow_inc_number = None
     case.ler_representative = None
@@ -172,6 +195,10 @@ def update_case_record(
                 cust.consent_status = "na"
                 case_core._apply_consent_not_required_defaults(case, cust)
                 db.add(cust)
+                db.flush()
+                from .hold_workflows import sync_custodian_not_required_policy_to_memberships
+
+                sync_custodian_not_required_policy_to_memberships(db, cust)
     except Exception as exc:
         case_core._debug_suppressed("suppressed exception in cases.py:1753", exc)
     entries_payload = getattr(payload, "request_ticket_entries", None)
@@ -180,6 +207,12 @@ def update_case_record(
         case.request_ticket_entries = normalized_entries
         case_core._sync_legacy_request_tickets(case, normalized_entries)
         case_core._apply_request_holds(case, normalized_entries)
+
+    closed_hold_ids: list[int] = []
+    if closing_case and active_holds_to_close:
+        from .hold_workflows import close_active_holds
+
+        closed_hold_ids = close_active_holds(db, case_id)
 
     # compute changes for audit
     _after = {k: getattr(case, k, None) for k in tracked_fields}
@@ -197,12 +230,7 @@ def update_case_record(
                     "case_id": case.id,
                     "case_name": getattr(case, "name", None),
                     "changes": _changes,
-                    "name_email_review": {
-                        "required": bool(getattr(c, "name_email_review_required", False)),
-                        "reason": getattr(c, "name_email_review_reason", None),
-                        "source": getattr(_name_email_review, "source", None),
-                        "confidence": getattr(_name_email_review, "confidence", None),
-                    },
+
                 },
                 request=request,
             )
@@ -220,7 +248,11 @@ def update_case_record(
                 target_type="case",
                 target_id=case.id,
                 actor_id=user.id,
-                details={"case_id": case.id, "case_name": case_name},
+                details={
+                    "case_id": case.id,
+                    "case_name": case_name,
+                    "closed_hold_ids": closed_hold_ids,
+                },
                 request=request,
             )
             try:

@@ -374,10 +374,22 @@ def _merge_setup_settings(settings: dict[str, Any], payload: InitialSetupPayload
         settings.get("enabled_integrations"),
         payload.enabled_integrations,
     )
+    incoming_providers = dict(payload.integrations or {})
+    disabled_provider_bindings = {
+        "person_lookup": ("person_lookup_provider",),
+        "servicenow": ("ticket_provider",),
+        "smtp": ("mail_provider",),
+        "docusign": ("esign_provider",),
+        "purview": ("preservation_provider", "search_export_provider"),
+    }
+    for integration, provider_fields in disabled_provider_bindings.items():
+        if integration in payload.enabled_integrations and not payload.enabled_integrations[integration]:
+            for provider_field in provider_fields:
+                incoming_providers[provider_field] = "none"
     try:
         settings["integrations"] = merge_provider_settings(
             settings.get("integrations"),
-            payload.integrations,
+            incoming_providers,
             reject_unsupported=True,
         )
     except ValueError as exc:
@@ -385,7 +397,7 @@ def _merge_setup_settings(settings: dict[str, Any], payload: InitialSetupPayload
     settings["enabled_integrations"] = reconcile_provider_enablement(
         settings.get("enabled_integrations"),
         settings.get("integrations"),
-        changed_provider_fields=set((payload.integrations or {}).keys()),
+        changed_provider_fields=set(incoming_providers),
     )
     settings["integration_configs"] = merge_integration_configs(
         settings.get("integration_configs"),

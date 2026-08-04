@@ -1,4 +1,5 @@
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, Optional, Tuple, List
@@ -13,6 +14,24 @@ logger = logging.getLogger(__name__)
 
 class ServiceNowError(Exception):
     """Raised when a ServiceNow call fails."""
+
+
+_TICKET_NUMBER_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def _normalize_ticket_numbers(ticket_numbers: list[str]) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for raw in ticket_numbers or []:
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        if not _TICKET_NUMBER_RE.fullmatch(value):
+            raise ServiceNowError("Ticket number contains unsupported characters.")
+        if value not in seen:
+            normalized.append(value)
+            seen.add(value)
+    return normalized
 
 
 @dataclass
@@ -431,7 +450,7 @@ def get_ticket_statuses(ticket_numbers: list[str], table_override: Optional[str]
     """
     cfg = load_config()
     table = table_override or (cfg.status_table or "incident")
-    numbers = [n.strip() for n in (ticket_numbers or []) if n and str(n).strip()]
+    numbers = _normalize_ticket_numbers(ticket_numbers)
     if not numbers:
         return {}
 

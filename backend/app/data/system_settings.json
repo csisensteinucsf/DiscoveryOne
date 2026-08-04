@@ -1,0 +1,375 @@
+{
+  "active_theme": "light",
+  "user_theme": "light",
+  "logos": [],
+  "active_logo": null,
+  "branding": {
+    "app_name": "DiscoveryOne",
+    "app_tagline": "eDiscovery Case Manager"
+  },
+  "initial_setup_completed": false,
+  "initial_setup_completed_at": null,
+  "initial_setup_version": 1,
+  "deployment": {
+    "app_base_url": "",
+    "allowed_hosts": [],
+    "tls": {
+      "mode": "self_signed",
+      "common_name": "",
+      "certificate_filename": "",
+      "private_key_filename": ""
+    }
+  },
+  "custodian_lookup_bootstrap_completed": false,
+  "custodian_lookup_last_run_at": null,
+  "institution": {
+    "org_name": "",
+    "org_short_name": "",
+    "allowed_requestor_email_domains": [],
+    "requestor_email_exceptions": [],
+    "sso_display_name": "Single sign-on",
+    "support_email": ""
+  },
+  "enabled_integrations": {
+    "servicenow": false,
+    "docusign": false,
+    "slack": false,
+    "purview": false,
+    "box": false,
+    "google_workspace": false,
+    "dropbox_business": false,
+    "zoom": false,
+    "intune": false,
+    "jamf": false,
+    "defender": false,
+    "crowdstrike": false,
+    "log_shipping": false,
+    "person_lookup": false,
+    "smtp": false,
+    "ai": false
+  },
+  "integrations": {
+    "person_lookup_provider": "none",
+    "sso_provider": "local",
+    "ticket_provider": "none",
+    "mail_provider": "smtp",
+    "esign_provider": "none",
+    "preservation_provider": "none",
+    "search_export_provider": "none"
+  },
+  "integration_configs": {
+    "oidc": {},
+    "person_lookup": {},
+    "servicenow": {},
+    "box": {},
+    "google_workspace": {},
+    "dropbox_business": {},
+    "zoom": {},
+    "intune": {},
+    "jamf": {},
+    "defender": {},
+    "crowdstrike": {},
+    "log_shipping": {
+      "tenant_id": "",
+      "client_id": "",
+      "client_secret": "",
+      "sharepoint_site_id": "",
+      "sharepoint_drive_id": "",
+      "sharepoint_drive_name": "",
+      "sharepoint_folder": "DiscoveryOneLogs",
+      "interval_hours": 24,
+      "run_on_startup": true,
+      "graph_base": "https://graph.microsoft.com/v1.0",
+      "scope": "https://graph.microsoft.com/.default",
+      "max_file_mb": 250,
+      "max_archive_mb": 250,
+      "max_files": 5000,
+      "timeout_seconds": 120,
+      "retry_count": 3
+    },
+    "purview": {},
+    "docusign": {},
+    "slack": {},
+    "ai": {}
+  },
+  "preservation_sources": [
+    {
+      "key": "email",
+      "label": "Email (O365/Google)",
+      "enabled": true,
+      "built_in": true
+    },
+    {
+      "key": "onedrive",
+      "label": "OneDrive",
+      "enabled": true,
+      "built_in": true
+    },
+    {
+      "key": "gdrive",
+      "label": "Google Drive",
+      "enabled": false,
+      "built_in": true
+    },
+    {
+      "key": "box",
+      "label": "Box",
+      "enabled": true,
+      "built_in": true
+    },
+    {
+      "key": "dropbox",
+      "label": "Dropbox",
+      "enabled": false,
+      "built_in": true
+    },
+    {
+      "key": "slack",
+      "label": "Slack",
+      "enabled": true,
+      "built_in": true
+    },
+    {
+      "key": "zoom",
+      "label": "Zoom",
+      "enabled": false,
+      "built_in": true
+    }
+  ],
+  "ticket_workflows": [
+    {
+      "key": "box_hold",
+      "label": "Box Hold",
+      "enabled": true,
+      "provider": "servicenow",
+      "external_ticket_enabled": true,
+      "service_now_enabled": true,
+      "auto_create_on_approval": true,
+      "manual_status_tracking": true,
+      "hold_operation": "hold",
+      "completion_satisfies_source": "",
+      "completion_satisfies_hold_key": "",
+      "preservation_source": "box",
+      "hold_key": "holds_box",
+      "tech_group": "box",
+      "requires_matched_email": true,
+      "legacy_field": "box_hold_ticket",
+      "built_in": true,
+      "short_description": "Box Hold",
+      "assignment_group": "",
+      "symptom": "Inquiry",
+      "incident_keyword": "",
+      "request_type": "Box Hold",
+      "link_label": "Case link"
+    },
+    {
+      "key": "box_hold_release",
+      "label": "Box Hold Release",
+      "enabled": true,
+      "provider": "servicenow",
+      "external_ticket_enabled": true,
+      "service_now_enabled": true,
+      "auto_create_on_approval": false,
+      "manual_status_tracking": true,
+      "hold_operation": "release",
+      "completion_satisfies_source": "",
+      "completion_satisfies_hold_key": "",
+      "preservation_source": "box",
+      "hold_key": "holds_box",
+      "tech_group": "box",
+      "requires_matched_email": true,
+      "legacy_field": "",
+      "built_in": true,
+      "short_description": "Box Hold Release",
+      "assignment_group": "",
+      "symptom": "Inquiry",
+      "incident_keyword": "",
+      "request_type": "Box Hold Release",
+      "link_label": "Case link"
+    },
+    {
+      "key": "rubrik_restore",
+      "label": "Rubrik Restore",
+      "enabled": false,
+      "provider": "servicenow",
+      "external_ticket_enabled": true,
+      "service_now_enabled": true,
+      "auto_create_on_approval": true,
+      "manual_status_tracking": false,
+      "hold_operation": "hold",
+      "completion_satisfies_source": "email",
+      "completion_satisfies_hold_key": "",
+      "preservation_source": "rubrik_restore",
+      "hold_key": "holds_rubrik_restore",
+      "tech_group": "rubrik_restore",
+      "requires_matched_email": true,
+      "legacy_field": "rubrik_restore_ticket",
+      "built_in": true,
+      "short_description": "Rubrik Restore",
+      "assignment_group": "",
+      "symptom": "Inquiry",
+      "incident_keyword": "",
+      "request_type": "Rubrik Restore",
+      "link_label": "Case link"
+    }
+  ],
+  "case_naming": {
+    "mode": "legal_case_name"
+  },
+  "case_closure": {
+    "default_nag_days": 180,
+    "loop_seconds": 3600,
+    "batch_size": 25
+  },
+  "case_status": {
+    "ntp_ack_days": 7,
+    "consent_received_days": 7
+  },
+  "case_requests": {
+    "requestor_stats_show_global": false,
+    "hold_automation_allow_override": false,
+    "auto_rubrik_restore_for_separated_email_holds": false,
+    "pending_cleanup_days": 30,
+    "pending_cleanup_interval_hours": 12,
+    "hold_status_email_delay_seconds": 300,
+    "preservation_auto_apply_max_attempts": 3,
+    "preservation_auto_apply_delay_seconds": 2.0,
+    "preservation_status_max_seconds": 90,
+    "preservation_status_interval_seconds": 5.0
+  },
+  "smtp": {
+    "host": "",
+    "port": 587,
+    "username": "",
+    "from_address": "",
+    "use_tls": true,
+    "use_ssl": false,
+    "password": null
+  },
+  "notifications": {
+    "teams": {
+      "webhook_url": "",
+      "events": {
+        "case_request_submitted": {
+          "enabled": true,
+          "template": "New {request_type} request from {requestor} for {case_label}. Review: {link}"
+        },
+        "admin_help": {
+          "enabled": true,
+          "template": "Login assistance requested by {identifier} (IP: {ip}). Note: {note}"
+        },
+        "registration_request": {
+          "enabled": true,
+          "template": "New account registration request from {name} <{email}>. Review in System > Account Requests."
+        },
+        "backup_key_missing": {
+          "enabled": true,
+          "template": "Backup encryption key missing; container deployments generate and persist one automatically."
+        },
+        "backup_restore": {
+          "enabled": true,
+          "template": "Backup restore {status} by {actor}. File: {filename}. Detail: {detail}"
+        },
+        "malware_upload_detected": {
+          "enabled": true,
+          "template": "Upload blocked: {filename} (user: {user}, ip: {ip})"
+        },
+        "consent_completed": {
+          "enabled": true,
+          "template": "Consent completed for {case_label}. Custodian: {custodian_name} <{custodian_email}>. Case: {case_link}"
+        },
+        "ticket_assigned": {
+          "enabled": true,
+          "template": "Ticket assigned: {ticket} ({ticket_category}) -> {assigned_to}. Case: {case_label}. Ticket: {ticket_link}"
+        },
+        "ticket_completed": {
+          "enabled": true,
+          "template": "Ticket completed: {ticket} ({ticket_category}). Case: {case_label}. Ticket: {ticket_link}"
+        }
+      }
+    },
+    "search_delivery_reminders": {
+      "enabled": true,
+      "interval_days": 7,
+      "loop_seconds": 3600,
+      "batch_size": 25
+    },
+    "consent_notifications": {
+      "completed_email_enabled": true,
+      "weekly_pending_enabled": true,
+      "weekly_weekday": 4,
+      "weekly_hour": 8,
+      "weekly_minute": 0,
+      "weekly_timezone": "UTC"
+    },
+    "email": {
+      "events": {
+        "admin_help": {
+          "enabled": true,
+          "subject": "[{app_name}] Login assistance requested",
+          "body": "A user requested assistance signing in to {app_name}.\n\nIdentifier: {identifier}\nIP address: {ip}\nNote: {note}"
+        },
+        "registration_request_admins": {
+          "enabled": true,
+          "subject": "[{app_name}] New account registration request",
+          "body": "A new account registration request was submitted.\n\nName: {name}\nEmail: {email}\n\nReview this request in {app_name} > System > Account Requests."
+        },
+        "registration_invite": {
+          "enabled": true,
+          "subject": "[{app_name}] Complete your account registration",
+          "body": "Hello {name},\n\nYour {app_name} account request has been approved. Use the link below to {action_text}. This link expires in {expires_hours} hours.\n\n{link}\n\nIf you did not expect this email, ignore it."
+        },
+        "registration_ready": {
+          "enabled": true,
+          "subject": "[{app_name}] Your account is ready",
+          "body": "Hello {name},\n\nYour {app_name} account request has been approved and your account is ready. Sign in using your {sso_display_name} credentials.\n\nSign in: {login_link}\n\nIf you did not expect this email, ignore it."
+        },
+        "registration_decline": {
+          "enabled": true,
+          "subject": "[{app_name}] Account request update",
+          "body": "Hello {name},\n\nYour {app_name} account request was declined.\n\nReason: {reason}\nPlease contact the eDiscovery administrators if you have questions."
+        },
+        "registration_existing_account": {
+          "enabled": true,
+          "subject": "[{app_name}] Account already exists",
+          "body": "You tried to register a {app_name} account, but an account already exists with this email address.\n\nUsername: {username}\n\n{access_guidance}\n\nIf you did not attempt to register, you can ignore this email."
+        },
+        "external_ticket_assignee_details": {
+          "enabled": true,
+          "subject": "[{app_name}] Custodian details for ticket {ticket}",
+          "body": "External ticket: {ticket} - {ticket_link}\n\nCase: {case_label}\n\nThe following custodians require {need_label}:\n{custodian_list}\n\nPlease keep these details out of the external ticket.\n\nIf you have any questions, please reach out to the ticket customer."
+        }
+      }
+    }
+  },
+  "ntp": {
+    "archive_bcc_address": "",
+    "archive_copy_required": false,
+    "reserved_archive_bcc_addresses": "",
+    "ack_automate_url": "",
+    "ack_display_url": "",
+    "ack_automate_secret": "",
+    "reminder_interval_days": 14,
+    "reminder_duration_days": 90,
+    "reminder_loop_seconds": 900
+  },
+  "account_review": {
+    "enabled": true,
+    "interval_days": 120,
+    "check_interval_hours": 12,
+    "last_sent_at": null
+  },
+  "backups": {
+    "automatic_enabled": true,
+    "interval_hours": 6,
+    "retention_hours": 48
+  },
+  "startup_backfills": {
+    "version": 1,
+    "completed_at": "2026-07-10T14:13:13.690625+00:00"
+  },
+  "startup_maintenance": {
+    "version": 1,
+    "completed_at": "2026-07-10T14:13:13.711996+00:00"
+  }
+}

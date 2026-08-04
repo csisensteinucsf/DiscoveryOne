@@ -258,6 +258,7 @@ def create_approval_tickets(
                 "id": str(uuid.uuid4()),
                 "category": category,
                 "ticket": ticket_number,
+                "provider_managed": True,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "custodian_id": getattr(primary, "id", None),
                 "custodian_name": getattr(primary, "name", None),
@@ -279,6 +280,7 @@ def create_approval_tickets(
                     "category": category,
                     "ticket_provider": provider,
                     "ticket": ticket_number,
+                    "provider_managed": True,
                     "sys_id": sys_id,
                     "custodian_id": getattr(primary, "id", None),
                     "custodian_name": getattr(primary, "name", None),
@@ -336,6 +338,7 @@ def create_approval_tickets(
             case_request_core._normalize_request_ticket_entries(
                 entries,
                 case_for_tickets,
+                trusted_provider=True,
             )
             or []
         )
@@ -368,6 +371,7 @@ def create_approval_tickets(
                             case_request_core._normalize_request_ticket_entries(
                                 entries,
                                 case2,
+                                trusted_provider=True,
                             )
                             or []
                         )

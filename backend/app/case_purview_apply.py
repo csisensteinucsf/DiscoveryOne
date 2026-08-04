@@ -96,12 +96,23 @@ def apply_purview_holds_for_case(
     display_name = (case.name or "").strip()
     if not display_name:
         raise HTTPException(status_code=400, detail="Case must have a name before creating it in Purview")
+    named_hold = None
+    if getattr(payload, "case_hold_id", None):
+        named_hold = (
+            db.query(models.CaseHold)
+            .filter(models.CaseHold.case_id == case_id, models.CaseHold.id == payload.case_hold_id)
+            .first()
+        )
+        if named_hold is None:
+            raise HTTPException(status_code=404, detail="Hold not found for this case")
+    hold_display_name = f"{display_name} - {named_hold.name}" if named_hold is not None else display_name
 
     try:
         hold_context = build_purview_hold_apply_context(
             case=case,
             case_id=case_id,
             display_name=display_name,
+            hold_display_name=hold_display_name,
         )
         purview_case = hold_context["purview_case"]
         provider_case_id = hold_context["purview_case_id"]
@@ -694,7 +705,11 @@ def apply_purview_holds_for_case(
         }
         if datasource_sync is not None:
             result["datasource_sync"] = datasource_sync
-        case_core._schedule_preservation_status_poll(case_id, "purview_hold_apply")
+        case_core._schedule_preservation_status_poll(
+            case_id,
+            "purview_hold_apply",
+            case_hold_id=getattr(payload, "case_hold_id", None),
+        )
         # When holds are applied manually (admin/analyst case view), also notify the requestor
         # with the same delayed hold-status email used for requestor-driven case requests.
         try:

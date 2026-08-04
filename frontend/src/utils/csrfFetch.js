@@ -1,3 +1,5 @@
+import { notifyAuthExpired } from '../lib/apiClient.js'
+
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 function getCookieValue(name) {
@@ -19,7 +21,7 @@ export function installCsrfFetch() {
   window.__discoveryOneCsrfFetchInstalled = true
 
   const originalFetch = window.fetch.bind(window)
-  window.fetch = (input, init = {}) => {
+  window.fetch = async (input, init = {}) => {
     const nextInit = { ...init }
     const method = requestMethod(nextInit)
     const headers = new Headers(nextInit.headers || {})
@@ -32,6 +34,8 @@ export function installCsrfFetch() {
     if (!nextInit.credentials) {
       nextInit.credentials = 'include'
     }
-    return originalFetch(input, nextInit)
+    const response = await originalFetch(input, nextInit)
+    if (response.status === 401) notifyAuthExpired(input, response.status)
+    return response
   }
 }

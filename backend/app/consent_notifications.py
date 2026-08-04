@@ -252,7 +252,7 @@ def _weekly_pending_summary() -> None:
         for analyst_email, items in by_analyst.items():
             subject = branded_subject(f"Weekly pending consents ({today})")
             lines = [
-                "Weekly summary of pending e-signature consents (status: Sent/Delivered) for your open cases.",
+                "Weekly summary of pending e-signature consents (status: Sent/Delivered) for your active cases.",
                 "",
             ]
             for consent, case in items:

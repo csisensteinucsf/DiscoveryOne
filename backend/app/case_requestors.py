@@ -26,13 +26,13 @@ router = APIRouter(prefix="/api/cases", tags=["cases"])
 REGISTRATION_TOKEN_DAYS = int(os.getenv("REGISTRATION_TOKEN_DAYS", "7"))
 
 
-def normalize_requestor_email(value: Optional[str]) -> Optional[str]:
+def normalize_requestor_email(value: Optional[str], *, allow_external: bool = False) -> Optional[str]:
     text = (value or "").strip()
     if not text:
         return None
     try:
         result = validate_email(text, allow_smtputf8=True, check_deliverability=False)
-        return require_allowed_requestor_email(result.normalized)
+        return result.normalized if allow_external else require_allowed_requestor_email(result.normalized)
     except EmailNotValidError:
         raise HTTPException(status_code=422, detail="requestor must be a valid email address")
 
@@ -41,12 +41,14 @@ def normalize_requestor_entries(
     db: Session,
     items: Optional[List[dict]],
     fallback_email: Optional[str] = None,
+    *,
+    allow_external: bool = False,
 ) -> List[dict]:
     entries: List[dict] = []
     seen: set[str] = set()
     for raw in items or []:
         email_val = raw.get("email") if isinstance(raw, dict) else getattr(raw, "email", None)
-        email = normalize_requestor_email(email_val)
+        email = normalize_requestor_email(email_val, allow_external=allow_external)
         if not email:
             continue
         email_key = email.lower()
@@ -88,7 +90,7 @@ def normalize_requestor_entries(
         )
 
     if not entries and fallback_email:
-        email = normalize_requestor_email(fallback_email)
+        email = normalize_requestor_email(fallback_email, allow_external=allow_external)
         if email:
             entries.append({"email": email, "user_id": None, "requestor_group": None, "is_primary": True})
 

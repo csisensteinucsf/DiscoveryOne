@@ -46,6 +46,16 @@ def release_purview_holds_for_case(
     display_name = (case.name or "").strip()
     if not display_name:
         raise HTTPException(status_code=400, detail="Case must have a name before releasing holds")
+    named_hold = None
+    if getattr(payload, "case_hold_id", None):
+        named_hold = (
+            db.query(models.CaseHold)
+            .filter(models.CaseHold.case_id == case_id, models.CaseHold.id == payload.case_hold_id)
+            .first()
+        )
+        if named_hold is None:
+            raise HTTPException(status_code=404, detail="Hold not found for this case")
+    hold_display_name = f"{display_name} - {named_hold.name}" if named_hold is not None else display_name
     def _log_release_event(action: str, details: dict) -> None:
         try:
             case_core.log_event(
@@ -94,7 +104,7 @@ def release_purview_holds_for_case(
             _log_release_status("no_case_id")
             return {"status": "no_case_id", "results": []}
         holds = purview_core.list_purview_case_legal_holds(provider_case_id)
-        target_hold_name = _purview_hold_display_name(display_name)
+        target_hold_name = _purview_hold_display_name(hold_display_name)
         hold = next((h for h in holds if _purview_hold_name_match(h, target_hold_name)), None)
         if not hold:
             _log_release_status("no_hold", {"purview_case_id": provider_case_id})
@@ -233,7 +243,11 @@ def release_purview_holds_for_case(
             )
         except Exception as exc:
             case_core._debug_suppressed("suppressed exception in cases.py:5031", exc)
-        case_core._schedule_preservation_status_poll(case_id, "purview_hold_release")
+        case_core._schedule_preservation_status_poll(
+        case_id,
+        "purview_hold_release",
+        case_hold_id=getattr(payload, "case_hold_id", None),
+    )
         return result
 
     try:
@@ -560,6 +574,10 @@ def release_purview_holds_for_case(
         "hold_user_sources_count": user_sources_count,
         "hold_site_sources_count": site_sources_count,
     }
-    case_core._schedule_preservation_status_poll(case_id, "purview_hold_release")
+    case_core._schedule_preservation_status_poll(
+        case_id,
+        "purview_hold_release",
+        case_hold_id=getattr(payload, "case_hold_id", None),
+    )
     return result
 

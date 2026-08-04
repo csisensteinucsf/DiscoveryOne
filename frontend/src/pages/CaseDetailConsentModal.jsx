@@ -7,6 +7,9 @@ export default function CaseDetailConsentModal({
   onClose,
   consentFormInline,
   setConsentFormInline,
+  consentHolds,
+  consentHoldId,
+  setConsentHoldId,
   consentAutoSearches,
   consentAutoSearchId,
   setConsentAutoSearchId,
@@ -34,6 +37,16 @@ export default function CaseDetailConsentModal({
           onClose={onClose}
           style={{ maxWidth: 720 }}
         >
+          <Field label="Hold" hint="Consent status and completion are tracked independently for the selected hold.">
+            <Select value={consentHoldId} onChange={event => setConsentHoldId(event.target.value)}>
+              {!consentHolds.length && <option value="">No active holds</option>}
+              {consentHolds.map(hold => (
+                <option key={hold.id} value={String(hold.id)}>
+                  {hold.name} ({hold.custodian_count || 0} custodians)
+                </option>
+              ))}
+            </Select>
+          </Field>
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
             <Field label="Record type" hint="Kinds of records that require access (required).">
               <TextInput

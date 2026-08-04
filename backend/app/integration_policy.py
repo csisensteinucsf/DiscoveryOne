@@ -29,6 +29,7 @@ ENABLED_INTEGRATION_KEYS = frozenset(
         "smtp",
         "ai",
         "log_shipping",
+        "email_intake",
     }
 )
 
@@ -50,6 +51,8 @@ INTEGRATION_CONFIG_KEYS = frozenset(
         "slack",
         "ai",
         "log_shipping",
+        "email_intake",
+
     }
 )
 

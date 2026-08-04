@@ -413,6 +413,9 @@ def add_custodian(
                 request=request,
                 source="custodian_create",
             )
+        from .hold_workflows import sync_legacy_custodian_to_default_hold
+
+        sync_legacy_custodian_to_default_hold(db, c)
         db.commit()
         db.refresh(c)
     except IntegrityError as exc:
@@ -656,6 +659,14 @@ def _apply_custodian_update_payload(
         review_result = apply_custodian_name_email_review(custodian, use_ai=use_ai_review)
     db.add(custodian)
     db.add(case)
+    db.flush()
+    from .hold_workflows import (
+        sync_custodian_not_required_policy_to_memberships,
+        sync_legacy_custodian_to_default_hold,
+    )
+
+    sync_legacy_custodian_to_default_hold(db, custodian, changed_fields=payload.keys())
+    sync_custodian_not_required_policy_to_memberships(db, custodian)
     return review_result
 
 

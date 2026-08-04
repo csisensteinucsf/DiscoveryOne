@@ -37,6 +37,7 @@ from .system_settings import load_system_settings
 from .institution import is_organization_email, load_institution_settings, organization_domains, organization_domain_label
 from .integration_settings import decrypt_secret
 from .ntp_reminder_scheduler import start_ntp_reminder_scheduler
+from .hold_workflows import case_hold_or_404, resolve_hold_memberships, set_membership_ntp_status
 
 
 router = APIRouter(prefix="/api", tags=["ntp"])
@@ -139,6 +140,11 @@ def ntp_reminder_interval_days() -> int:
 
 def ntp_reminder_duration_days() -> int:
     return _ntp_int("reminder_duration_days", "NTP_REMINDER_DURATION_DAYS", 90, minimum=1, maximum=3650)
+
+
+def ntp_ack_token_ttl_days() -> int:
+    default_days = max(365, ntp_reminder_duration_days())
+    return _ntp_int("ack_token_ttl_days", "NTP_ACK_TOKEN_TTL_DAYS", default_days, minimum=1, maximum=3650)
 
 
 def ntp_reminder_loop_seconds() -> int:
@@ -264,8 +270,15 @@ def _create_ntp_token(
     case_id: int,
     custodian_id: int,
     template_id: Optional[int],
+    hold_custodian_id: Optional[int] = None,
 ) -> tuple[models.NTPTargetToken, str]:
-    return _ntp_rendering()._create_ntp_token(db, case_id=case_id, custodian_id=custodian_id, template_id=template_id)
+    return _ntp_rendering()._create_ntp_token(
+        db,
+        case_id=case_id,
+        custodian_id=custodian_id,
+        template_id=template_id,
+        hold_custodian_id=hold_custodian_id,
+    )
 
 
 def _normalize_variables(raw: Dict[str, str]) -> Dict[str, str]:
@@ -324,6 +337,7 @@ class TemplatePayload(BaseModel):
 
 class SendNTPPayload(BaseModel):
     template_id: int
+    case_hold_id: Optional[int] = Field(default=None, gt=0)
     reminder_template_id: Optional[int] = None
     custodian_ids: List[int] = Field(min_length=1)
     variables: Dict[str, str] = Field(default_factory=dict)
@@ -332,10 +346,12 @@ class SendNTPPayload(BaseModel):
 
 class PreviewNTPPayload(BaseModel):
     template_id: int
+    case_hold_id: Optional[int] = Field(default=None, gt=0)
     custodian_ids: List[int] = Field(min_length=1)
     variables: Dict[str, str] = Field(default_factory=dict)
 
 class NTPReminderUpdatePayload(BaseModel):
+    case_hold_id: Optional[int] = Field(default=None, gt=0)
     interval_days: Optional[int] = Field(default=None, gt=0)
     duration_days: Optional[int] = Field(default=None, gt=0)
     enabled: Optional[bool] = None
@@ -379,6 +395,8 @@ def _reminder_response(reminder: models.NTPReminder) -> Dict[str, any]:
         "id": reminder.id,
         "case_id": reminder.case_id,
         "custodian_id": reminder.custodian_id,
+        "hold_id": getattr(getattr(reminder, "hold_custodian", None), "hold_id", None),
+        "hold_custodian_id": reminder.hold_custodian_id,
         "template_id": reminder.template_id,
         "template_name": reminder.template.name if reminder.template else None,
         "interval_days": reminder.interval_days,
@@ -502,6 +520,12 @@ def preview_ntp_notice(
     custodians = _custodians_for_case(db, case_id, payload.custodian_ids)
     if not custodians:
         raise HTTPException(status_code=400, detail="Select at least one custodian")
+    hold, _memberships = resolve_hold_memberships(
+        db,
+        case_id=case_id,
+        custodian_ids=payload.custodian_ids,
+        case_hold_id=payload.case_hold_id,
+    )
     preview_custodian = custodians[0]
     if not (preview_custodian.email or "").strip():
         raise HTTPException(status_code=400, detail=f"Custodian '{preview_custodian.name}' is missing an email address")
@@ -525,6 +549,8 @@ def preview_ntp_notice(
     return {
         "template_id": template.id,
         "template_name": template.name,
+        "hold_id": hold.id,
+        "hold_name": hold.name,
         "subject": subject,
         "text_body": text_body,
         "html_body": html_body,
@@ -590,6 +616,12 @@ def send_ntp_notices(
     custodians = _custodians_for_case(db, case_id, payload.custodian_ids)
     if not custodians:
         raise HTTPException(status_code=400, detail="Select at least one custodian")
+    hold, membership_by_custodian = resolve_hold_memberships(
+        db,
+        case_id=case_id,
+        custodian_ids=payload.custodian_ids,
+        case_hold_id=payload.case_hold_id,
+    )
     base_url = _app_base_url(request)
     friendly_ack = _ack_display_url(base_url)
     requestor_label = case.requestor or ""
@@ -621,7 +653,8 @@ def send_ntp_notices(
     blocked = []
     for cust in custodians:
         status = (getattr(cust, "employment_status", "") or "").strip().lower()
-        ntp_status = (getattr(cust, "ntp_status", "") or "").strip().lower()
+        membership = membership_by_custodian[int(cust.id)]
+        ntp_status = (getattr(membership, "ntp_status", "") or "").strip().lower()
         if status.startswith("separated") or ntp_status == "na":
             blocked.append(cust)
     if blocked:
@@ -630,11 +663,13 @@ def send_ntp_notices(
     for custodian in custodians:
         if not (custodian.email or "").strip():
             raise HTTPException(status_code=400, detail=f"Custodian '{custodian.name}' is missing an email address")
+        hold_membership = membership_by_custodian[int(custodian.id)]
         token, token_value = _create_ntp_token(
             db,
             case_id=case.id,
             custodian_id=custodian.id,
             template_id=template.id,
+            hold_custodian_id=hold_membership.id,
         )
         ack_link = _build_ack_link(base_url, token_value)
         ack_display = friendly_ack
@@ -678,9 +713,13 @@ def send_ntp_notices(
                 )
             else:
                 raise
-        custodian.ntp_status = "sent"
-        custodian.ntp_sent_at = now
-        custodian.ntp_template_name = template_name
+        set_membership_ntp_status(
+            db,
+            hold_membership,
+            "sent",
+            template_name=template_name,
+            at=now,
+        )
         if reminder_template:
             _create_ntp_reminder(
                 db=db,
@@ -692,6 +731,7 @@ def send_ntp_notices(
                 now=now,
                 interval_days=interval_days,
                 duration_days=duration_days,
+                hold_custodian=hold_membership,
             )
         try:
             log_event(
@@ -704,6 +744,9 @@ def send_ntp_notices(
                     "case_id": case.id,
                     "case_name": getattr(case, "name", None),
                     "custodian_id": custodian.id,
+                    "hold_id": hold.id,
+                    "hold_name": hold.name,
+                    "hold_custodian_id": hold_membership.id,
                     "custodian_name": custodian.name,
                     "custodian_email": recipient_email,
                     "template_id": template.id,
@@ -722,9 +765,9 @@ def send_ntp_notices(
             )
         except Exception as exc:
             _debug_suppressed("suppressed exception in ntp.py:957", exc)
-        results.append({"custodian_id": custodian.id, "ack_link": ack_link})
+        results.append({"custodian_id": custodian.id, "hold_id": hold.id, "ack_link": ack_link})
     db.commit()
-    return {"sent": len(results)}
+    return {"sent": len(results), "hold_id": hold.id, "hold_name": hold.name}
 
 
 
@@ -738,10 +781,12 @@ def _create_ntp_reminder(
     now: datetime,
     interval_days: int,
     duration_days: int,
+    hold_custodian: models.HoldCustodian,
 ) -> None:
     reminder = models.NTPReminder(
         case_id=case.id,
         custodian_id=custodian.id,
+        hold_custodian_id=hold_custodian.id,
         template_id=reminder_template.id,
         token_id=token.id,
         variables=json.dumps(variables or {}),
@@ -755,6 +800,7 @@ def _create_ntp_reminder(
 def list_case_ntp_reminders(
     case_id: int,
     include_inactive: bool = False,
+    case_hold_id: Optional[int] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -767,6 +813,15 @@ def list_case_ntp_reminders(
         .options(selectinload(models.NTPReminder.template))
         .filter(models.NTPReminder.case_id == case_id)
     )
+    if case_hold_id is not None:
+        hold = case_hold_or_404(db, case_id, case_hold_id)
+        membership_ids = [
+            int(row[0])
+            for row in db.query(models.HoldCustodian.id)
+            .filter(models.HoldCustodian.hold_id == hold.id)
+            .all()
+        ]
+        query = query.filter(models.NTPReminder.hold_custodian_id.in_(membership_ids))
     if not include_inactive:
         query = query.filter(models.NTPReminder.status == "active")
     reminders = query.order_by(models.NTPReminder.next_send_at.asc()).all()
@@ -780,13 +835,18 @@ def _update_case_ntp_reminders_for_custodian(
     payload: NTPReminderUpdatePayload,
     db: Session,
 ) -> list[models.NTPReminder]:
-    if payload.enabled is True:
-        custodian = db.get(models.Custodian, custodian_id)
-        if custodian and (custodian.ntp_status or "").strip().lower() == "acknowledged":
-            raise HTTPException(
-                status_code=409,
-                detail="Custodian already acknowledged the NTP; reminders will not be reactivated.",
-            )
+    hold, membership_by_custodian = resolve_hold_memberships(
+        db,
+        case_id=case_id,
+        custodian_ids=[custodian_id],
+        case_hold_id=payload.case_hold_id,
+    )
+    membership = membership_by_custodian[custodian_id]
+    if payload.enabled is True and (membership.ntp_status or "").strip().lower() == "acknowledged":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Custodian already acknowledged the NTP for {hold.name}; reminders will not be reactivated.",
+        )
     statuses = ["active"]
     if payload.enabled is True:
         statuses.append("cancelled")
@@ -796,6 +856,7 @@ def _update_case_ntp_reminders_for_custodian(
         .filter(
             models.NTPReminder.case_id == case_id,
             models.NTPReminder.custodian_id == custodian_id,
+            models.NTPReminder.hold_custodian_id == membership.id,
             models.NTPReminder.status.in_(statuses),
         )
         .all()
@@ -844,6 +905,7 @@ def update_case_ntp_reminders(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ensure_case_visible(case, user, db)
+    ensure_case_editable(user)
     reminders = _update_case_ntp_reminders_for_custodian(
         case_id=case_id,
         custodian_id=custodian_id,
@@ -870,6 +932,7 @@ def bulk_update_case_ntp_reminders(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ensure_case_visible(case, user, db)
+    ensure_case_editable(user)
     custodian_ids = []
     seen = set()
     for raw_id in payload.custodian_ids or []:
@@ -884,6 +947,7 @@ def bulk_update_case_ntp_reminders(
     if not custodian_ids:
         raise HTTPException(status_code=400, detail="Custodian ids are required")
     update_payload = NTPReminderUpdatePayload(
+        case_hold_id=payload.case_hold_id,
         interval_days=payload.interval_days,
         duration_days=payload.duration_days,
         enabled=payload.enabled,
@@ -917,7 +981,63 @@ def bulk_update_case_ntp_reminders(
 
 
 
-def acknowledge_ntp(token: str):
+def _ntp_token_expired(row, *, now: Optional[datetime] = None) -> bool:
+    if not row or getattr(row, "used_at", None) is not None:
+        return False
+    created_at = getattr(row, "created_at", None)
+    if not created_at:
+        return True
+    current = now or datetime.now(timezone.utc)
+    return _to_aware_utc(created_at) + timedelta(days=ntp_ack_token_ttl_days()) < _to_aware_utc(current)
+
+
+def _find_ntp_token(db: Session, token: str):
+    hashed_token = _hash_ntp_token(token)
+    row = db.query(models.NTPTargetToken).filter(models.NTPTargetToken.token == hashed_token).first()
+    if not row:
+        row = db.query(models.NTPTargetToken).filter(models.NTPTargetToken.token == token).first()
+    return row
+
+
+def _acknowledgement_confirmation_page(action_path: str) -> HTMLResponse:
+    safe_action = html.escape(action_path, quote=True)
+    title = html.escape(app_display_name())
+    return HTMLResponse(
+        f"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{title} - Confirm acknowledgement</title>
+<style>body{{font-family:system-ui,sans-serif;max-width:38rem;margin:10vh auto;padding:1.5rem;color:#172033}}
+.panel{{border:1px solid #d6dde8;padding:2rem;border-radius:8px}}button{{background:#00598c;color:white;border:0;border-radius:6px;padding:.75rem 1rem;font-weight:600;cursor:pointer}}</style>
+</head><body><main class="panel"><h1>Confirm acknowledgement</h1>
+<p>Select the button below to confirm that you received and acknowledged this notice.</p>
+<form method="post" action="{safe_action}"><button type="submit">Confirm acknowledgement</button></form>
+</main></body></html>""",
+        status_code=200,
+    )
+
+
+def acknowledge_ntp(token: str, *, action_path: Optional[str] = None):
+    db = SessionLocal()
+    try:
+        row = _find_ntp_token(db, token)
+        if not row or _ntp_token_expired(row):
+            return _acknowledgement_page(
+                "Link invalid or expired",
+                f"We could not locate this acknowledgement link. Please contact the {_support_contact_text()} if you need assistance.",
+                status_code=404,
+            )
+        if row.used_at is not None:
+            return _acknowledgement_page(
+                "This notice was already acknowledged.",
+                "No further action is required.",
+            )
+    finally:
+        db.close()
+    return _acknowledgement_confirmation_page(action_path or f"/ntp/ack/{token}")
+
+
+def confirm_ntp_acknowledgement(token: str):
     result = _process_ntp_ack(token)
     return _acknowledgement_page(
         result["title"],
@@ -950,6 +1070,7 @@ def _complete_reminders_for_token(
     *,
     case_id: Optional[int] = None,
     custodian_id: Optional[int] = None,
+    hold_custodian_id: Optional[int] = None,
 ) -> None:
     try:
         updated = (
@@ -961,15 +1082,14 @@ def _complete_reminders_for_token(
             .update({"status": "completed"}, synchronize_session=False)
         )
         if updated == 0 and case_id is not None and custodian_id is not None:
-            (
-                db.query(models.NTPReminder)
-                .filter(
-                    models.NTPReminder.case_id == case_id,
-                    models.NTPReminder.custodian_id == custodian_id,
-                    models.NTPReminder.status == "active",
-                )
-                .update({"status": "completed"}, synchronize_session=False)
+            fallback = db.query(models.NTPReminder).filter(
+                models.NTPReminder.case_id == case_id,
+                models.NTPReminder.custodian_id == custodian_id,
+                models.NTPReminder.status == "active",
             )
+            if hold_custodian_id is not None:
+                fallback = fallback.filter(models.NTPReminder.hold_custodian_id == hold_custodian_id)
+            fallback.update({"status": "completed"}, synchronize_session=False)
     except Exception as exc:
         _debug_suppressed("suppressed exception in ntp.py:1130", exc)
 
@@ -1027,11 +1147,22 @@ def _process_ntp_ack(token: str) -> Dict[str, str]:
                 "http_status": 404,
             }
         already = row.used_at is not None
+        if not already and _ntp_token_expired(row):
+            return {
+                "status": "expired",
+                "title": "Link invalid or expired",
+                "message": f"This acknowledgement link has expired. Please contact the {_support_contact_text()} if you need assistance.",
+                "http_status": 410,
+            }
         custodian = row.custodian
+        hold_membership = getattr(row, "hold_custodian", None)
         if not already:
             now = datetime.now(timezone.utc)
             row.used_at = now
-            if custodian:
+            if hold_membership is not None:
+                set_membership_ntp_status(db, hold_membership, "acknowledged", at=now)
+            elif custodian:
+                # Compatibility for acknowledgement tokens created before named holds existed.
                 custodian.ntp_status = "acknowledged"
                 custodian.ntp_acknowledged_at = now
             _complete_reminders_for_token(
@@ -1039,6 +1170,7 @@ def _process_ntp_ack(token: str) -> Dict[str, str]:
                 row.id,
                 case_id=row.case_id,
                 custodian_id=row.custodian_id,
+                hold_custodian_id=getattr(row, "hold_custodian_id", None),
             )
             db.commit()
             try:
@@ -1053,6 +1185,8 @@ def _process_ntp_ack(token: str) -> Dict[str, str]:
                         "case_id": getattr(case_obj, "id", None) or row.case_id,
                         "case_name": getattr(case_obj, "name", None),
                         "custodian_id": row.custodian_id,
+                        "hold_id": getattr(hold_membership, "hold_id", None),
+                        "hold_custodian_id": getattr(row, "hold_custodian_id", None),
                         "custodian_name": getattr(custodian, "name", None),
                         "custodian_email": getattr(custodian, "email", None),
                         "token_id": row.id,

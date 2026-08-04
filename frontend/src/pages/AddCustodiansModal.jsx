@@ -1,6 +1,7 @@
-﻿import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import { useToast } from '../components/ToastProvider.jsx'
 import Modal from '../components/Modal.jsx'
+import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
 import { Field, TextInput, Button, Badge } from './caseDetailControls.jsx'
 import {
   DEFAULT_LOOKUP_INPUT_PLACEHOLDER,
@@ -11,7 +12,21 @@ import {
   lookupPersonId,
 } from './caseDetailUtils.js'
 import { emptyPersonLookupFields, personLookupFieldsFromMatch } from './caseDetailPersonLookupFields.js'
-export function AddCustodiansModal({ apiBase = '/api', onClose, onSave, onSwitchToImport, saving = false, employeeIdLabel = 'Employee ID', lookupInputPlaceholder = DEFAULT_LOOKUP_INPUT_PLACEHOLDER, personLookupEnabled = false }) {
+export function AddCustodiansModal({
+  apiBase = '/api',
+  caseId,
+  holds = [],
+  selectedHoldIds = [],
+  onSelectedHoldIdsChange,
+  onHoldCreated,
+  onClose,
+  onSave,
+  onSwitchToImport,
+  saving = false,
+  employeeIdLabel = 'Employee ID',
+  lookupInputPlaceholder = DEFAULT_LOOKUP_INPUT_PLACEHOLDER,
+  personLookupEnabled = false,
+}) {
   const { showToast } = useToast()
   const [rows, setRows] = useState([{ name: '', email: '' }])
   const [lookupBusy, setLookupBusy] = useState(false)
@@ -177,9 +192,10 @@ export function AddCustodiansModal({ apiBase = '/api', onClose, onSave, onSwitch
     }
     return { ok: issues.length === 0, issues }
   }, [manualRows, personLookupEnabled, rows, lookupResults])
-  const canSubmit = personLookupEnabled
+  const holdSelectionValid = selectedHoldIds.length > 0
+  const canSubmit = holdSelectionValid && (personLookupEnabled
     ? hasAtLeastOneName && lookupHasRun && !lookupBusy && !saving && validation.ok
-    : manualRows.length > 0 && !saving && validation.ok
+    : manualRows.length > 0 && !saving && validation.ok)
   return (
     <Modal
       open
@@ -189,7 +205,7 @@ export function AddCustodiansModal({ apiBase = '/api', onClose, onSave, onSwitch
       footer={(
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={() => onSave(mergedRows)} disabled={!canSubmit} title={!canSubmit ? (validation.issues[0] || "Run person lookup first") : "Add"}>{saving ? "Adding..." : "Add"}</Button>
+          <Button onClick={() => onSave(mergedRows)} disabled={!canSubmit} title={!holdSelectionValid ? 'Select at least one active hold' : (!canSubmit ? (validation.issues[0] || "Run person lookup first") : "Add")}>{saving ? "Adding..." : "Add"}</Button>
         </div>
       )}
     >
@@ -199,6 +215,15 @@ export function AddCustodiansModal({ apiBase = '/api', onClose, onSave, onSwitch
           <Button variant="subtle" onClick={onSwitchToImport} disabled={saving}>Import custodians</Button>
         )}
       </div>
+      <HoldAssignmentPicker
+        apiBase={apiBase}
+        caseId={caseId}
+        holds={holds}
+        selectedHoldIds={selectedHoldIds}
+        onSelectedHoldIdsChange={onSelectedHoldIdsChange}
+        onHoldCreated={onHoldCreated}
+        disabled={saving}
+      />
       <div style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         {personLookupEnabled ? (
           <>

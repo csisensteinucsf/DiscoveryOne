@@ -37,46 +37,37 @@ def _resolve_case_counts(db: Session, actor: models.User, *, config: dict) -> di
 
 def _resolve_consent_status(db: Session, actor: models.User, *, config: dict) -> dict:
     case_ids = _visible_case_ids(db, actor)
-    status_col = func.lower(func.coalesce(models.CaseConsent.status, "")).label("status")
+    status_col = func.lower(func.coalesce(models.HoldCustodian.consent_status, "not sent")).label("status")
     q = (
-        db.query(status_col, func.count(models.CaseConsent.id))
-        .join(models.Case, models.Case.id == models.CaseConsent.case_id)
-        .filter(models.CaseConsent.case_id.isnot(None))
+        db.query(status_col, func.count(models.HoldCustodian.id))
+        .join(models.CaseHold, models.HoldCustodian.hold_id == models.CaseHold.id)
+        .join(models.Case, models.Case.id == models.CaseHold.case_id)
     )
     if config.get("open_only", True):
         q = q.filter(models.Case.closed.is_(False))
     q = _filter_case_ids(q, models.Case.id, case_ids)
-    q = q.group_by(status_col)
-    rows = q.all()
-    by_status: dict[str, int] = {}
-    for status, n in rows:
-        s = (status or "").strip() or "unknown"
-        by_status[s] = int(n or 0)
-    pending = by_status.get("sent", 0) + by_status.get("delivered", 0)
-    return {"by_status": by_status, "pending": pending}
-
+    rows = q.group_by(status_col).all()
+    by_status = {(status or "").strip() or "unknown": int(count or 0) for status, count in rows}
+    pending = by_status.get("not sent", 0) + by_status.get("sent", 0)
+    return {"by_status": by_status, "pending": pending, "total": sum(by_status.values())}
 
 def _resolve_ntp_status(db: Session, actor: models.User, *, config: dict) -> dict:
     case_ids = _visible_case_ids(db, actor)
     open_only = bool(config.get("open_only", True))
-    status_col = func.lower(func.coalesce(models.Custodian.ntp_status, "not sent")).label("status")
+    status_col = func.lower(func.coalesce(models.HoldCustodian.ntp_status, "not sent")).label("status")
     q = (
-        db.query(status_col, func.count(models.Custodian.id))
-        .join(models.Case, models.Case.id == models.Custodian.case_id)
+        db.query(status_col, func.count(models.HoldCustodian.id))
+        .join(models.CaseHold, models.HoldCustodian.hold_id == models.CaseHold.id)
+        .join(models.Case, models.Case.id == models.CaseHold.case_id)
     )
     if open_only:
         q = q.filter(models.Case.closed.is_(False))
     q = _filter_case_ids(q, models.Case.id, case_ids)
-    q = q.group_by(status_col)
-    rows = q.all()
-    by_status: dict[str, int] = {}
-    for status, n in rows:
-        key = (status or "").strip() or "unknown"
-        by_status[key] = int(n or 0)
+    rows = q.group_by(status_col).all()
+    by_status = {(status or "").strip() or "unknown": int(count or 0) for status, count in rows}
     total = sum(by_status.values())
     pending = by_status.get("not sent", 0) + by_status.get("sent", 0)
     return {"by_status": by_status, "total": total, "pending": pending, "open_only": open_only}
-
 
 def _resolve_ntp_reminders(db: Session, actor: models.User, *, config: dict) -> dict:
     case_ids = _visible_case_ids(db, actor)
@@ -129,75 +120,73 @@ def _resolve_ntp_reminders(db: Session, actor: models.User, *, config: dict) -> 
 
 def _resolve_hold_status(db: Session, actor: models.User, *, config: dict) -> dict:
     case_ids = _visible_case_ids(db, actor)
-    configured_fields = configured_builtin_hold_fields(enabled_only=True)
-    active_fields = [field for _key, field, _label in configured_fields if hasattr(models.Custodian, field)]
-    pending_fields = [f"{field}_pending" for field in active_fields if hasattr(models.Custodian, f"{field}_pending")]
-    keys = [key for key, field, _label in configured_fields if field in active_fields]
-
-    q = db.query(models.Custodian).join(models.Case, models.Case.id == models.Custodian.case_id)
+    q = (
+        db.query(
+            models.HoldCustodian.id,
+            models.HoldPreservationSource.source_key,
+            models.HoldPreservationSource.status,
+        )
+        .join(models.HoldPreservationSource, models.HoldPreservationSource.hold_custodian_id == models.HoldCustodian.id)
+        .join(models.CaseHold, models.HoldCustodian.hold_id == models.CaseHold.id)
+        .join(models.Case, models.Case.id == models.CaseHold.case_id)
+    )
     if config.get("open_only", True):
         q = q.filter(models.Case.closed.is_(False))
     q = _filter_case_ids(q, models.Case.id, case_ids)
-    columns = [getattr(models.Custodian, field) for field in active_fields] + [getattr(models.Custodian, field) for field in pending_fields]
-    rows = q.with_entities(*columns).all() if columns else q.with_entities(models.Custodian.id).all()
-    total = len(rows)
-    active_any = 0
-    pending_any = 0
-    active_by_type = {key: 0 for key in keys}
-    pending_by_type = {key: 0 for key in keys}
-    active_count = len(active_fields)
-    for r in rows:
-        active = [bool(r[idx]) for idx in range(active_count)]
-        pending = [bool(r[active_count + idx]) for idx in range(len(pending_fields))]
-        if any(active):
-            active_any += 1
-        if any(pending):
-            pending_any += 1
-        for idx, k in enumerate(keys):
-            if idx < len(active) and active[idx]:
-                active_by_type[k] += 1
-            if idx < len(pending) and pending[idx]:
-                pending_by_type[k] += 1
+    rows = q.all()
+    membership_ids = {int(row[0]) for row in rows}
+    active_ids: set[int] = set()
+    pending_ids: set[int] = set()
+    active_by_type: dict[str, int] = {}
+    pending_by_type: dict[str, int] = {}
+    for membership_id, source_key, status in rows:
+        key = str(source_key or "unknown").strip().lower() or "unknown"
+        normalized = str(status or "not_started").strip().lower()
+        if normalized == "active":
+            active_ids.add(int(membership_id))
+            active_by_type[key] = active_by_type.get(key, 0) + 1
+        elif normalized == "pending":
+            pending_ids.add(int(membership_id))
+            pending_by_type[key] = pending_by_type.get(key, 0) + 1
     return {
-        "custodians": total,
-        "active_any": active_any,
-        "pending_any": pending_any,
+        "custodians": len(membership_ids),
+        "active_any": len(active_ids),
+        "pending_any": len(pending_ids),
         "active_by_type": active_by_type,
         "pending_by_type": pending_by_type,
     }
 
-
 def _resolve_search_status(db: Session, actor: models.User, *, config: dict) -> dict:
     case_ids = _visible_case_ids(db, actor)
     open_only = bool(config.get("open_only", True))
-
-    q = db.query(models.Search).join(models.Case, models.Case.id == models.Search.case_id)
+    q = (
+        db.query(
+            models.HoldSearch.status_search,
+            models.HoldSearch.status_export,
+            models.HoldSearch.status_delivery,
+            models.Search.export_without_consent,
+        )
+        .join(models.CaseHold, models.HoldSearch.hold_id == models.CaseHold.id)
+        .join(models.Case, models.Case.id == models.CaseHold.case_id)
+        .join(models.Search, models.Search.id == models.HoldSearch.search_id)
+    )
     if open_only:
         q = q.filter(models.Case.closed.is_(False))
     q = _filter_case_ids(q, models.Case.id, case_ids)
-
-    rows = q.with_entities(
-        models.Search.status_search,
-        models.Search.status_export,
-        models.Search.status_delivery,
-        models.Search.export_without_consent,
-    ).all()
+    rows = q.all()
 
     by_search: dict[str, int] = {}
     by_export: dict[str, int] = {}
     by_delivery: dict[str, int] = {}
     delivery_pending = 0
     exported_without_consent = 0
-
     for search_status, export_status, delivery_status, without_consent in rows:
         s_key = (search_status or "").strip().lower() or "unknown"
         e_key = (export_status or "").strip().lower() or "unknown"
         d_key = (delivery_status or "").strip().lower() or "unknown"
-
         by_search[s_key] = by_search.get(s_key, 0) + 1
         by_export[e_key] = by_export.get(e_key, 0) + 1
         by_delivery[d_key] = by_delivery.get(d_key, 0) + 1
-
         if e_key == "performed" and d_key not in {"performed", "not required"}:
             delivery_pending += 1
         if bool(without_consent):

@@ -3,7 +3,7 @@ import { personLookupFieldsFromRecord } from './caseDetailPersonLookupFields.js'
 
 const normalizeEmail = (value) => (value || '').trim().toLowerCase()
 
-export function useCaseDetailCustodianImport({ apiBase, caseId, custodians }) {
+export function useCaseDetailCustodianImport({ apiBase, caseId, custodians, targetHoldIds = [] }) {
   const [importWorking, setImportWorking] = useState(false)
   const [importDone, setImportDone] = useState(0)
   const [importTotal, setImportTotal] = useState(0)
@@ -16,6 +16,14 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians }) {
   )
 
   const submitCustodianBatch = useCallback(async (rows) => {
+    const normalizedHoldIds = [...new Set(
+      (Array.isArray(targetHoldIds) ? targetHoldIds : [])
+        .map(Number)
+        .filter(value => Number.isFinite(value) && value > 0)
+    )]
+    if (!normalizedHoldIds.length) {
+      throw new Error('Select at least one active hold for these custodians.')
+    }
     const seen = new Set()
     const toCreate = []
     for (const row of rows) {
@@ -49,7 +57,7 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ custodians: toCreate }),
+      body: JSON.stringify({ custodians: toCreate, hold_ids: normalizedHoldIds }),
     })
     let body = null
     try {
@@ -78,7 +86,7 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians }) {
       errors,
       submittedCount: toCreate.length,
     }
-  }, [apiBase, caseId, existingEmails])
+  }, [apiBase, caseId, existingEmails, targetHoldIds])
 
   const submitCustodianBulkUpdate = useCallback(async ({ ids = [], patch = null, updates = [] } = {}) => {
     const payload = Array.isArray(updates) && updates.length

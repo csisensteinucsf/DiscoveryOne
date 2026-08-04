@@ -24,6 +24,7 @@ from .auth import current_user  # why: to capture actor_id on mutations
 from .permissions import ensure_case_visible, ensure_case_editable
 from .safe_log import debug_suppressed as _debug_suppressed
 from .search_naming import next_search_number, suggest_search_name
+from .hold_workflows import set_search_holds, sync_search_hold_statuses
 router = APIRouter(prefix="/api/cases", tags=["searches"])
 
 
@@ -52,6 +53,7 @@ def _serialize_search(obj: models.Search) -> dict:
             custodian_ids = obj.custodian_ids or []
     except Exception:
         custodian_ids = []
+    hold_memberships = list(getattr(obj, "hold_memberships", None) or [])
     return {
         "id": obj.id,
         "case_id": obj.case_id,
@@ -67,6 +69,16 @@ def _serialize_search(obj: models.Search) -> dict:
         "export_without_consent": bool(getattr(obj, "export_without_consent", False)),
         "status_delivery": obj.status_delivery,
         "custodian_ids": custodian_ids,
+        "hold_ids": sorted(int(item.hold_id) for item in hold_memberships),
+        "hold_statuses": [
+            {
+                "hold_id": int(item.hold_id),
+                "status_search": item.status_search,
+                "status_export": item.status_export,
+                "status_delivery": item.status_delivery,
+            }
+            for item in sorted(hold_memberships, key=lambda value: int(value.hold_id))
+        ],
     }
 
 def _escape_re(text: str) -> str:
@@ -152,6 +164,8 @@ def create_search(
         custodian_ids=json.dumps(payload.custodian_ids or []),
     )
     db.add(obj)
+    db.flush()
+    set_search_holds(db, search=obj, hold_ids=payload.hold_ids)
     db.commit()
     db.refresh(obj)
     try:
@@ -192,6 +206,7 @@ def update_search(
 
     before = _serialize_search(obj)
     data = payload.dict(exclude_unset=True)
+    hold_ids = data.pop("hold_ids", None)
     for field, value in data.items():
         if isinstance(value, str) and value.strip() == "":
             value = None
@@ -207,6 +222,11 @@ def update_search(
         setattr(obj, field, value)
 
     db.add(obj)
+    db.flush()
+    if hold_ids is not None:
+        set_search_holds(db, search=obj, hold_ids=hold_ids)
+    else:
+        sync_search_hold_statuses(db, obj)
     db.commit()
     db.refresh(obj)
     try:
@@ -225,6 +245,7 @@ def update_search(
             "export_without_consent",
             "status_delivery",
             "custodian_ids",
+            "hold_ids",
         ):
             if before.get(key) != after.get(key):
                 changes[key] = {"old": before.get(key), "new": after.get(key)}

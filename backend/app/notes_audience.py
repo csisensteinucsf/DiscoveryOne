@@ -82,7 +82,7 @@ def _create_internal_audience_note(
     row = models.CaseNote(
         case_id=case_id,
         audience=audience,
-        author=payload.author or user.username,
+        author=user.username,
         body=body,
         format=fmt,
         is_pinned=bool(payload.is_pinned),

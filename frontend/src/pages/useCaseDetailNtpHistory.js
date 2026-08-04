@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 
-export function useCaseDetailNtpHistory({ apiBase, caseId, loadNtpReminders, showToast }) {
+export function useCaseDetailNtpHistory({ apiBase, caseId, caseHoldId, loadNtpReminders, showToast }) {
   const [showNtpHistoryModal, setShowNtpHistoryModal] = useState(false)
   const [ntpHistory, setNtpHistory] = useState({ loading: false, error: null, events: [] })
   const [ntpHistoryExporting, setNtpHistoryExporting] = useState(false)
@@ -10,7 +10,8 @@ export function useCaseDetailNtpHistory({ apiBase, caseId, loadNtpReminders, sho
     if (!caseId) return
     setNtpHistory({ loading: true, error: null, events: [] })
     try {
-      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/history`, { credentials: 'include' })
+      const query = caseHoldId ? `?case_hold_id=${encodeURIComponent(caseHoldId)}` : ''
+      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/history${query}`, { credentials: 'include' })
       if (!res.ok) throw new Error(await res.text().catch(() => '') || 'Unable to load NTP history')
       const data = await res.json()
       const events = Array.isArray(data?.events) ? data.events : []
@@ -18,13 +19,14 @@ export function useCaseDetailNtpHistory({ apiBase, caseId, loadNtpReminders, sho
     } catch (err) {
       setNtpHistory({ loading: false, error: err?.message || 'Unable to load NTP history', events: [] })
     }
-  }, [caseId, apiBase])
+  }, [caseHoldId, caseId, apiBase])
 
   const exportNtpHistoryCsv = useCallback(async () => {
     if (!caseId) return
     setNtpHistoryExporting(true)
     try {
-      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/history/export`, { credentials: 'include' })
+      const query = caseHoldId ? `?case_hold_id=${encodeURIComponent(caseHoldId)}` : ''
+      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/history/export${query}`, { credentials: 'include' })
       if (!res.ok) {
         let message = 'Unable to export NTP history.'
         try {
@@ -54,13 +56,14 @@ export function useCaseDetailNtpHistory({ apiBase, caseId, loadNtpReminders, sho
     } finally {
       setNtpHistoryExporting(false)
     }
-  }, [apiBase, caseId, showToast])
+  }, [apiBase, caseHoldId, caseId, showToast])
 
   const emailNtpHistoryReport = useCallback(async () => {
     if (!caseId) return
     setNtpHistoryEmailing(true)
     try {
-      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/history/email`, {
+      const query = caseHoldId ? `?case_hold_id=${encodeURIComponent(caseHoldId)}` : ''
+      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/history/email${query}`, {
         method: 'POST',
         credentials: 'include',
       })
@@ -73,7 +76,7 @@ export function useCaseDetailNtpHistory({ apiBase, caseId, loadNtpReminders, sho
     } finally {
       setNtpHistoryEmailing(false)
     }
-  }, [apiBase, caseId, showToast])
+  }, [apiBase, caseHoldId, caseId, showToast])
 
   const openNtpHistoryModal = useCallback(async () => {
     setShowNtpHistoryModal(true)

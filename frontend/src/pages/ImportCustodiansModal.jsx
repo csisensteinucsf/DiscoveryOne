@@ -1,5 +1,6 @@
-﻿import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import Modal from '../components/Modal.jsx'
+import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
 import { Field, TextInput, Button, Badge } from './caseDetailControls.jsx'
 import {
   employmentEndDateColor,
@@ -9,7 +10,20 @@ import {
 } from './caseDetailUtils.js'
 import { emptyPersonLookupFields, personLookupFieldsFromMatch } from './caseDetailPersonLookupFields.js'
 
-export function ImportCustodiansModal({ apiBase = '/api', onClose, onImport, progress, onSwitchToAdd, employeeIdLabel = 'Employee ID', personLookupEnabled = false }) {
+export function ImportCustodiansModal({
+  apiBase = '/api',
+  caseId,
+  holds = [],
+  selectedHoldIds = [],
+  onSelectedHoldIdsChange,
+  onHoldCreated,
+  onClose,
+  onImport,
+  progress,
+  onSwitchToAdd,
+  employeeIdLabel = 'Employee ID',
+  personLookupEnabled = false,
+}) {
   const [mode, setMode] = useState('paste')
   const [text, setText] = useState('')
   const [rows, setRows] = useState([])
@@ -160,9 +174,10 @@ export function ImportCustodiansModal({ apiBase = '/api', onClose, onImport, pro
     }
     return { ok: issues.length === 0, issues }
   }, [nonEmptyRows, personLookupEnabled, rows, lookupResults, normalizeRows])
-  const canImport = personLookupEnabled
+  const holdSelectionValid = selectedHoldIds.length > 0
+  const canImport = holdSelectionValid && (personLookupEnabled
     ? !!rows.length && lookupHasRun && !lookupBusy && !progress?.working && validation.ok
-    : !!nonEmptyRows.length && !progress?.working && validation.ok
+    : !!nonEmptyRows.length && !progress?.working && validation.ok)
   return (
     <Modal
       open
@@ -181,7 +196,7 @@ export function ImportCustodiansModal({ apiBase = '/api', onClose, onImport, pro
               person_lookup_overridden: true,
               ...emptyPersonLookupFields(),
             }
-          }))} disabled={!canImport} title={!canImport ? (validation.issues[0] || (personLookupEnabled ? 'Run person lookup first' : 'Enter names and valid email addresses')) : ''}>
+          }))} disabled={!canImport} title={!holdSelectionValid ? 'Select at least one active hold' : (!canImport ? (validation.issues[0] || (personLookupEnabled ? 'Run person lookup first' : 'Enter names and valid email addresses')) : '')}>
             {progress?.working ? 'Importing...' : `Import ${rows.length ? `(${rows.length})` : ''}`}
           </Button>
         </div>
@@ -193,6 +208,15 @@ export function ImportCustodiansModal({ apiBase = '/api', onClose, onImport, pro
           <Button variant="subtle" onClick={onSwitchToAdd} disabled={progress?.working}>Back to manual add</Button>
         )}
       </div>
+      <HoldAssignmentPicker
+        apiBase={apiBase}
+        caseId={caseId}
+        holds={holds}
+        selectedHoldIds={selectedHoldIds}
+        onSelectedHoldIdsChange={onSelectedHoldIdsChange}
+        onHoldCreated={onHoldCreated}
+        disabled={!!progress?.working}
+      />
       {progress?.working && (
         <div style={{ marginBottom: 12 }}>
           <div style={{ height: 10, background:'#eef2f7', borderRadius: 999, overflow:'hidden' }}>

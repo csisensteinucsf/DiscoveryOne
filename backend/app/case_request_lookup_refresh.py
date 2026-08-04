@@ -253,6 +253,9 @@ def run_full_custodian_lookup_update(
                             case_obj = case_map.get(int(getattr(cust, "case_id", 0) or 0))
                             if case_obj:
                                 apply_consent_defaults(case_obj, cust)
+                                from .hold_workflows import sync_custodian_not_required_policy_to_memberships
+
+                                sync_custodian_not_required_policy_to_memberships(db, cust)
                             after = custodian_lookup_snapshot(cust)
                             if before != after:
                                 group_changed = True

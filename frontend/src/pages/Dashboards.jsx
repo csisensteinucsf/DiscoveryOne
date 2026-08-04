@@ -19,7 +19,7 @@ const WIDGET_CATALOG = [
   {
     type: 'case_counts',
     title: 'Cases',
-    description: 'Open vs closed cases, plus recently created.',
+    description: 'Active vs inactive cases, plus recently created.',
     defaultConfig: { created_last_days: 7 },
   },
   {
@@ -76,7 +76,7 @@ const DEFAULT_WIDGET_IDS = {
   open_tickets: 'tickets',
 }
 
-const DASHBOARD_MODAL_WIDTH_MULTIPLIER = 2
+const DASHBOARD_MODAL_WIDTH_MULTIPLIER = 1
 
 function defaultConfig() {
   const defaultWidgets = DEFAULT_WIDGET_ORDER.map((type, idx) => {

@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 from typing import List
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
@@ -18,6 +18,12 @@ from .esignature_provider import (
     send_consent_request,
     void_request,
 )
+from .hold_workflows import (
+    case_hold_or_404,
+    resolve_hold_memberships,
+    set_membership_consent_status,
+    sync_membership_consent_from_requests,
+)
 from .permissions import ensure_case_editable, ensure_case_visible
 from .safe_log import debug_suppressed as _debug_suppressed
 
@@ -33,6 +39,7 @@ def _request_reference(consent: models.CaseConsent) -> tuple[str, str]:
 @router.get("/{case_id}/consents", response_model=List[schemas.CaseConsent])
 def list_case_consents(
     case_id: int,
+    case_hold_id: int | None = None,
     db: Session = Depends(get_db),
     actor: models.User = Depends(get_current_user),
 ):
@@ -40,12 +47,17 @@ def list_case_consents(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ensure_case_visible(case, actor, db)
-    rows = (
-        db.query(models.CaseConsent)
-        .filter(models.CaseConsent.case_id == case_id)
-        .order_by(models.CaseConsent.sent_at.desc())
-        .all()
-    )
+    query = db.query(models.CaseConsent).filter(models.CaseConsent.case_id == case_id)
+    if case_hold_id is not None:
+        hold = case_hold_or_404(db, case_id, case_hold_id)
+        membership_ids = [
+            int(row[0])
+            for row in db.query(models.HoldCustodian.id)
+            .filter(models.HoldCustodian.hold_id == hold.id)
+            .all()
+        ]
+        query = query.filter(models.CaseConsent.hold_custodian_id.in_(membership_ids))
+    rows = query.order_by(models.CaseConsent.sent_at.desc()).all()
     references = [_request_reference(row) for row in rows]
     filenames_by_reference = {
         reference: f"{reference[0]}-{reference[1]}.pdf"
@@ -73,6 +85,8 @@ def list_case_consents(
             "id": row.id,
             "case_id": row.case_id,
             "custodian_id": row.custodian_id,
+            "hold_id": row.hold_id,
+            "hold_custodian_id": row.hold_custodian_id,
             "custodian_name": row.custodian_name,
             "custodian_email": row.custodian_email,
             "provider": provider,
@@ -134,6 +148,21 @@ def send_consent_request_route(
         }]
     if not record_type:
         raise HTTPException(status_code=400, detail="Record type is required")
+    custodian_ids: list[int] = []
+    for entry in custodians_payload:
+        try:
+            custodian_id = int(entry.get("custodian_id"))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=422, detail="Each consent recipient must be an existing case custodian")
+        if custodian_id <= 0:
+            raise HTTPException(status_code=422, detail="Each consent recipient must be an existing case custodian")
+        custodian_ids.append(custodian_id)
+    hold, membership_by_custodian = resolve_hold_memberships(
+        db,
+        case_id=case_id,
+        custodian_ids=custodian_ids,
+        case_hold_id=payload.get("case_hold_id"),
+    )
     combined_case_name = case.name
     if getattr(case, "legal_case_name", None):
         combined_case_name = f"{case.legal_case_name} - {case.name}"
@@ -144,7 +173,8 @@ def send_consent_request_route(
     provider = current_esignature_provider()
 
     for entry in custodians_payload:
-        custodian_id = entry.get("custodian_id")
+        custodian_id = int(entry.get("custodian_id"))
+        hold_membership = membership_by_custodian[custodian_id]
         custodian_name = (entry.get("custodian_name") or "").strip()
         custodian_email = (entry.get("custodian_email") or "").strip()
         custodian_obj = None
@@ -178,6 +208,7 @@ def send_consent_request_route(
         consent = models.CaseConsent(
             case_id=case_id,
             custodian_id=custodian_id,
+            hold_custodian_id=hold_membership.id,
             custodian_name=custodian_name,
             custodian_email=custodian_email,
             provider=provider,
@@ -192,12 +223,8 @@ def send_consent_request_route(
         )
         db.add(consent)
         created_consents.append(consent)
-        # Mark consent as sent on the custodian record (unless already received)
-        try:
-            if custodian_obj and (custodian_obj.consent_status or "not sent").lower() != "received":
-                custodian_obj.consent_status = "sent"
-        except Exception as exc:
-            _debug_suppressed("suppressed exception in case_consents.py:6052", exc)
+        if (hold_membership.consent_status or "not sent").lower() != "received":
+            set_membership_consent_status(db, hold_membership, "sent")
         try:
             log_event(
                 db,
@@ -212,6 +239,9 @@ def send_consent_request_route(
                     "request_id": request_id,
                     "envelope_id": request_id,
                     "custodian_id": custodian_id,
+                    "hold_id": hold.id,
+                    "hold_name": hold.name,
+                    "hold_custodian_id": hold_membership.id,
                     "custodian_name": custodian_name,
                     "custodian_email": custodian_email,
                 },
@@ -263,6 +293,8 @@ def resend_consent_request(
                 "case_id": case_id,
                 "case_name": getattr(case, "name", None),
                 "custodian_id": consent.custodian_id,
+                "hold_id": consent.hold_id,
+                "hold_custodian_id": consent.hold_custodian_id,
                 "custodian_name": consent.custodian_name,
                 "custodian_email": consent.custodian_email,
                 "provider": provider,
@@ -309,6 +341,9 @@ def void_consent_request(
         void_request(request_id, reason, provider=provider)
         consent.status = "voided"
         db.add(consent)
+        db.flush()
+        if consent.hold_custodian is not None:
+            sync_membership_consent_from_requests(db, consent.hold_custodian)
         db.commit()
     except ESignatureProviderError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
@@ -326,6 +361,8 @@ def void_consent_request(
                 "case_id": case_id,
                 "case_name": getattr(case, "name", None),
                 "custodian_id": consent.custodian_id,
+                "hold_id": consent.hold_id,
+                "hold_custodian_id": consent.hold_custodian_id,
                 "custodian_name": consent.custodian_name,
                 "custodian_email": consent.custodian_email,
                 "provider": provider,
@@ -380,6 +417,8 @@ def download_consent_request(
                 "case_id": case_id,
                 "case_name": getattr(case, "name", None),
                 "custodian_id": consent.custodian_id,
+                "hold_id": consent.hold_id,
+                "hold_custodian_id": consent.hold_custodian_id,
                 "custodian_name": consent.custodian_name,
                 "custodian_email": consent.custodian_email,
                 "provider": provider,

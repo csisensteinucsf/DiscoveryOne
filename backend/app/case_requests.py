@@ -630,6 +630,40 @@ def _persist_consent_proofs(
         _sync_case_documentation_counters(db, int(record.case_id))
 
 
+def _assign_request_proofs_to_default_hold(db: Session, record: models.CaseRequest) -> None:
+    if not record.case_id:
+        return
+    case = db.get(models.Case, int(record.case_id))
+    if case is None:
+        return
+    from .case_holds import ensure_default_hold
+    from .hold_workflows import set_membership_consent_status
+
+    hold = ensure_default_hold(db, case, assign_existing=True)
+    db.flush()
+    for proof in list(getattr(record, "consent_proofs", []) or []):
+        proof.case_id = int(record.case_id)
+        custodian = _find_custodian_for_case(
+            db,
+            int(record.case_id),
+            email=getattr(proof, "custodian_email", None),
+            name=getattr(proof, "custodian_name", None),
+        )
+        if custodian is not None:
+            membership = (
+                db.query(models.HoldCustodian)
+                .filter(
+                    models.HoldCustodian.hold_id == hold.id,
+                    models.HoldCustodian.custodian_id == custodian.id,
+                )
+                .first()
+            )
+            if membership is not None:
+                proof.hold_custodian_id = membership.id
+                set_membership_consent_status(db, membership, "received")
+        db.add(proof)
+    db.flush()
+
 def _custodian_lookup_for_case(db: Session, case_id: int) -> Dict[str, models.Custodian]:
     custodians = (
         db.query(models.Custodian)
@@ -683,18 +717,16 @@ def _next_consent_status_after_proof_removal(
     custodian: Optional[models.Custodian],
     email: Optional[str],
     name: Optional[str],
+    hold_custodian_id: Optional[int] = None,
 ) -> str:
-    """
-    Determine the appropriate consent status after a proof has been removed.
-    Keeps 'received' if any other proof exists or any DocuSign consent
-    is completed. Otherwise returns 'not sent'.
-    """
+    """Return the remaining consent state for one named-hold membership."""
     email_key = (email or "").strip().lower()
     name_key = (name or "").strip().lower()
 
-    # Any other proof for this custodian keeps status at received.
     proof_q = db.query(models.CaseRequestConsentProof.id).filter(models.CaseRequestConsentProof.case_id == case_id)
-    if email_key:
+    if hold_custodian_id is not None:
+        proof_q = proof_q.filter(models.CaseRequestConsentProof.hold_custodian_id == hold_custodian_id)
+    elif email_key:
         proof_q = proof_q.filter(func.lower(models.CaseRequestConsentProof.custodian_email) == email_key)
     elif name_key:
         proof_q = proof_q.filter(func.lower(models.CaseRequestConsentProof.custodian_name) == name_key)
@@ -704,7 +736,9 @@ def _next_consent_status_after_proof_removal(
         return "received"
 
     consent_q = db.query(models.CaseConsent).filter(models.CaseConsent.case_id == case_id)
-    if custodian and custodian.id:
+    if hold_custodian_id is not None:
+        consent_q = consent_q.filter(models.CaseConsent.hold_custodian_id == hold_custodian_id)
+    elif custodian and custodian.id:
         consent_q = consent_q.filter(models.CaseConsent.custodian_id == custodian.id)
     elif email_key:
         consent_q = consent_q.filter(func.lower(models.CaseConsent.custodian_email) == email_key)
@@ -717,9 +751,7 @@ def _next_consent_status_after_proof_removal(
         completed = consent_q.filter(models.CaseConsent.status.in_(["completed", "received"])).first()
         if completed:
             return "received"
-
     return "not sent"
-
 
 def _serialize_case_consent_proof(
     proof: models.CaseRequestConsentProof,
@@ -739,6 +771,9 @@ def _serialize_case_consent_proof(
     return {
         "id": proof.id,
         "case_request_id": proof.case_request_id,
+        "hold_custodian_id": getattr(proof, "hold_custodian_id", None),
+        "hold_id": getattr(getattr(proof, "hold_custodian", None), "hold_id", None),
+        "hold_name": getattr(getattr(getattr(proof, "hold_custodian", None), "hold", None), "name", None),
         "custodian_name": display_name,
         "custodian_email": proof.custodian_email,
         "original_filename": original_filename,
@@ -757,37 +792,33 @@ def _serialize_case_consent_proof(
 def _apply_consents(db: Session, case_id: Optional[int], consents: Optional[List[Dict[str, Any]]]) -> None:
     if not case_id or not consents:
         return
-    normalized = []
-    for item in consents or []:
-        email = (item.get("email") or "").strip().lower()
-        name = (item.get("name") or "").strip().lower()
-        if not email and not name:
-            continue
-        normalized.append({"email": email, "name": name})
-    if not normalized:
+    case = db.get(models.Case, int(case_id))
+    if case is None:
         return
-    for entry in normalized:
-        if entry["email"]:
-            (
-                db.query(models.Custodian)
-                .filter(models.Custodian.case_id == case_id)
-                .filter(func.lower(models.Custodian.email) == entry["email"])
-                .update(
-                    {models.Custodian.consent_status: "received"},
-                    synchronize_session=False,
-                )
-            )
-        elif entry["name"]:
-            (
-                db.query(models.Custodian)
-                .filter(models.Custodian.case_id == case_id)
-                .filter(func.lower(models.Custodian.name) == entry["name"])
-                .update(
-                    {models.Custodian.consent_status: "received"},
-                    synchronize_session=False,
-                )
-            )
+    from .case_holds import ensure_default_hold
+    from .hold_workflows import set_membership_consent_status
 
+    hold = ensure_default_hold(db, case, assign_existing=True)
+    db.flush()
+    for item in consents or []:
+        custodian = _find_custodian_for_case(
+            db,
+            int(case_id),
+            email=(item.get("email") or "").strip() or None,
+            name=(item.get("name") or "").strip() or None,
+        )
+        if custodian is None:
+            continue
+        membership = (
+            db.query(models.HoldCustodian)
+            .filter(
+                models.HoldCustodian.hold_id == hold.id,
+                models.HoldCustodian.custodian_id == custodian.id,
+            )
+            .first()
+        )
+        if membership is not None:
+            set_membership_consent_status(db, membership, "received")
 
 def _custodian_model(case_id: int, data: Dict[str, Any], ntp_sent: bool, *, use_ai_review: bool = True) -> models.Custodian:
     holds = data.get("holds") or {}

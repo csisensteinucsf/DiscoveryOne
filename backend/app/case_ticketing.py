@@ -27,6 +27,7 @@ from .permissions import (
     ensure_case_visible,
     filter_ticket_entries_for_user,
     is_requestor,
+    is_tester,
     is_tech,
     tech_allowed_ticket_categories,
 )
@@ -35,6 +36,18 @@ from .ticket_provider_labels import external_ticket_label
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/cases", tags=["cases"])
+
+
+def _provider_managed_ticket_numbers(entries) -> list[str]:
+    tickets: list[str] = []
+    for entry in entries or []:
+        if not isinstance(entry, dict) or entry.get("provider_managed") is not True:
+            continue
+        ticket = str(entry.get("ticket") or "").strip()
+        if ticket:
+            tickets.append(ticket)
+    return tickets
+
 @router.post("/{case_id}/tickets/self_heal", response_model=schemas.TicketSelfHealResponse)
 def ticket_self_heal(
     case_id: int,
@@ -94,16 +107,56 @@ def create_external_ticket(
             raise HTTPException(status_code=403, detail="Tech accounts can only manage assigned ticket types")
     else:
         ensure_case_editable(_user)
+
+    selected_hold = None
+    if payload.case_hold_id is not None:
+        selected_hold = (
+            db.query(models.CaseHold)
+            .filter(
+                models.CaseHold.case_id == case_id,
+                models.CaseHold.id == int(payload.case_hold_id),
+                models.CaseHold.status == "active",
+            )
+            .first()
+        )
+        if selected_hold is None:
+            raise HTTPException(status_code=422, detail="Selected hold must be an active hold for this case")
+
+    selected_custodian_ids: set[int] = set()
+    if payload.custodian_id is not None:
+        selected_custodian_ids.add(int(payload.custodian_id))
+    for item in payload.bulk_custodians or []:
+        item_id = getattr(item, "id", None)
+        if item_id is not None:
+            selected_custodian_ids.add(int(item_id))
+
+    if selected_hold is not None and selected_custodian_ids:
+        assigned_ids = {
+            int(row.custodian_id)
+            for row in db.query(models.HoldCustodian.custodian_id)
+            .filter(
+                models.HoldCustodian.hold_id == selected_hold.id,
+                models.HoldCustodian.custodian_id.in_(selected_custodian_ids),
+            )
+            .all()
+        }
+        missing_ids = sorted(selected_custodian_ids - assigned_ids)
+        if missing_ids:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Every selected custodian must be assigned to the selected hold",
+                    "hold_id": int(selected_hold.id),
+                    "custodian_ids": missing_ids,
+                },
+            )
+
     if payload.category in servicenow_matched_email_required_categories():
         invalid_labels: list[str] = []
-        ids_to_check: set[int] = set()
-        if payload.custodian_id is not None:
-            ids_to_check.add(int(payload.custodian_id))
+        ids_to_check = set(selected_custodian_ids)
         for item in payload.bulk_custodians or []:
             item_id = getattr(item, "id", None)
-            if item_id is not None:
-                ids_to_check.add(int(item_id))
-            elif _is_missing_or_unmatched_email(getattr(item, "email", None)):
+            if item_id is None and _is_missing_or_unmatched_email(getattr(item, "email", None)):
                 invalid_labels.append((getattr(item, "name", None) or getattr(item, "email", None) or "Unknown custodian").strip())
 
         custodians_by_id: dict[int, models.Custodian] = {}
@@ -145,6 +198,8 @@ def create_external_ticket(
             custodian_email=(payload.custodian_email or "").strip() or None,
             customer_id=customer_id_override,
             extra_context={
+                "case_hold_id": int(selected_hold.id) if selected_hold is not None else None,
+                "case_hold_name": selected_hold.name if selected_hold is not None else None,
                 "access_log_employee_id": ((payload.access_log_employee_id or "").strip() or None),
                 "access_log_request_notes": ((payload.access_log_request_notes or "").strip() or None),
                 "access_log_time_windows": [
@@ -179,6 +234,9 @@ def create_external_ticket(
                 break
             if entry.get("category") != payload.category:
                 continue
+            entry_hold_id = entry.get("case_hold_id")
+            if payload.case_hold_id is not None and int(entry_hold_id or 0) != int(payload.case_hold_id):
+                continue
             if payload.custodian_id is not None and entry.get("custodian_id") == payload.custodian_id:
                 match = entry
                 break
@@ -193,6 +251,9 @@ def create_external_ticket(
             entry_id = str(match.get("id") or entry_id)
 
         match["ticket"] = ticket_number
+        match["provider_managed"] = True
+        if payload.case_hold_id is not None:
+            match["case_hold_id"] = int(payload.case_hold_id)
         if sys_id:
             match["sys_id"] = sys_id
         if payload.custodian_id is not None:
@@ -221,7 +282,7 @@ def create_external_ticket(
             if bulk:
                 match["bulk_custodians"] = bulk
 
-        normalized_entries = _normalize_request_ticket_entries(entries, case) or []
+        normalized_entries = _normalize_request_ticket_entries(entries, case, trusted_provider=True) or []
         case.request_ticket_entries = normalized_entries
         _sync_legacy_request_tickets(case, normalized_entries)
         _apply_request_holds(case, normalized_entries)
@@ -265,6 +326,8 @@ def create_external_ticket(
                 "case_id": case_id,
                 "case_name": getattr(case, "name", None),
                 "category": payload.category,
+                "case_hold_id": int(selected_hold.id) if selected_hold is not None else None,
+                "case_hold_name": selected_hold.name if selected_hold is not None else None,
                 "ticket": ticket_number,
                 "sys_id": sys_id,
                 "entry_id": entry_id,
@@ -300,13 +363,7 @@ def get_external_ticket_statuses(
     entries = all_entries
     if is_tech(_user):
         entries = filter_ticket_entries_for_user(all_entries, _user)
-    tickets = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
-        ticket = (entry.get("ticket") or "").strip()
-        if ticket:
-            tickets.append(ticket)
+    tickets = _provider_managed_ticket_numbers(entries)
 
     status_lookup: dict[str, dict] = {}
     if tickets:

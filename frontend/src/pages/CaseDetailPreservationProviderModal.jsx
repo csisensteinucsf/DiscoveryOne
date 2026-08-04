@@ -1,5 +1,5 @@
 import Modal from '../components/Modal.jsx'
-import { Badge, Button, InlineSpinner } from './caseDetailControls.jsx'
+import { Badge, Button, Field, InlineSpinner, Select } from './caseDetailControls.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
 
 export default function CaseDetailPreservationProviderModal({
@@ -12,6 +12,9 @@ export default function CaseDetailPreservationProviderModal({
   purviewExportCheckBusy,
   checkPurviewExports,
   purviewHoldBusy,
+  preservationHolds,
+  preservationHoldId,
+  setPreservationHoldId,
   purviewHoldOptions,
   setPurviewHoldOptions,
   selectAllPurviewHoldTargets,
@@ -114,6 +117,16 @@ export default function CaseDetailPreservationProviderModal({
                   <Badge variant="warn" compact>Create case first</Badge>
                 )}
               </div>
+              <Field label="Named hold" hint="The external preservation policy and tracked status are isolated to this hold.">
+                <Select value={preservationHoldId} onChange={event => setPreservationHoldId(event.target.value)}>
+                  {!preservationHolds.length && <option value="">No active holds</option>}
+                  {preservationHolds.map(hold => (
+                    <option key={hold.id} value={String(hold.id)}>
+                      {hold.name} ({hold.custodian_count || 0} custodians)
+                    </option>
+                  ))}
+                </Select>
+              </Field>
               {purviewHoldBusy && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b7280', marginTop: 6 }}>
                   <InlineSpinner size={12} />

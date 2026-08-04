@@ -80,6 +80,7 @@ def load_institution_settings() -> Dict[str, Any]:
         "allowed_requestor_email_domains": _list_settings_or_env(settings_ready, settings.get("allowed_requestor_email_domains"), "ORG_ALLOWED_REQUESTOR_EMAIL_DOMAINS"),
         "requestor_email_exceptions": _list_settings_or_env(settings_ready, settings.get("requestor_email_exceptions"), "ORG_REQUESTOR_EMAIL_EXCEPTIONS", emails=True),
         "employee_id_label": "Employee ID",
+        "internal_counsel_label": str(settings.get("internal_counsel_label") or "Internal Counsel").strip()[:80] or "Internal Counsel",
         "sso_display_name": _settings_or_env(settings_ready, settings.get("sso_display_name"), "SSO_DISPLAY_NAME", "Single sign-on"),
         "support_email": _settings_or_env(settings_ready, settings.get("support_email"), "SUPPORT_EMAIL"),
     }

@@ -2,7 +2,7 @@
 
 ## Universal Build - Installation, First-Time Configuration, Integrations, and Operations
 
-**Guide date:** July 17, 2026  
+**Guide date:** August 3, 2026  
 **Repository:** https://github.com/csisensteinucsf/DiscoveryOne  
 **Audience:** eDiscovery managers, application administrators, infrastructure teams, identity teams, and integration owners  
 **Deployment:** Docker Compose with React, FastAPI, PostgreSQL, Caddy, and ClamAV
@@ -31,6 +31,7 @@ Part V explains all integrations. Do not enable every integration simply because
 | Automated | DiscoveryOne contains an executable adapter or active workflow. |
 | Optional automated | Automation works when enabled; manual tracking remains available when disabled. |
 | Configuration only | DiscoveryOne stores fields for a future adapter but does not call that product API in this build. |
+| Planned | Deployment guidance is included, but the adapter is not executable in this build. |
 | Built in | Part of the Compose stack; no external tenant/API account normally required. |
 | Manual tracking | Staff update status without DiscoveryOne changing the source system. |
 
@@ -611,6 +612,7 @@ Built in; no account or API key. In **System > ClamAV Monitor**, confirm Ready, 
 | Teams Webhook | Automated | Alerts |
 | ServiceNow | Automated | Tickets |
 | Purview | Automated | eDiscovery/holds/searches |
+| Microsoft Graph Email Intake | Planned | Future email-to-case mailbox monitoring |
 | Box | Automated | Legal holds |
 | Slack | Optional automated | Legal Holds API/manual fallback |
 | DocuSign | Automated | Consent signing/callbacks |
@@ -713,20 +715,266 @@ Validate ticket creation/routing/mapping/link/status sync/error path and confirm
 
 ## 32. Microsoft Purview - Automated
 
-DiscoveryOne calls Graph eDiscovery case, custodian, source, hold, search, operation, and export endpoints.
+DiscoveryOne uses app-only Microsoft Graph calls for eDiscovery cases, custodians, Exchange and OneDrive sources, legal holds, searches, operations, and export-status matching. Use a dedicated single-tenant Entra registration named for the Purview integration. Do not reuse the OIDC sign-in or email-intake registration.
 
-Prerequisites:
+### 32.1 Licensing and administrative prerequisites
 
-- Purview licensing.
-- Entra app.
-- Graph application `eDiscovery.ReadWrite.All` for write workflows.
-- Admin consent and proper Purview roles.
+- Confirm the tenant has the Microsoft Purview and eDiscovery licensing required for every enabled workflow.
+- App-only eDiscovery Graph access requires cases with premium features enabled.
+- The administrator creating the registration needs permission to register applications and grant tenant-wide admin consent.
+- Human staff using the Purview portal still need the appropriate eDiscovery Manager or eDiscovery Administrator role.
+- Purview user-role assignments do not replace Graph application permissions, and delegated user permissions do not replace app-only permissions.
 
-Reference: https://learn.microsoft.com/en-us/graph/api/security-casesroot-post-ediscoverycases?view=graph-rest-1.0
+References:
 
-Fields: Tenant ID, Client ID/Secret, beta/v1/security bases, timeout/retry, OneDrive limit, status delay, add sources, missing-email rule, export poll schedule/timezone/groups.
+- https://learn.microsoft.com/en-us/purview/edisc-ref-api-guide
+- https://learn.microsoft.com/en-us/purview/edisc-permissions
+- https://learn.microsoft.com/en-us/graph/api/security-casesroot-post-ediscoverycases?view=graph-rest-1.0
 
-Validate test case, Exchange/OneDrive custodian, hold apply/status/release, search, export matching, and license/role errors. Retest after Microsoft API/licensing changes.
+### 32.2 Register the Purview application
+
+1. Open Microsoft Entra admin center and select **Entra ID > App registrations > New registration**.
+2. Enter a descriptive name such as `DiscoveryOne Purview`.
+3. Select **Accounts in this organizational directory only**.
+4. Leave Redirect URI empty. This adapter uses the OAuth client-credentials flow and does not perform an interactive sign-in.
+5. Record the **Directory (tenant) ID** and **Application (client) ID**.
+6. Open **Certificates & secrets** and create a dedicated client secret for the current DiscoveryOne build.
+7. Copy the secret **Value**, not the secret ID, and record its owner and expiration in the institution credential-management system.
+8. Do not place the secret in Git, documentation, screenshots, tickets, or chat. Enter it only in **System > Integrations > Purview**.
+
+### 32.3 Configure app-only authorization
+
+DiscoveryOne uses the OAuth client-credentials flow. The Entra permissions and the Purview role assignments below are both required; completing only one side does not authorize the integration.
+
+#### Microsoft Graph application permissions
+
+Open **API permissions > Add a permission > Microsoft Graph > Application permissions** and add:
+
+| Permission | Requirement | Why DiscoveryOne uses it |
+|---|---|---|
+| `eDiscovery.Read.All` | Required by Microsoft's app-only eDiscovery setup | Reads cases, custodians, sources, holds, searches, operations, and export status. |
+| `eDiscovery.ReadWrite.All` | Required | Creates and updates eDiscovery cases, custodians, sources, holds, searches, and related workflow state. |
+| `User.Read.All` | Required by DiscoveryOne | Resolves custodian object IDs, UPNs, primary mail addresses, and proxy addresses used for Exchange and OneDrive source matching. |
+| `Sites.Read.All` | Required when OneDrive or SharePoint sources are enabled | Reads the tenant root-site metadata and resolves personal or SharePoint site resources used by the eDiscovery source API. |
+
+Select **Grant admin consent** after adding the permissions. Confirm that every row is an **Application** permission and shows **Granted** for the tenant.
+
+Do not add delegated `User.Read`; client-credentials tokens do not use delegated permissions. Do not add SharePoint or Microsoft Graph `Sites.FullControl.All`, `Sites.ReadWrite.All`, `Files.Read.All`, `Mail.Read`, or `Mail.Send` for this adapter. DiscoveryOne resolves users and read-only site metadata, while eDiscovery performs the preservation operations.
+
+`Sites.Read.All` must be added under **Microsoft Graph**, not under the SharePoint API.
+
+#### Register the service principal with Purview
+
+Microsoft also requires the app's service principal to be registered with the compliance PowerShell endpoint and assigned Purview eDiscovery roles.
+
+1. In **Entra ID > Enterprise applications**, open the `DiscoveryOne Purview` enterprise application and record its **Object ID**. Do not use the similarly named application-object ID from **App registrations**.
+2. Run the following as an administrator authorized to manage Purview eDiscovery. Replace every placeholder.
+
+```powershell
+Install-Module ExchangeOnlineManagement -Scope CurrentUser
+Import-Module ExchangeOnlineManagement
+Connect-IPPSSession
+
+New-ServicePrincipal `
+  -AppId '<APPLICATION-CLIENT-ID>' `
+  -ObjectId '<ENTERPRISE-APP-SERVICE-PRINCIPAL-OBJECT-ID>' `
+  -DisplayName 'DiscoveryOne Purview'
+
+Get-ServicePrincipal
+
+Add-RoleGroupMember `
+  -Identity 'eDiscoveryManager' `
+  -Member '<ENTERPRISE-APP-SERVICE-PRINCIPAL-OBJECT-ID>'
+
+Get-RoleGroupMember -Identity 'eDiscoveryManager'
+
+Add-eDiscoveryCaseAdmin `
+  -User '<ENTERPRISE-APP-SERVICE-PRINCIPAL-OBJECT-ID>'
+
+Get-eDiscoveryCaseAdmin
+```
+
+3. Verify that `Get-ServicePrincipal`, `Get-RoleGroupMember`, and `Get-eDiscoveryCaseAdmin` show the new service principal.
+4. Allow time for Microsoft permission and role changes to propagate before testing.
+
+Reference: https://learn.microsoft.com/en-us/graph/security-ediscovery-appauthsetup
+
+### 32.4 Configure DiscoveryOne
+
+In **System > Integrations > Purview**, configure:
+
+- Enabled state and provider selection.
+- Directory (tenant) ID.
+- Application (client) ID.
+- Client secret value.
+- OAuth scope, normally `https://graph.microsoft.com/.default`.
+- Microsoft Graph beta, v1.0, and security API base URLs; retain defaults unless Microsoft or the tenant requires a documented override.
+- Request timeout and retry controls.
+- OneDrive source limits and missing-email behavior.
+- Source-addition and status-delay settings.
+- Export polling enablement, schedule, timezone, and eligible requestor groups.
+
+Use **Test connection** before enabling automated workflows. A token being issued proves only authentication; it does not prove that Purview licensing, application permissions, or each workflow endpoint is authorized.
+
+### 32.5 Purview validation sequence
+
+Use a non-production test matter and synthetic custodians.
+
+1. Acquire a token and confirm the token contains the expected application roles.
+2. Create or locate an eDiscovery premium case.
+3. Add an Exchange custodian and confirm its Entra identity resolves correctly.
+4. Add an Exchange mailbox source.
+5. Add a OneDrive source and confirm site resolution succeeds.
+6. Create a legal hold, add sources, and verify hold status.
+7. Release one source and then release/delete the test hold.
+8. Create or synchronize a search.
+9. Verify operation and export-status polling.
+10. Confirm DiscoveryOne audit records contain the action and provider identifiers but no access token or client secret.
+11. Remove a test permission only in a lab and confirm the connection test reports an actionable `401` or `403` rather than silently succeeding.
+
+Troubleshooting:
+
+- `401` normally indicates an incorrect tenant/client credential, expired secret, invalid scope, or wrong token authority.
+- `403` normally indicates missing admin consent, missing Graph application permission, unsupported licensing, non-premium app-only case access, or tenant policy.
+- User lookup failures indicate `User.Read.All`, alias, UPN, or proxy-address issues.
+- OneDrive lookup failures indicate `Sites.Read.All`, an invalid personal-site URL, site provisioning, or cross-geo access issues.
+- Retest after Microsoft API, licensing, consent, conditional-access, or Purview role changes.
+
+### 32.6 Export package download permission
+
+The current adapter observes eDiscovery operations and matches export activity to DiscoveryOne searches. It does not download export packages. Do not grant the separate `MicrosoftPurviewEDiscovery` application permission `eDiscovery.Download.Read` unless package downloading is implemented and enabled in a future release.
+
+## 32A. Microsoft Graph Email Intake - Planned
+
+> **Current status:** This section is deployment preparation for the planned email-to-case integration. The current build does not yet monitor a mailbox, and administrators should not expect these values to appear in System until that integration is released.
+
+The planned adapter will poll one Exchange Online mailbox with Microsoft Graph delta queries, match messages against administrator-defined templates, scan accepted attachments with ClamAV, and create a pending Case Request for human review. Use a dedicated registration named `DiscoveryOne Email Intake`; do not reuse the Purview or OIDC registration.
+
+### 32A.1 Prepare the mailbox
+
+1. Create a dedicated shared mailbox such as `ediscovery-intake@example.edu`.
+2. Restrict interactive mailbox membership to the smallest operational group.
+3. Decide whether to monitor `Inbox` or a dedicated child folder.
+4. If transport or inbox rules route messages, document and test every rule and preserve an unmatched-message path.
+5. Disable automatic external forwarding unless separately approved.
+6. Apply the institution's retention, litigation-hold, audit, and data-loss-prevention requirements to the intake mailbox.
+7. Define allowed sender domains and explicit sender exceptions.
+8. Define maximum message and attachment sizes and the handling of encrypted or password-protected attachments.
+9. Decide whether processed messages remain untouched. Read-only processing is recommended because DiscoveryOne will maintain its own idempotency ledger.
+
+### 32A.2 Register the mailbox application
+
+1. Create a single-tenant Entra app named `DiscoveryOne Email Intake`.
+2. Leave Redirect URI empty because the integration uses client credentials.
+3. Record the tenant ID, client ID, and **Enterprise application service-principal Object ID**.
+4. Use a certificate when the released adapter supports it. For a lab or a secret-based release, create a dedicated client secret and record its value and expiration.
+5. Do not add delegated permissions.
+
+### 32A.3 Choose one mailbox authorization model
+
+**Lab-only, fastest setup:** Add Microsoft Graph application `Mail.Read` and grant admin consent. This permission is tenant-wide and can read every mailbox, so use it only in an isolated lab tenant or with explicit security approval.
+
+**Production, recommended:** Use Exchange Online RBAC for Applications to assign `Application Mail.Read` only to the intake mailbox. Do not also leave an organization-wide Entra `Mail.Read` grant on the same service principal; Entra grants and Exchange RBAC grants are additive.
+
+`Mail.ReadBasic` is insufficient because it excludes message bodies and attachments. Use `Application Mail.ReadWrite` only if a future configuration explicitly moves, marks, or deletes processed messages. `Mail.Send` is not required.
+
+### 32A.4 Configure mailbox-scoped Exchange RBAC
+
+Run these commands as an authorized Exchange Online administrator. Replace every placeholder and verify the mailbox alias before creating the scope.
+
+```powershell
+Install-Module ExchangeOnlineManagement -Scope CurrentUser
+Connect-ExchangeOnline
+
+New-ServicePrincipal `
+  -AppId '<APPLICATION-CLIENT-ID>' `
+  -ObjectId '<ENTERPRISE-APP-SERVICE-PRINCIPAL-OBJECT-ID>' `
+  -DisplayName 'DiscoveryOne Email Intake'
+
+New-ManagementScope `
+  -Name 'DiscoveryOne Intake Mailbox' `
+  -RecipientRestrictionFilter "Alias -eq 'ediscovery-intake'"
+
+New-ManagementRoleAssignment `
+  -Name 'DiscoveryOne Intake Mail Read' `
+  -Role 'Application Mail.Read' `
+  -App '<ENTERPRISE-APP-SERVICE-PRINCIPAL-OBJECT-ID>' `
+  -CustomResourceScope 'DiscoveryOne Intake Mailbox'
+
+Test-ServicePrincipalAuthorization `
+  -Identity '<APPLICATION-CLIENT-ID>' `
+  -Resource 'ediscovery-intake@example.edu'
+```
+
+The test result must show the intake mailbox is in scope. Repeat the test against an unrelated mailbox and confirm it is out of scope. Use the service-principal Object ID from **Enterprise applications**, not the similarly named application-object ID shown on App registrations.
+
+Reference: https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac
+
+### 32A.5 Planned DiscoveryOne settings
+
+The released integration should request and encrypt:
+
+- Directory tenant ID and application client ID.
+- Client secret or certificate/private-key reference.
+- Mailbox UPN/SMTP address.
+- Folder ID or well-known folder name.
+- Poll interval and Graph request timeout.
+- Allowed sender addresses and domains.
+- Maximum message and attachment sizes.
+- Default template and unmatched-message disposition.
+- Read-only versus read/write processing mode.
+- Initial synchronization cutoff so existing historical mail is not accidentally converted into cases.
+
+The server requires outbound TCP 443 and DNS resolution for:
+
+```text
+login.microsoftonline.com
+graph.microsoft.com
+```
+
+### 32A.6 Message processing and security requirements
+
+- Use `GET /users/{mailbox}/mailFolders/{folder}/messages/delta` and persist the opaque delta link after each successful synchronization round.
+- Store the Graph message ID, internet message ID, received timestamp, processing result, template ID, and created request ID to prevent duplicates.
+- Default to a pending Case Request. Do not create an active case without review unless an administrator explicitly enables a narrowly trusted template.
+- Treat HTML email as untrusted. Convert or sanitize it; never execute scripts or load remote content.
+- Scan every accepted attachment with ClamAV before storage or parsing.
+- Reject or quarantine oversized, encrypted, executable, malformed, or malware-positive attachments according to policy.
+- Use structured parsers and explicit field mappings; do not infer legal instructions from arbitrary prose.
+- Record processing and rejection events without logging message bodies, tokens, credentials, or sensitive attachments.
+- Honor Microsoft Graph `Retry-After` responses and avoid retry storms.
+
+### 32A.7 Mailbox validation and monitoring
+
+Before enabling intake:
+
+1. Confirm the app can acquire a client-credentials token.
+2. Confirm the intake mailbox is accessible.
+3. Confirm an unrelated mailbox is inaccessible when Exchange RBAC is used.
+4. Send a synthetic matching message and verify one pending Case Request is created.
+5. Poll again and verify the same message is not duplicated.
+6. Test unmatched sender, unmatched template, oversized attachment, malware test file, and malformed message handling.
+7. Rotate the credential and repeat the test.
+
+Monitor and alert on:
+
+- Credential or certificate expiration.
+- Last poll attempt and last successful poll.
+- Age of the persisted delta checkpoint.
+- Last processed message and pending-review count.
+- Microsoft Graph `401`, `403`, `404`, `410`, and `429` responses.
+- Consecutive poll failures and scheduler health.
+- Template-match failures, duplicate suppression, and quarantine counts.
+- ClamAV readiness and signature age.
+
+References:
+
+- https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-app
+- https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-client-creds-grant-flow
+- https://learn.microsoft.com/en-us/graph/api/message-delta?view=graph-rest-1.0
+- https://learn.microsoft.com/en-us/graph/delta-query-messages
+- https://learn.microsoft.com/en-us/graph/api/message-list-attachments?view=graph-rest-1.0
+- https://learn.microsoft.com/en-us/exchange/permissions-exo/application-rbac
 
 ## 33. Box - Automated
 

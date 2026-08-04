@@ -10,6 +10,7 @@ export function CaseEditorModal({
   caseNamingMode,
   secondaryCaseNameLabel,
   useLegalCaseNameAsPrimary,
+  internalCounselLabel = 'Internal Counsel',
   onClose,
   onSubmit,
   onLegalCaseNameChange,
@@ -90,6 +91,42 @@ export function CaseEditorModal({
           </span>
         </label>
 
+        <div className="form-grid">
+          <label>
+            Matter or Claim Number (optional)
+            <input
+              className="input"
+              value={form.matter_number}
+              onChange={e => setForm(f => ({ ...f, matter_number: e.target.value }))}
+            />
+          </label>
+          <label>
+            Start Date (optional)
+            <input
+              className="input"
+              type="date"
+              value={form.start_date || ''}
+              onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+            />
+          </label>
+          <label>
+            {internalCounselLabel} (optional)
+            <input
+              className="input"
+              value={form.internal_counsel}
+              onChange={e => setForm(f => ({ ...f, internal_counsel: e.target.value }))}
+            />
+          </label>
+          <label>
+            Outside Counsel (optional)
+            <input
+              className="input"
+              value={form.outside_counsel}
+              onChange={e => setForm(f => ({ ...f, outside_counsel: e.target.value }))}
+            />
+          </label>
+        </div>
+
         <label>
           Claimant (optional)
           <input className="input" value={form.claimant} onChange={e => setForm(f => ({ ...f, claimant: e.target.value }))} />
@@ -132,6 +169,16 @@ export function CaseEditorModal({
             <option value="">-- Select analyst --</option>
             {analysts.map(a => <option key={a.id} value={a.id}>{formatAnalystName(a)}</option>)}
           </select>
+        </label>
+        <label>
+          Additional Notes / Comments
+          <textarea
+            className="input"
+            rows={4}
+            value={form.description}
+            onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+            placeholder="Context that should be visible from the Active Cases dashboard."
+          />
         </label>
 
         <label>
@@ -207,6 +254,67 @@ export function RequestorGroupInviteModal({
           />
         </label>
       </div>
+    </Modal>
+  )
+}
+export function CaseDeleteModal({
+  target,
+  warning,
+  overrideReason,
+  setOverrideReason,
+  busy,
+  onClose,
+  onConfirm,
+}) {
+  if (!target) return null
+  const history = warning?.history || {}
+  const requiresOverride = warning?.code === 'case_has_history'
+
+  return (
+    <Modal
+      open
+      title="Permanently Delete Case"
+      onClose={busy ? undefined : onClose}
+      width={520}
+      footer={(
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button
+            type="button"
+            className="btn danger"
+            onClick={onConfirm}
+            disabled={busy || (requiresOverride && overrideReason.trim().length < 10)}
+          >
+            {busy ? 'Deleting' : (requiresOverride ? 'Override and Delete' : 'Delete Permanently')}
+          </button>
+        </div>
+      )}
+    >
+      <p style={{ marginTop: 0 }}>
+        Delete <strong>{target.legal_case_name || target.name}</strong> permanently? Closing the case is the normal way to retain its record.
+      </p>
+      {requiresOverride && (
+        <div className="alert warning">
+          <strong>This case has recorded activity.</strong>
+          <ul style={{ marginBottom: 10 }}>
+            {Object.entries(history).filter(([, count]) => Number(count) > 0).map(([label, count]) => (
+              <li key={label}>{label.replaceAll('_', ' ')}: {count}</li>
+            ))}
+          </ul>
+          <label>
+            Override reason
+            <textarea
+              className="input"
+              rows={3}
+              value={overrideReason}
+              onChange={event => setOverrideReason(event.target.value)}
+              placeholder="Explain why the permanent record must be deleted."
+              autoFocus
+            />
+            <small>At least 10 characters are required and the reason is written to the audit log.</small>
+          </label>
+        </div>
+      )}
     </Modal>
   )
 }

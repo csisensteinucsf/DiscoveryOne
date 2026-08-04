@@ -44,7 +44,7 @@ import CaseDetailNotesTab from './CaseDetailNotesTab.jsx'
 import CaseDetailActiveNotesTab from './CaseDetailActiveNotesTab.jsx'
 import CaseDetailDocumentationTab from './CaseDetailDocumentationTab.jsx'
 import CaseDetailSearchesTab from './CaseDetailSearchesTab.jsx'
-import CaseDetailHoldsTab from './CaseDetailHoldsTab.jsx'
+import CaseDetailNamedHoldsTab from './CaseDetailNamedHoldsTab.jsx'
 import CaseDetailCustodiansTab from './CaseDetailCustodiansTab.jsx'
 import CaseDetailTicketsTab from './CaseDetailTicketsTab.jsx'
 import CaseDetailTicketNotesTab from './CaseDetailTicketNotesTab.jsx'
@@ -119,6 +119,7 @@ export default function CaseDetail() {
     loadProofs,
     openDocModal,
     closeDocModal,
+    handleDocHoldSelect,
     handleDocCustodianSelect,
     handleDocFieldChange,
     submitConsentDocument,
@@ -136,6 +137,9 @@ export default function CaseDetail() {
   })
   const [holdsDirty, setHoldsDirty] = useState(false)
   const [techHoldsApplying, setTechHoldsApplying] = useState(false)
+  const [targetHoldIds, setTargetHoldIds] = useState([])
+  const [showCustodianModal, setShowCustodianModal] = useState(false)
+  const [custodianModalMode, setCustodianModalMode] = useState('add')
   const initialTabSet = useRef(false)
   const [loading, setLoading] = useState(() => !cachedCase)
   const [error, setError] = useState(null)
@@ -153,6 +157,7 @@ export default function CaseDetail() {
     apiBase,
     caseId,
     custodians,
+    targetHoldIds,
   })
   const [activeCaseBusy, setActiveCaseBusy] = useState(false)
   const documentationBadgeCount = useMemo(() => {
@@ -170,6 +175,7 @@ export default function CaseDetail() {
   const [closeCaseBusy, setCloseCaseBusy] = useState(false)
   const { user, authConfig } = useAuth()
   const employeeIdLabel = authConfig?.institution?.employee_id_label || 'Employee ID'
+  const internalCounselLabel = authConfig?.institution?.internal_counsel_label || 'Internal Counsel'
   const lookupInputPlaceholder = `Enter full name, email address or ${employeeIdLabel} to begin person lookup`
   const [personLookupEnabled, setPersonLookupEnabled] = useState(false)
   const [preservationAutomationEnabled, setPreservationAutomationEnabled] = useState(false)
@@ -308,6 +314,30 @@ export default function CaseDetail() {
       // ignore malformed query strings
     }
   }, [isRequestor, location.search])
+
+  useEffect(() => {
+    if (isReadOnly) return
+    try {
+      const params = new URLSearchParams(location.search || '')
+      if ((params.get('action') || '').toLowerCase() !== 'custodians') return
+      const mode = (params.get('mode') || 'add').toLowerCase() === 'import' ? 'import' : 'add'
+      const holdIds = (params.get('hold_ids') || params.get('hold_id') || '')
+        .split(',')
+        .map(Number)
+        .filter(value => Number.isFinite(value) && value > 0)
+      setTargetHoldIds([...new Set(holdIds)])
+      setCustodianModalMode(mode)
+      setActiveTab('custodians')
+      setShowCustodianModal(true)
+      navigate(location.pathname, { replace: true })
+    } catch {
+      // Ignore malformed query strings.
+    }
+  }, [isReadOnly, location.pathname, location.search, navigate])
+
+  useEffect(() => {
+    if (!showCustodianModal) setTargetHoldIds([])
+  }, [showCustodianModal])
   const canManageDocs = !isReadOnly
   const {
     showCaseSummaryModal,
@@ -351,6 +381,12 @@ export default function CaseDetail() {
   reloadCustodiansRef.current = reloadCustodians
   const {
     ntpTemplates,
+    ntpHolds,
+    ntpHoldsLoading,
+    loadNtpHolds,
+    ntpHoldId,
+    setNtpHoldId,
+    ntpCustodians,
     ntpReminders,
     ntpRemindersLoading,
     ntpButtonDisabled,
@@ -416,6 +452,11 @@ export default function CaseDetail() {
     isTech,
     showToast,
   })
+  useEffect(() => {
+    if (!showCustodianModal || targetHoldIds.length || !ntpHolds.length) return
+    setTargetHoldIds([Number(ntpHolds[0].id)])
+  }, [ntpHolds, showCustodianModal, targetHoldIds.length])
+
   const { updateCase, updateCustodianLocal, patchCustodian } = useCaseDetailCaseActions({
     apiBase,
     caseId,
@@ -423,6 +464,7 @@ export default function CaseDetail() {
     setCaseData,
     setCustodians,
     showToast,
+    confirmDialog,
   })
 
   useEffect(() => {
@@ -431,8 +473,6 @@ export default function CaseDetail() {
   // notes badge count
   // modals
   const [showEdit, setShowEdit] = useState(false)
-  const [showCustodianModal, setShowCustodianModal] = useState(false)
-  const [custodianModalMode, setCustodianModalMode] = useState('add')
   const [detailsSearch, setDetailsSearch] = useState(null)
   const detailsSearchParsed = useMemo(() => normalizeSearchDraftFields(detailsSearch), [detailsSearch])
   const [blockedConsent, setBlockedConsent] = useState(null)
@@ -470,6 +510,7 @@ export default function CaseDetail() {
     caseId,
     caseData,
     custodians,
+    holds: ntpHolds,
     searches,
     setSearches,
     isRequestor,
@@ -493,6 +534,10 @@ export default function CaseDetail() {
   const {
     showPurviewModal,
     setShowPurviewModal,
+    preservationHolds,
+    preservationHoldId,
+    setPreservationHoldId,
+    preservationCustodians,
     purviewStatus,
     purviewCreating,
     purviewHoldBusy,
@@ -553,6 +598,9 @@ export default function CaseDetail() {
     ticketSelfHealBusy,
     showBulkRequestModal,
     bulkCategory,
+    bulkHoldId,
+    setBulkHoldId,
+    activeTicketHolds,
     bulkSelection,
     bulkSearch,
     setBulkSearch,
@@ -591,6 +639,7 @@ export default function CaseDetail() {
     userRole,
     employeeIdLabel,
     custodians,
+    namedHolds: ntpHolds,
     custodianOptionLookup,
     techTicketCategorySet,
     ticketCategories,
@@ -614,6 +663,10 @@ export default function CaseDetail() {
   const {
     showConsentModal,
     setShowConsentModal,
+    consentHolds,
+    consentHoldId,
+    setConsentHoldId,
+    consentCustodians,
     consentSelection,
     setConsentSelection,
     consentFormInline,
@@ -705,7 +758,7 @@ export default function CaseDetail() {
     try {
       await updateCase({ closed: nextClosed })
     } catch (err) {
-      showToast(err?.message || 'Unable to update case status.', { variant: 'error' })
+      if (!err?.cancelled) showToast(err?.message || 'Unable to update case status.', { variant: 'error' })
     }
   }, [caseData, confirmDialog, showToast, updateCase])
 
@@ -853,7 +906,7 @@ export default function CaseDetail() {
     editorPrimaryReminder,
   } = useCaseDetailDerivedState({
     searches,
-    custodians,
+    custodians: ntpCustodians,
     ntpSearch,
     ntpReminders,
     ntpHistory,
@@ -902,6 +955,7 @@ export default function CaseDetail() {
             ntpButtonDisabled={ntpButtonDisabled}
             setShowCloseCaseModal={setShowCloseCaseModal}
             useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
+            internalCounselLabel={internalCounselLabel}
           />
           <CaseDetailTabNav
             activeTab={activeTab}
@@ -951,17 +1005,26 @@ export default function CaseDetail() {
             />
           )}
           {activeTab === 'holds' && (
-            <CaseDetailHoldsTab
-              holdsDetail={holdsDetail}
-              holdsDetailTotals={holdsDetailTotals}
-              holdsDetailRows={holdsDetailRows}
-              formatDateTime={formatDateTime}
-              loadHoldsDetail={loadHoldsDetail}
-              isTech={isTech}
-              techHoldKeySet={techHoldKeySet}
-              holdDetailStateStyle={holdDetailStateStyle}
-              holdDetailStateLabel={holdDetailStateLabel}
-              formatActionLabel={formatActionLabel}
+            <CaseDetailNamedHoldsTab
+              apiBase={apiBase}
+              caseId={caseId}
+              custodians={custodians}
+              searches={searches}
+              isReadOnly={isReadOnly}
+              showToast={showToast}
+              requestEntries={requestEntries}
+              legacyProps={{
+                holdsDetail,
+                holdsDetailTotals,
+                holdsDetailRows,
+                formatDateTime,
+                loadHoldsDetail,
+                isTech,
+                techHoldKeySet,
+                holdDetailStateStyle,
+                holdDetailStateLabel,
+                formatActionLabel,
+              }}
             />
           )}
           {!isTech && activeTab === 'searches' && (
@@ -990,6 +1053,7 @@ export default function CaseDetail() {
               isTech={isTech}
               isReadOnly={isReadOnly}
               custodianOptions={custodianOptions}
+              namedHolds={ntpHolds}
               visibleTicketCategories={visibleTicketCategories}
               requestEntries={requestEntries}
               openBulkRequestModal={openBulkRequestModal}
@@ -1086,11 +1150,14 @@ export default function CaseDetail() {
         purviewExportCheckBusy={purviewExportCheckBusy}
         checkPurviewExports={checkPurviewExports}
         purviewHoldBusy={purviewHoldBusy}
+        preservationHolds={preservationHolds}
+        preservationHoldId={preservationHoldId}
+        setPreservationHoldId={setPreservationHoldId}
         purviewHoldOptions={purviewHoldOptions}
         setPurviewHoldOptions={setPurviewHoldOptions}
         selectAllPurviewHoldTargets={selectAllPurviewHoldTargets}
         setPurviewHoldSelection={setPurviewHoldSelection}
-        custodians={custodians}
+        custodians={preservationCustodians}
         purviewHoldMap={purviewHoldMap}
         purviewSelectedSources={purviewSelectedSources}
         purviewHoldSelection={purviewHoldSelection}
@@ -1121,6 +1188,9 @@ export default function CaseDetail() {
         showBulkRequestModal={showBulkRequestModal}
         closeBulkModal={closeBulkModal}
         bulkCategory={bulkCategory}
+        namedHolds={activeTicketHolds}
+        bulkHoldId={bulkHoldId}
+        setBulkHoldId={setBulkHoldId}
         bulkSearch={bulkSearch}
         setBulkSearch={setBulkSearch}
         custodians={custodians}
@@ -1153,6 +1223,8 @@ export default function CaseDetail() {
         closeDocModal={closeDocModal}
         submitConsentDocument={submitConsentDocument}
         docForm={docForm}
+        namedHolds={ntpHolds}
+        handleDocHoldSelect={handleDocHoldSelect}
         handleDocCustodianSelect={handleDocCustodianSelect}
         handleDocFieldChange={handleDocFieldChange}
         custodianOptions={custodianOptions}
@@ -1172,6 +1244,10 @@ export default function CaseDetail() {
         selectedTemplateId={selectedTemplateId}
         setSelectedTemplateId={setSelectedTemplateId}
         ntpSelection={ntpSelection}
+        ntpHolds={ntpHolds}
+        ntpHoldsLoading={ntpHoldsLoading}
+        ntpHoldId={ntpHoldId}
+        setNtpHoldId={setNtpHoldId}
         ntpModalScrollStyle={ntpModalScrollStyle}
         ntpFieldLabelStyle={ntpFieldLabelStyle}
         ntpSelectStyle={ntpSelectStyle}
@@ -1233,6 +1309,9 @@ export default function CaseDetail() {
         onClose={() => setShowConsentModal(false)}
         consentFormInline={consentFormInline}
         setConsentFormInline={setConsentFormInline}
+        consentHolds={consentHolds}
+        consentHoldId={consentHoldId}
+        setConsentHoldId={setConsentHoldId}
         consentAutoSearches={consentAutoSearches}
         consentAutoSearchId={consentAutoSearchId}
         setConsentAutoSearchId={setConsentAutoSearchId}
@@ -1241,7 +1320,7 @@ export default function CaseDetail() {
         setConsentSearch={setConsentSearch}
         addAllAvailableConsents={addAllAvailableConsents}
         filteredConsentCustodians={filteredConsentCustodians}
-        custodians={custodians}
+        custodians={consentCustodians}
         consentReceivedIds={consentReceivedIds}
         consentReceivedEmails={consentReceivedEmails}
         consentSelection={consentSelection}
@@ -1271,6 +1350,7 @@ export default function CaseDetail() {
         setCaseData={setCaseData}
         showToast={showToast}
         useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
+        internalCounselLabel={internalCounselLabel}
         defaultClosureNagDays={defaultClosureNagDays}
       />      <CaseDetailCustodianEntryModals
         showCustodianModal={showCustodianModal}
@@ -1278,6 +1358,11 @@ export default function CaseDetail() {
         setShowCustodianModal={setShowCustodianModal}
         setCustodianModalMode={setCustodianModalMode}
         apiBase={apiBase}
+        caseId={caseId}
+        namedHolds={ntpHolds}
+        targetHoldIds={targetHoldIds}
+        setTargetHoldIds={setTargetHoldIds}
+        reloadNamedHolds={loadNtpHolds}
         employeeIdLabel={employeeIdLabel}
         lookupInputPlaceholder={lookupInputPlaceholder}
         personLookupEnabled={personLookupEnabled}
@@ -1312,6 +1397,7 @@ export default function CaseDetail() {
         caseId={caseId}
         caseData={caseData}
         custodians={custodians}
+        namedHolds={ntpHolds}
         setShowSearchAiModal={setShowSearchAiModal}
         applyAiSearchSuggestion={applyAiSearchSuggestion}
         createSearchesFromAiSuggestions={createSearchesFromAiSuggestions}

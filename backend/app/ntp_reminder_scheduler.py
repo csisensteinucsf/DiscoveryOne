@@ -57,7 +57,13 @@ def _handle_reminder_send(
     if not (custodian and case and template):
         reminder.status = "cancelled"
         return
-    if custodian.ntp_status and custodian.ntp_status.lower() == "acknowledged":
+    hold_membership = getattr(reminder, "hold_custodian", None)
+    ntp_status = (
+        getattr(hold_membership, "ntp_status", None)
+        if hold_membership is not None
+        else getattr(custodian, "ntp_status", None)
+    )
+    if ntp_status and ntp_status.lower() == "acknowledged":
         reminder.status = "completed"
         return
     if not (custodian.email or "").strip():
@@ -68,6 +74,7 @@ def _handle_reminder_send(
         case_id=case.id,
         custodian_id=custodian.id,
         template_id=template.id,
+        hold_custodian_id=getattr(reminder, "hold_custodian_id", None),
     )
     reminder.token_id = new_token.id
     ack_link = ntp_helpers._build_ack_link(base_url, token_value)
@@ -134,6 +141,8 @@ def _handle_reminder_send(
             details={
                 "reminder_id": reminder.id,
                 "custodian_id": reminder.custodian_id,
+                "hold_id": getattr(hold_membership, "hold_id", None),
+                "hold_custodian_id": getattr(reminder, "hold_custodian_id", None),
                 "custodian_name": getattr(custodian, "name", None),
                 "custodian_email": recipient_email,
                 "case_id": getattr(case, "id", None),

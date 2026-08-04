@@ -77,8 +77,8 @@ def status_poll_delay_seconds() -> float:
         return 0.0
 
 
-def _context(*, db: Any, request: Any = None, user: Any = None) -> PreservationOperationContext:
-    return PreservationOperationContext(db=db, request=request, user=user)
+def _context(*, db: Any, request: Any = None, user: Any = None, options: dict[str, Any] | None = None) -> PreservationOperationContext:
+    return PreservationOperationContext(db=db, request=request, user=user, options=options or {})
 
 
 def create_case(
@@ -101,11 +101,12 @@ def get_status(
     db: Any,
     request: Any = None,
     user: Any = None,
+    case_hold_id: int | None = None,
 ) -> Any:
     adapter = _active_adapter(required=True)
     return adapter.get_status(
         case_id=case_id,
-        context=_context(db=db, request=request, user=user),
+        context=_context(db=db, request=request, user=user, options={"case_hold_id": case_hold_id}),
     )
 
 

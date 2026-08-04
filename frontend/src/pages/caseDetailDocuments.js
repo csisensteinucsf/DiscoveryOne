@@ -16,7 +16,7 @@ export function useCaseDetailDocuments({
   const [docsLoading, setDocsLoading] = useState(false)
   const [docsError, setDocsError] = useState(null)
   const [showAddDocModal, setShowAddDocModal] = useState(false)
-  const [docForm, setDocForm] = useState({ custodianId: '', custodianName: '', custodianEmail: '' })
+  const [docForm, setDocForm] = useState({ caseHoldId: '', custodianId: '', custodianName: '', custodianEmail: '' })
   const [docFile, setDocFile] = useState(null)
   const [docUploading, setDocUploading] = useState(false)
   const [docUploadError, setDocUploadError] = useState(null)
@@ -48,7 +48,7 @@ export function useCaseDetailDocuments({
   }, [apiBase, caseId, setCaseData, setProofRows])
 
   const resetDocForm = useCallback(() => {
-    setDocForm({ custodianId: '', custodianName: '', custodianEmail: '' })
+    setDocForm({ caseHoldId: '', custodianId: '', custodianName: '', custodianEmail: '' })
     setDocFile(null)
     setDocUploadError(null)
   }, [])
@@ -63,6 +63,15 @@ export function useCaseDetailDocuments({
     setShowAddDocModal(false)
     resetDocForm()
   }, [docUploading, resetDocForm])
+
+  const handleDocHoldSelect = useCallback((value) => {
+    setDocForm({
+      caseHoldId: value ? String(value) : '',
+      custodianId: '',
+      custodianName: '',
+      custodianEmail: '',
+    })
+  }, [])
 
   const handleDocCustodianSelect = useCallback((value) => {
     if (!value) {
@@ -94,16 +103,21 @@ export function useCaseDetailDocuments({
       setDocUploadError('Select a consent document to upload.')
       return
     }
-    const name = (docForm.custodianName || '').trim()
-    const email = (docForm.custodianEmail || '').trim()
-    if (!name && !email) {
-      setDocUploadError('Enter a custodian name or email.')
+    if (!docForm.caseHoldId) {
+      setDocUploadError('Select the named hold this consent proof belongs to.')
       return
     }
+    if (!docForm.custodianId) {
+      setDocUploadError('Select a custodian assigned to that hold.')
+      return
+    }
+    const name = (docForm.custodianName || '').trim()
+    const email = (docForm.custodianEmail || '').trim()
     const fd = new FormData()
     fd.append('custodian_name', name)
     fd.append('custodian_email', email)
-    if (docForm.custodianId) fd.append('custodian_id', docForm.custodianId)
+    fd.append('case_hold_id', docForm.caseHoldId)
+    fd.append('custodian_id', docForm.custodianId)
     fd.append('file', docFile)
     setDocUploading(true)
     setDocUploadError(null)
@@ -192,6 +206,7 @@ export function useCaseDetailDocuments({
     loadProofs,
     openDocModal,
     closeDocModal,
+    handleDocHoldSelect,
     handleDocCustodianSelect,
     handleDocFieldChange,
     submitConsentDocument,

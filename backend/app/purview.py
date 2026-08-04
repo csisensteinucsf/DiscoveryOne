@@ -979,7 +979,7 @@ def _personal_site_path_from_upn(upn: str) -> Optional[str]:
     text = (upn or "").strip().lower()
     if not text:
         return None
-    normalized = text.replace("@", "_").replace(".", "_").replace("#", "_").replace("-", "_")
+    normalized = text.replace("@", "_").replace(".", "_").replace("#", "_")
     return f"/personal/{normalized}"
 
 
@@ -1020,7 +1020,7 @@ def get_purview_onedrive_site(email: str) -> Optional[Dict[str, str]]:
         payload = _graph_request("GET", url, params={"$select": "webUrl,sharepointIds"})
     except PurviewAPIError as exc:
         msg = str(exc or "").lower()
-        if exc.status_code == 404 or "item not found" in msg:
+        if exc.status_code in {403, 404} or "item not found" in msg:
             payload = None
         else:
             raise
@@ -1108,7 +1108,7 @@ def get_purview_onedrive_site(email: str) -> Optional[Dict[str, str]]:
                 )
             except PurviewAPIError as exc:
                 msg = str(exc or "").lower()
-                if exc.status_code == 404 or "item not found" in msg:
+                if exc.status_code in {403, 404} or "item not found" in msg:
                     payload = None
                 else:
                     raise

@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from .app_branding import app_display_name, branded_subject
 from .integration_settings import config_value
 from .safe_log import debug_suppressed as _debug_suppressed
+from .hold_workflows import sync_search_hold_statuses
 
 try:
     from zoneinfo import ZoneInfo
@@ -645,6 +646,7 @@ def sync_case_purview_exports(
                 changed = True
 
             if changed:
+                sync_search_hold_statuses(db, search)
                 db.add(search)
                 sid = getattr(search, "id", None)
                 if isinstance(sid, int) and sid not in updated_search_ids:

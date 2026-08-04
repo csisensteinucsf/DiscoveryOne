@@ -14,6 +14,8 @@ const initialPurviewStatus = {
 export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, custodians, setCustodians, setSearches, showToast, loading, providerName = 'Preservation provider' }) {
   const [purviewCreating, setPurviewCreating] = useState(false)
   const [showPurviewModal, setShowPurviewModal] = useState(false)
+  const [preservationHolds, setPreservationHolds] = useState([])
+  const [preservationHoldId, setPreservationHoldId] = useState('')
   const [purviewStatus, setPurviewStatus] = useState(initialPurviewStatus)
   const [purviewHoldBusy, setPurviewHoldBusy] = useState(false)
   const [purviewExportCheckBusy, setPurviewExportCheckBusy] = useState(false)
@@ -26,14 +28,54 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
   const purviewAutoRefreshScheduledRef = useRef(false)
   const purviewAutoRefreshRef = useRef({ timer: null, generation: 0, startedAt: 0, attempts: 0 })
 
+  useEffect(() => {
+    if (!showPurviewModal || !caseId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const response = await fetch(apiBase + '/cases/' + caseId + '/holds', { credentials: 'include' })
+        if (!response.ok) throw new Error(await response.text() || 'Unable to load holds')
+        const data = await response.json()
+        const next = (Array.isArray(data?.holds) ? data.holds : []).filter(hold => hold.status === 'active')
+        if (cancelled) return
+        setPreservationHolds(next)
+        setPreservationHoldId(current => (
+          next.some(hold => String(hold.id) === String(current))
+            ? current
+            : (next.length ? String(next[0].id) : '')
+        ))
+      } catch (error) {
+        if (!cancelled) showToast(error?.message || 'Unable to load holds for preservation.', { variant: 'error' })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [apiBase, caseId, showPurviewModal, showToast])
+
+  const selectedPreservationHold = useMemo(
+    () => preservationHolds.find(hold => String(hold.id) === String(preservationHoldId)) || null,
+    [preservationHolds, preservationHoldId],
+  )
+  const preservationCustodians = useMemo(() => {
+    if (!selectedPreservationHold) return []
+    const byId = new Map((custodians || []).map(custodian => [Number(custodian.id), custodian]))
+    return (selectedPreservationHold.custodians || []).map(member => (
+      byId.get(Number(member.custodian_id)) || member
+    ))
+  }, [custodians, selectedPreservationHold])
+
+  useEffect(() => {
+    setPurviewHoldSelection(new Set())
+    purviewSelectionInit.current = false
+  }, [preservationHoldId])
+
   const custodianEmailById = useMemo(() => {
     const map = new Map()
-    ;(custodians || []).forEach(c => {
+    ;(preservationCustodians || []).forEach(c => {
       const id = Number(c?.id)
       if (Number.isFinite(id)) map.set(id, String(c?.email || '').trim().toLowerCase())
     })
     return map
-  }, [custodians])
+  }, [preservationCustodians])
 
   const purviewHoldMap = useMemo(() => {
     const map = new Map()
@@ -58,7 +100,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
   const refreshPurviewPendingCustodians = useCallback(async () => {
     if (!caseId) return
     try {
-      const res = await fetch(`${apiBase}/cases/${caseId}/preservation_provider/status`, { credentials: 'include' })
+      const res = await fetch(apiBase + '/cases/' + caseId + '/preservation_provider/status' + (preservationHoldId ? '?case_hold_id=' + encodeURIComponent(preservationHoldId) : ''), { credentials: 'include' })
       const data = await res.json().catch(() => null)
       if (!res.ok || !Array.isArray(data?.updated_custodians)) return
       const updateMap = new Map(data.updated_custodians.map(item => [Number(item.id), item]))
@@ -129,7 +171,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
       setPurviewStatus(prev => ({ ...prev, loading: true, error: null }))
     }
     try {
-      const res = await fetch(`${apiBase}/cases/${caseId}/preservation_provider/status`, { credentials: 'include' })
+      const res = await fetch(apiBase + '/cases/' + caseId + '/preservation_provider/status' + (preservationHoldId ? '?case_hold_id=' + encodeURIComponent(preservationHoldId) : ''), { credentials: 'include' })
       const data = await res.json().catch(() => null)
       if (!res.ok) {
         const detail = data?.detail || data?.message
@@ -299,6 +341,10 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
       showToast('Select at least one custodian.', { variant: 'warn' })
       return
     }
+    if (!preservationHoldId) {
+      showToast('Select an active hold.', { variant: 'warn' })
+      return
+    }
     if (!purviewSelectedSources.length) {
       showToast('Select at least one hold type.', { variant: 'warn' })
       return
@@ -311,6 +357,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          case_hold_id: Number(preservationHoldId),
           custodian_ids: ids,
           included_sources: purviewSelectedSources,
           verify_timeout_seconds: purviewSelectedSources.includes('site') ? 75 : 0,
@@ -381,7 +428,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
 
   function selectAllPurviewHoldTargets() {
     const next = new Set()
-    ;(custodians || []).forEach(c => {
+    ;(preservationCustodians || []).forEach(c => {
       const email = String(c?.email || '').trim().toLowerCase()
       const id = Number(c?.id)
       if (!Number.isFinite(id)) return
@@ -407,7 +454,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
   useEffect(() => {
     if (!showPurviewModal || purviewSelectionInit.current || purviewStatus.loading) return
     const next = new Set()
-    ;(custodians || []).forEach(c => {
+    ;(preservationCustodians || []).forEach(c => {
       const email = String(c?.email || '').trim().toLowerCase()
       const id = Number(c?.id)
       if (!email || email === 'noemail' || email === 'unmatched') return
@@ -421,11 +468,15 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
     })
     setPurviewHoldSelection(next)
     purviewSelectionInit.current = true
-  }, [showPurviewModal, purviewStatus.loading, custodians, purviewHoldMap, purviewSelectedSources])
+  }, [showPurviewModal, purviewStatus.loading, preservationCustodians, purviewHoldMap, purviewSelectedSources])
 
   return {
     showPurviewModal,
     setShowPurviewModal,
+    preservationHolds,
+    preservationHoldId,
+    setPreservationHoldId,
+    preservationCustodians,
     purviewStatus,
     purviewCreating,
     purviewHoldBusy,

@@ -15,7 +15,7 @@ from .case_purview_utils import (
 logger = logging.getLogger(__name__)
 
 
-def build_purview_hold_apply_context(*, case, case_id: int, display_name: str) -> dict:
+def build_purview_hold_apply_context(*, case, case_id: int, display_name: str, hold_display_name: str | None = None) -> dict:
     purview_case = purview_core.find_purview_case_by_display_name(display_name)
     if not purview_case:
         logger.warning(
@@ -33,7 +33,7 @@ def build_purview_hold_apply_context(*, case, case_id: int, display_name: str) -
         )
         raise HTTPException(status_code=502, detail="Purview case lookup returned no id.")
     holds = purview_core.list_purview_case_legal_holds(purview_case_id)
-    target_hold_name = _purview_hold_display_name(display_name)
+    target_hold_name = _purview_hold_display_name(hold_display_name or display_name)
     hold = next((h for h in holds if _purview_hold_name_match(h, target_hold_name)), None)
     created_hold = False
     if not hold:
@@ -46,7 +46,7 @@ def build_purview_hold_apply_context(*, case, case_id: int, display_name: str) -
         hold = purview_core.create_purview_case_legal_hold(
             purview_case_id,
             display_name=target_hold_name,
-            description=f"DiscoveryOne hold for {display_name}",
+            description=f"DiscoveryOne hold for {hold_display_name or display_name}",
         )
         created_hold = True
     hold_id = hold.get("id")
@@ -74,6 +74,8 @@ def build_purview_hold_apply_context(*, case, case_id: int, display_name: str) -
     for item in holds:
         hold_item_id = item.get("id")
         if not hold_item_id:
+            continue
+        if hold_item_id != hold_id:
             continue
         hold_sources = purview_core.list_purview_hold_user_sources(purview_case_id, hold_item_id)
         for source in hold_sources:

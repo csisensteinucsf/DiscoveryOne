@@ -291,14 +291,13 @@ def _log_scope(db: Session, user) -> dict:
     """
     Returns a scope descriptor used to enforce access.
     Sys admins: full access.
-    Requestors: NTP-only, for visible cases only.
+    Requestors use the dedicated, redacted NTP history endpoints. The global
+    audit stream contains internal workflow, identity, network, and ticket data.
     """
     if not user:
         raise HTTPException(status_code=401, detail="Not authenticated")
     if is_sys_admin(user):
         return {"mode": "admin"}
-    if is_requestor(user):
-        return {"mode": "requestor", "case_ids": _requestor_visible_case_ids(db, user)}
     raise HTTPException(status_code=403, detail="Access denied")
 
 

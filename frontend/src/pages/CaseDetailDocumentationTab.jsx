@@ -151,6 +151,7 @@ export default function CaseDetailDocumentationTab({
                         const metadata = []
                         if (proof.original_filename) metadata.push(proof.original_filename)
                         if (proof.size) metadata.push(formatFileSize(proof.size))
+                        if (proof.hold_name) metadata.push(`Hold: ${proof.hold_name}`)
                         const uploader = proof?.uploaded_by?.email || proof?.uploaded_by?.username || ''
                         const timeline = []
                         if (proof.uploaded_at) timeline.push(`Uploaded ${formatDateTime(proof.uploaded_at)}`)

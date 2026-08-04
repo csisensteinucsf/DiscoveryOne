@@ -1,0 +1,16 @@
+ALTER TABLE cases
+  ADD COLUMN IF NOT EXISTS internal_counsel VARCHAR,
+  ADD COLUMN IF NOT EXISTS outside_counsel VARCHAR,
+  ADD COLUMN IF NOT EXISTS matter_number VARCHAR(128),
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+
+UPDATE cases
+SET updated_at = COALESCE(updated_at, created_at, CURRENT_TIMESTAMP);
+
+UPDATE cases
+SET closed_at = COALESCE(closed_at, updated_at, created_at, CURRENT_TIMESTAMP)
+WHERE closed IS TRUE;
+
+ALTER TABLE cases
+  ALTER COLUMN updated_at SET DEFAULT CURRENT_TIMESTAMP;

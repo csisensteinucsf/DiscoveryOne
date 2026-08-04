@@ -19,8 +19,11 @@ instructions/
 output.txt
 bandit-*
 pip-audit-*
+# Local security scans can contain sensitive findings and very long generated paths.
+security-review-*/
+# Temporary document/PDF rendering workspace.
+tmp/
 Thumbs.db
 .DS_Store
 **/.DS_Store
 *.cpython-*.py
-backend/app/data/system_settings.json

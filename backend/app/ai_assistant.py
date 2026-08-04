@@ -336,32 +336,17 @@ def _retrieve_knowledge(*args, **kwargs):
 
 
 def _case_search_summary(db: Session, case_id: int) -> dict[str, int]:
-    total = int(db.query(models.Search).filter(models.Search.case_id == case_id).count() or 0)
-    search_done = int(
-        db.query(models.Search)
-        .filter(models.Search.case_id == case_id, models.Search.status_search == "performed")
-        .count()
-        or 0
-    )
-    export_done = int(
-        db.query(models.Search)
-        .filter(models.Search.case_id == case_id, models.Search.status_export == "performed")
-        .count()
-        or 0
-    )
-    delivered = int(
-        db.query(models.Search)
-        .filter(models.Search.case_id == case_id, models.Search.status_delivery == "performed")
-        .count()
-        or 0
+    base = (
+        db.query(models.HoldSearch)
+        .join(models.CaseHold, models.CaseHold.id == models.HoldSearch.hold_id)
+        .filter(models.CaseHold.case_id == case_id, models.CaseHold.status == "active")
     )
     return {
-        "total": total,
-        "search_performed": search_done,
-        "export_performed": export_done,
-        "delivery_performed": delivered,
+        "total": int(base.count() or 0),
+        "search_performed": int(base.filter(models.HoldSearch.status_search == "performed").count() or 0),
+        "export_performed": int(base.filter(models.HoldSearch.status_export == "performed").count() or 0),
+        "delivery_performed": int(base.filter(models.HoldSearch.status_delivery == "performed").count() or 0),
     }
-
 
 def _recent_case_events(db: Session, case_id: int, *, limit: int = 10) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []

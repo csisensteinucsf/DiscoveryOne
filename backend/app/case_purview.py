@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session, selectinload
 from . import models, preservation_provider, schemas
 from .auth import current_user as get_current_user
 from .database import get_db
+from .hold_workflows import resolve_hold_memberships, set_membership_preservation_status
 from .purview import PurviewAPIError, PurviewConfigError
 from . import cases as case_core
 from .case_purview_datasources import _purview_sync_case_datasources
@@ -114,6 +115,7 @@ def _purview_site_key(source: dict) -> Optional[str]:
 @router.get("/{case_id}/purview_status", include_in_schema=False)
 def get_purview_status(
     case_id: int,
+    case_hold_id: int | None = Query(default=None, ge=1),
     db: Session = Depends(get_db),
     request: Request = None,
     _user: models.User = Depends(get_current_user),
@@ -123,7 +125,127 @@ def get_purview_status(
         db=db,
         request=request,
         user=_user,
+        case_hold_id=case_hold_id,
     )
+
+def _provider_source_pairs(payload: schemas.PreservationHoldRequest) -> list[tuple[str, str]]:
+    requested = set(payload.included_sources or ["mailbox", "site"])
+    pairs = []
+    if "mailbox" in requested:
+        pairs.append(("mailbox", "email"))
+    if "site" in requested:
+        pairs.append(("site", "onedrive"))
+    if not pairs:
+        raise HTTPException(status_code=400, detail="Select at least one hold source")
+    return pairs
+
+
+def _mark_hold_memberships(
+    db: Session,
+    memberships: dict[int, models.HoldCustodian],
+    sources: list[tuple[str, str]],
+    status: str,
+    *,
+    error: str | None = None,
+) -> None:
+    for membership in memberships.values():
+        for _provider_source, source in sources:
+            set_membership_preservation_status(
+                db,
+                membership,
+                source,
+                status,
+                last_error=error,
+            )
+
+
+def _sync_provider_hold_result(
+    db: Session,
+    memberships: dict[int, models.HoldCustodian],
+    sources: list[tuple[str, str]],
+    result: Any,
+    *,
+    release: bool,
+) -> None:
+    updated = {
+        int(item.get("id")): item
+        for item in (result.get("updated_custodians") if isinstance(result, dict) else []) or []
+        if isinstance(item, dict) and item.get("id") is not None
+    }
+    results = {
+        int(item.get("custodian_id")): item
+        for item in (result.get("results") if isinstance(result, dict) else []) or []
+        if isinstance(item, dict) and item.get("custodian_id") is not None
+    }
+    for custodian_id, membership in memberships.items():
+        update = updated.get(int(custodian_id), {})
+        operation = results.get(int(custodian_id), {})
+        operation_status = str(operation.get("status") or "").strip().lower()
+        for _provider_source, source in sources:
+            prefix = "holds_email" if source == "email" else "holds_onedrive"
+            if bool(update.get(prefix + "_failed")) or operation_status in {"error", "not_found"}:
+                status = "failed"
+            elif bool(update.get(prefix + "_pending")) or operation_status in {"partial_hold", "missing_email", "onedrive_missing"}:
+                status = "pending"
+            elif release or bool(update.get(prefix + "_released")):
+                status = "released"
+            elif bool(update.get(prefix)) or operation_status in {"on_hold", "already_on_hold"}:
+                status = "active"
+            else:
+                status = "pending"
+            set_membership_preservation_status(
+                db,
+                membership,
+                source,
+                status,
+                last_error=str(operation.get("message") or "").strip() or None,
+            )
+
+
+def _run_hold_provider_operation(
+    *,
+    case_id: int,
+    payload: schemas.PreservationHoldRequest,
+    db: Session,
+    request: Request | None,
+    user: models.User,
+    release: bool,
+):
+    hold, memberships = resolve_hold_memberships(
+        db,
+        case_id=case_id,
+        custodian_ids=payload.custodian_ids,
+        case_hold_id=payload.case_hold_id,
+    )
+    sources = _provider_source_pairs(payload)
+    _mark_hold_memberships(db, memberships, sources, "pending")
+    db.commit()
+    operation = preservation_provider.release_holds if release else preservation_provider.apply_holds
+    try:
+        result = operation(
+            case_id=case_id,
+            payload=payload,
+            db=db,
+            request=request,
+            user=user,
+        )
+    except HTTPException as exc:
+        db.rollback()
+        fresh = {
+            int(row.custodian_id): row
+            for row in db.query(models.HoldCustodian)
+            .filter(models.HoldCustodian.id.in_([item.id for item in memberships.values()]))
+            .all()
+        }
+        _mark_hold_memberships(db, fresh, sources, "failed", error=str(exc.detail))
+        db.commit()
+        raise
+    _sync_provider_hold_result(db, memberships, sources, result, release=release)
+    db.commit()
+    if isinstance(result, dict):
+        return {**result, "case_hold_id": hold.id, "case_hold_name": hold.name}
+    return result
+
 
 @router.post("/{case_id}/preservation_provider/holds")
 @router.post("/{case_id}/purview_holds", include_in_schema=False)
@@ -134,12 +256,13 @@ def apply_purview_holds(
     request: Request = None,
     _user: models.User = Depends(get_current_user),
 ):
-    return preservation_provider.apply_holds(
+    return _run_hold_provider_operation(
         case_id=case_id,
         payload=payload,
         db=db,
         request=request,
         user=_user,
+        release=False,
     )
 @router.post("/{case_id}/preservation_provider/holds/release")
 @router.post("/{case_id}/purview_holds/release", include_in_schema=False)
@@ -150,10 +273,11 @@ def release_purview_holds(
     request: Request = None,
     _user: models.User = Depends(get_current_user),
 ):
-    return preservation_provider.release_holds(
+    return _run_hold_provider_operation(
         case_id=case_id,
         payload=payload,
         db=db,
         request=request,
         user=_user,
+        release=True,
     )

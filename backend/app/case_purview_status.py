@@ -7,6 +7,7 @@ from . import models
 from . import cases as case_core
 from . import case_purview_gateway as purview_core
 from .case_purview_logging import log_purview_failure
+from .hold_workflows import set_membership_preservation_status
 from .case_purview_utils import (
     _candidate_site_keys,
     _looks_like_url,
@@ -30,6 +31,7 @@ def get_purview_status_for_case(
     db: Session,
     request: Request | None,
     user: models.User,
+    case_hold_id: int | None = None,
 ) -> dict:
     case = db.get(models.Case, case_id)
     if not case:
@@ -42,6 +44,16 @@ def get_purview_status_for_case(
             "case_exists": False,
         }
     display_name = (case.name or "").strip()
+    named_hold = None
+    if case_hold_id is not None:
+        named_hold = (
+            db.query(models.CaseHold)
+            .filter(models.CaseHold.case_id == case_id, models.CaseHold.id == case_hold_id)
+            .first()
+        )
+        if named_hold is None:
+            raise HTTPException(status_code=404, detail="Hold not found for this case")
+    hold_display_name = f"{display_name} - {named_hold.name}" if named_hold is not None else display_name
     if not display_name:
         return {
             "enabled": True,
@@ -59,10 +71,19 @@ def get_purview_status_for_case(
         updated_payload = []
         if purview_case_id:
             holds = purview_core.list_purview_case_legal_holds(purview_case_id)
-            target_hold_name = _purview_hold_display_name(display_name)
+            target_hold_name = _purview_hold_display_name(hold_display_name)
             hold = next((h for h in holds if _purview_hold_name_match(h, target_hold_name)), None)
             source_map: dict[str, dict] = {}
-            custodians = db.query(models.Custodian).filter(models.Custodian.case_id == case_id).all()
+            custodian_query = db.query(models.Custodian).filter(models.Custodian.case_id == case_id)
+            if named_hold is not None:
+                member_ids = [
+                    row[0]
+                    for row in db.query(models.HoldCustodian.custodian_id)
+                    .filter(models.HoldCustodian.hold_id == named_hold.id)
+                    .all()
+                ]
+                custodian_query = custodian_query.filter(models.Custodian.id.in_(member_ids))
+            custodians = custodian_query.all()
             site_id_to_emails: dict[str, set[str]] = {}
             personal_key_to_email: dict[str, str] = {}
             for cust in custodians:
@@ -80,6 +101,8 @@ def get_purview_status_for_case(
             for item in holds:
                 hold_id = item.get("id")
                 if not hold_id:
+                    continue
+                if named_hold is not None and (hold is None or hold_id != hold.get("id")):
                     continue
                 sources = purview_core.list_purview_hold_user_sources(purview_case_id, hold_id)
                 for source in sources:
@@ -193,6 +216,24 @@ def get_purview_status_for_case(
             hold_sources = list(source_map.values())
             hold_emails = sorted(source_map.keys())
             if hold_sources:
+                if named_hold is not None:
+                    memberships = {
+                        int(row.custodian_id): row
+                        for row in db.query(models.HoldCustodian)
+                        .filter(models.HoldCustodian.hold_id == named_hold.id)
+                        .all()
+                    }
+                    for cust in custodians:
+                        membership = memberships.get(int(cust.id))
+                        email = _purview_email_norm(getattr(cust, "email", None))
+                        flags = source_map.get(email)
+                        if membership is None or not flags:
+                            continue
+                        if flags.get("mailbox"):
+                            set_membership_preservation_status(db, membership, "email", "active")
+                        if flags.get("site"):
+                            set_membership_preservation_status(db, membership, "onedrive", "active")
+                    db.commit()
                 changed = []
                 for cust in custodians:
                     email = _purview_email_norm(getattr(cust, "email", None))
@@ -247,6 +288,8 @@ def get_purview_status_for_case(
             "display_name": purview_case.get("displayName") or display_name,
             "hold_id": hold.get("id") if hold else None,
             "hold_display_name": hold.get("displayName") if hold else None,
+            "case_hold_id": named_hold.id if named_hold is not None else None,
+            "case_hold_name": named_hold.name if named_hold is not None else None,
             "hold_user_emails": hold_emails,
             "hold_user_sources": hold_sources,
             "updated_custodians": updated_payload,

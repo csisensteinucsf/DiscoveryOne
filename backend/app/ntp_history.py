@@ -1,4 +1,4 @@
-﻿import csv
+import csv
 import io
 import json
 import re
@@ -17,9 +17,29 @@ from . import ntp as ntp_core
 
 router = APIRouter(prefix="/api", tags=["ntp"])
 
+
+def _history_hold_context(
+    db: Session,
+    *,
+    case_id: int,
+    case_hold_id: Optional[int],
+) -> tuple[Optional[models.CaseHold], List[models.HoldCustodian]]:
+    if case_hold_id is None:
+        return None, []
+    hold = ntp_core.case_hold_or_404(db, case_id, case_hold_id)
+    memberships = (
+        db.query(models.HoldCustodian)
+        .options(selectinload(models.HoldCustodian.custodian))
+        .filter(models.HoldCustodian.hold_id == hold.id)
+        .all()
+    )
+    return hold, memberships
+
+
 @router.get("/cases/{case_id}/ntp/last_send")
 def get_last_ntp_send(
     case_id: int,
+    case_hold_id: Optional[int] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
@@ -27,6 +47,12 @@ def get_last_ntp_send(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ntp_core.ensure_case_visible(case, user, db)
+    hold, memberships = _history_hold_context(
+        db,
+        case_id=case_id,
+        case_hold_id=case_hold_id,
+    )
+    membership_ids = [int(membership.id) for membership in memberships]
 
     row = db.execute(
         text(
@@ -36,11 +62,15 @@ def get_last_ntp_send(
              WHERE ev.action = 'ntp_email_sent'
                AND ev.target_type = 'case'
                AND ev.target_id = :case_id
+               AND (
+                    :case_hold_id IS NULL
+                    OR ev.details->>'hold_id' = CAST(:case_hold_id AS TEXT)
+               )
              ORDER BY ev.created_at DESC, ev.id DESC
              LIMIT 1
             """
         ),
-        {"case_id": int(case_id)},
+        {"case_id": int(case_id), "case_hold_id": int(case_hold_id) if case_hold_id is not None else None},
     ).mappings().first()
     details_raw = row.get("details") if row else None
     details: dict = {}
@@ -52,9 +82,11 @@ def get_last_ntp_send(
         except Exception:
             details = {}
 
+    reminder_query = db.query(models.NTPReminder).filter(models.NTPReminder.case_id == int(case_id))
+    if hold is not None:
+        reminder_query = reminder_query.filter(models.NTPReminder.hold_custodian_id.in_(membership_ids))
     reminder = (
-        db.query(models.NTPReminder)
-        .filter(models.NTPReminder.case_id == int(case_id))
+        reminder_query
         .order_by(models.NTPReminder.created_at.desc(), models.NTPReminder.id.desc())
         .first()
     )
@@ -72,6 +104,8 @@ def get_last_ntp_send(
 
     return {
         "exists": bool(row),
+        "hold_id": hold.id if hold is not None else None,
+        "hold_name": hold.name if hold is not None else None,
         "sent_at": row.get("created_at").isoformat() if (row and row.get("created_at")) else None,
         "template_id": details.get("template_id"),
         "template_name": details.get("template_name"),
@@ -86,29 +120,45 @@ def _load_case_ntp_history_payload(
     case_id: int,
     db: Session,
     user: models.User,
+    case_hold_id: Optional[int] = None,
 ) -> Dict[str, object]:
     case = db.get(models.Case, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ntp_core.ensure_case_visible(case, user, db)
-
-    custodian_rows = (
-        db.query(models.Custodian)
-        .filter(models.Custodian.case_id == int(case_id))
-        .all()
+    hold, memberships = _history_hold_context(
+        db,
+        case_id=case_id,
+        case_hold_id=case_hold_id,
     )
+    membership_by_custodian = {
+        int(membership.custodian_id): membership
+        for membership in memberships
+    }
+    membership_ids = [int(membership.id) for membership in memberships]
+
+    if hold is not None:
+        custodian_rows = [membership.custodian for membership in memberships if membership.custodian is not None]
+    else:
+        custodian_rows = (
+            db.query(models.Custodian)
+            .filter(models.Custodian.case_id == int(case_id))
+            .all()
+        )
     custodian_by_id = {
         int(c.id): c
         for c in (custodian_rows or [])
         if getattr(c, "id", None) is not None
     }
 
-    reminders = (
+    reminder_query = (
         db.query(models.NTPReminder)
         .options(selectinload(models.NTPReminder.template))
         .filter(models.NTPReminder.case_id == int(case_id))
-        .all()
     )
+    if hold is not None:
+        reminder_query = reminder_query.filter(models.NTPReminder.hold_custodian_id.in_(membership_ids))
+    reminders = reminder_query.all()
     reminder_buckets: Dict[int, List[models.NTPReminder]] = {}
     for reminder in reminders or []:
         custodian_id = int(getattr(reminder, "custodian_id", 0) or 0)
@@ -129,11 +179,15 @@ def _load_case_ntp_history_payload(
                     AND (ev.details->>'case_id')::integer = :case_id
                  )
                )
+               AND (
+                    :case_hold_id IS NULL
+                    OR ev.details->>'hold_id' = CAST(:case_hold_id AS TEXT)
+               )
              ORDER BY ev.created_at DESC, ev.id DESC
              LIMIT 2000
             """
         ),
-        {"case_id": int(case_id)},
+        {"case_id": int(case_id), "case_hold_id": int(case_hold_id) if case_hold_id is not None else None},
     ).mappings().all()
 
     def _as_details(raw_value: object) -> dict:
@@ -206,6 +260,8 @@ def _load_case_ntp_history_payload(
             "template_name": (details.get("template_name") or "").strip() if isinstance(details.get("template_name"), str) else None,
             "reminder_id": _as_int(details.get("reminder_id")),
             "token_id": _as_int(details.get("token_id")),
+            "hold_id": _as_int(details.get("hold_id")) or (hold.id if hold is not None else None),
+            "hold_name": (details.get("hold_name") or "").strip() if isinstance(details.get("hold_name"), str) else (hold.name if hold is not None else None),
         })
 
     custodian_summary: List[Dict[str, object]] = []
@@ -213,6 +269,8 @@ def _load_case_ntp_history_payload(
         custodian_id = int(getattr(custodian, "id", 0) or 0)
         if custodian_id <= 0:
             continue
+        membership = membership_by_custodian.get(custodian_id)
+        workflow = membership if membership is not None else custodian
         linked_reminders = list(reminder_buckets.get(custodian_id, []) or [])
         sorted_by_next = sorted(
             linked_reminders,
@@ -231,7 +289,7 @@ def _load_case_ntp_history_payload(
 
         status_counts: Dict[str, int] = {}
         template_names = set()
-        ntp_template_name = (getattr(custodian, "ntp_template_name", None) or "").strip()
+        ntp_template_name = (getattr(workflow, "ntp_template_name", None) or "").strip()
         if ntp_template_name:
             template_names.add(ntp_template_name)
         for reminder in linked_reminders:
@@ -245,11 +303,11 @@ def _load_case_ntp_history_payload(
                 template_names.add(reminder_template_name)
 
         has_activity = bool(
-            getattr(custodian, "ntp_sent_at", None)
-            or getattr(custodian, "ntp_acknowledged_at", None)
+            getattr(workflow, "ntp_sent_at", None)
+            or getattr(workflow, "ntp_acknowledged_at", None)
             or template_names
             or linked_reminders
-            or str(getattr(custodian, "ntp_status", "") or "").strip().lower() in {"sent", "acknowledged"}
+            or str(getattr(workflow, "ntp_status", "") or "").strip().lower() in {"sent", "acknowledged"}
         )
         if not has_activity:
             continue
@@ -262,10 +320,10 @@ def _load_case_ntp_history_payload(
             "id": custodian_id,
             "name": (getattr(custodian, "name", None) or "").strip(),
             "email": (getattr(custodian, "email", None) or "").strip(),
-            "ntp_status": (getattr(custodian, "ntp_status", None) or "not sent").strip(),
+            "ntp_status": (getattr(workflow, "ntp_status", None) or "not sent").strip(),
             "ntp_template_name": ", ".join(sorted(template_names)),
-            "ntp_sent_at": getattr(custodian, "ntp_sent_at", None).isoformat() if getattr(custodian, "ntp_sent_at", None) else None,
-            "ntp_acknowledged_at": getattr(custodian, "ntp_acknowledged_at", None).isoformat() if getattr(custodian, "ntp_acknowledged_at", None) else None,
+            "ntp_sent_at": getattr(workflow, "ntp_sent_at", None).isoformat() if getattr(workflow, "ntp_sent_at", None) else None,
+            "ntp_acknowledged_at": getattr(workflow, "ntp_acknowledged_at", None).isoformat() if getattr(workflow, "ntp_acknowledged_at", None) else None,
             "reminders_total": len(linked_reminders),
             "reminders_summary": reminder_summary,
             "next_reminder_at": getattr(next_reminder, "next_send_at", None).isoformat() if next_reminder and getattr(next_reminder, "next_send_at", None) else None,
@@ -277,6 +335,8 @@ def _load_case_ntp_history_payload(
     return {
         "case_id": int(case_id),
         "case_name": getattr(case, "name", None),
+        "hold_id": hold.id if hold is not None else None,
+        "hold_name": hold.name if hold is not None else None,
         "events": events,
         "custodian_summary": custodian_summary,
         "count": len(events),
@@ -286,10 +346,16 @@ def _load_case_ntp_history_payload(
 @router.get("/cases/{case_id}/ntp/history")
 def get_case_ntp_history(
     case_id: int,
+    case_hold_id: Optional[int] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    return _load_case_ntp_history_payload(case_id=case_id, db=db, user=user)
+    return _load_case_ntp_history_payload(
+        case_id=case_id,
+        db=db,
+        user=user,
+        case_hold_id=case_hold_id,
+    )
 
 
 
@@ -311,10 +377,16 @@ def _ntp_history_csv_response(filename: str, headers: List[str], rows: List[List
 @router.get("/cases/{case_id}/ntp/history/export")
 def export_case_ntp_history_csv(
     case_id: int,
+    case_hold_id: Optional[int] = None,
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    payload = _load_case_ntp_history_payload(case_id=case_id, db=db, user=user)
+    payload = _load_case_ntp_history_payload(
+        case_id=case_id,
+        db=db,
+        user=user,
+        case_hold_id=case_hold_id,
+    )
     case_name = str(payload.get("case_name") or f"case_{case_id}").strip() or f"case_{case_id}"
     events = payload.get("events") if isinstance(payload.get("events"), list) else []
     summary = payload.get("custodian_summary") if isinstance(payload.get("custodian_summary"), list) else []
@@ -388,7 +460,10 @@ def export_case_ntp_history_csv(
             " | ".join(detail_bits),
         ])
 
-    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", case_name).strip("_") or f"case_{case_id}"
+    name_parts = [case_name]
+    if payload.get("hold_name"):
+        name_parts.append(str(payload.get("hold_name")))
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", "_".join(name_parts)).strip("_") or f"case_{case_id}"
     filename = f"{safe_name}_ntp_history.csv"
     return _ntp_history_csv_response(filename=filename, headers=headers, rows=csv_rows)
 
@@ -411,7 +486,9 @@ def _compose_ntp_history_report(payload: Dict[str, object]) -> str:
     summary = payload.get("custodian_summary") if isinstance(payload.get("custodian_summary"), list) else []
 
     lines: List[str] = []
-    lines.append(f"NTP History Report - {case_name}")
+    hold_name = str(payload.get("hold_name") or "").strip()
+    title = f"NTP History Report - {case_name}" + (f" - {hold_name}" if hold_name else "")
+    lines.append(title)
     lines.append(f"Generated: {datetime.now(timezone.utc).isoformat()}")
     lines.append("")
     lines.append(f"Custodian summary rows: {len(summary)}")
@@ -463,17 +540,19 @@ def _compose_ntp_history_report(payload: Dict[str, object]) -> str:
 @router.post("/cases/{case_id}/ntp/history/email")
 def email_case_ntp_history_report(
     case_id: int,
+    case_hold_id: Optional[int] = None,
     db: Session = Depends(get_db),
     request: Request = None,
     user: models.User = Depends(get_current_user),
 ):
-    payload = _load_case_ntp_history_payload(case_id=case_id, db=db, user=user)
+    payload = _load_case_ntp_history_payload(case_id=case_id, db=db, user=user, case_hold_id=case_hold_id)
     recipient = _resolve_actor_email_for_ntp_history_report(user)
     if not recipient:
         raise HTTPException(status_code=400, detail="Your account does not have an email address configured")
 
     case_name = str(payload.get("case_name") or f"Case {case_id}").strip() or f"Case {case_id}"
-    subject = f"[{ntp_core.app_display_name()}] NTP History Report - {case_name}"
+    hold_name = str(payload.get("hold_name") or "").strip()
+    subject = f"[{ntp_core.app_display_name()}] NTP History Report - {case_name}" + (f" - {hold_name}" if hold_name else "")
     body = _compose_ntp_history_report(payload)
     try:
         ntp_core.send_email(recipients=[recipient], subject=subject, body=body)
@@ -491,6 +570,8 @@ def email_case_ntp_history_report(
             details={
                 "case_id": int(case_id),
                 "case_name": case_name,
+                "hold_id": payload.get("hold_id"),
+                "hold_name": payload.get("hold_name"),
                 "recipient": recipient,
                 "summary_rows": len(payload.get("custodian_summary") or []),
                 "timeline_rows": len(payload.get("events") or []),

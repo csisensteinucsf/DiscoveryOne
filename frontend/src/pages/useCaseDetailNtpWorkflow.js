@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   NTP_VARIABLE_DEFAULTS,
   readNtpOutsideCounselHistory,
@@ -48,7 +48,46 @@ export function useCaseDetailNtpWorkflow({
   const [lastNtpSend, setLastNtpSend] = useState({ loading: false, error: null, data: null })
   const [ntpPreview, setNtpPreview] = useState({ loading: false, error: null, data: null })
   const ntpReasonTouchedRef = useRef(false)
+  const [ntpHolds, setNtpHolds] = useState([])
+  const [ntpHoldsLoading, setNtpHoldsLoading] = useState(false)
+  const [ntpHoldId, setNtpHoldId] = useState(null)
 
+  const loadNtpHolds = useCallback(async () => {
+    if (!caseId) return []
+    setNtpHoldsLoading(true)
+    try {
+      const res = await fetch(`${apiBase}/cases/${caseId}/holds`, { credentials: 'include' })
+      if (!res.ok) throw new Error(await res.text().catch(() => '') || 'Unable to load holds')
+      const data = await res.json()
+      const holds = (Array.isArray(data?.holds) ? data.holds : []).filter(hold => hold?.status === 'active')
+      setNtpHolds(holds)
+      setNtpHoldId(current => holds.some(hold => Number(hold.id) === Number(current)) ? current : (holds[0]?.id || null))
+      return holds
+    } catch (err) {
+      setNtpHolds([])
+      setNtpHoldId(null)
+      showToast(err?.message || 'Unable to load named holds.', { variant: 'error' })
+      return []
+    } finally {
+      setNtpHoldsLoading(false)
+    }
+  }, [apiBase, caseId, showToast])
+
+  const selectedNtpHold = useMemo(
+    () => ntpHolds.find(hold => Number(hold?.id) === Number(ntpHoldId)) || null,
+    [ntpHoldId, ntpHolds],
+  )
+
+  const ntpCustodians = useMemo(() => {
+    if (!selectedNtpHold) return []
+    const baseById = new Map(custodians.map(custodian => [Number(custodian.id), custodian]))
+    return (selectedNtpHold.custodians || []).map(member => ({
+      ...(baseById.get(Number(member.custodian_id)) || {}),
+      ...member,
+      id: Number(member.custodian_id),
+      hold_custodian_id: member.membership_id,
+    }))
+  }, [custodians, selectedNtpHold])
 
   const loadNtpTemplates = useCallback(async () => {
     setNtpTemplatesLoading(true)
@@ -68,7 +107,9 @@ export function useCaseDetailNtpWorkflow({
     if (!caseId || isTech) return
     setNtpRemindersLoading(true)
     try {
-      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/reminders?include_inactive=true`, { credentials: 'include' })
+      const params = new URLSearchParams({ include_inactive: 'true' })
+      if (ntpHoldId) params.set('case_hold_id', String(ntpHoldId))
+      const res = await fetch(`${apiBase}/cases/${caseId}/ntp/reminders?${params.toString()}`, { credentials: 'include' })
       if (!res.ok) throw new Error(await res.text() || 'Unable to load reminders')
       const data = await res.json()
       setNtpReminders(Array.isArray(data) ? data : [])
@@ -77,9 +118,9 @@ export function useCaseDetailNtpWorkflow({
     } finally {
       setNtpRemindersLoading(false)
     }
-  }, [apiBase, caseId, isTech])
+  }, [apiBase, caseId, isTech, ntpHoldId])
 
-  const ntpButtonDisabled = ntpTemplatesLoading || !ntpTemplates.length || custodians.length === 0
+  const ntpButtonDisabled = ntpTemplatesLoading || ntpHoldsLoading || !ntpTemplates.length || ntpCustodians.length === 0
 
   const isNtpBlockedCustodian = useCallback(isNtpBlockedCustodianRecord, [])
 
@@ -92,9 +133,9 @@ export function useCaseDetailNtpWorkflow({
   const isNtpEmailEligible = useCallback(isNtpEmailEligibleCustodian, [])
 
   useEffect(() => {
-    if (isTech) return
-    loadNtpTemplates()
-  }, [loadNtpTemplates, isTech])
+    loadNtpHolds()
+    if (!isTech) loadNtpTemplates()
+  }, [loadNtpHolds, loadNtpTemplates, isTech])
 
   useEffect(() => {
     if (!showSendNtpModal || !caseId) return
@@ -102,7 +143,8 @@ export function useCaseDetailNtpWorkflow({
     setLastNtpSend({ loading: true, error: null, data: null })
     ;(async () => {
       try {
-        const res = await fetch(`${apiBase}/cases/${caseId}/ntp/last_send`, { credentials: 'include' })
+        const query = ntpHoldId ? `?case_hold_id=${encodeURIComponent(ntpHoldId)}` : ''
+        const res = await fetch(`${apiBase}/cases/${caseId}/ntp/last_send${query}`, { credentials: 'include' })
         if (!res.ok) throw new Error(await res.text().catch(() => '') || 'Unable to load last NTP settings')
         const data = await res.json()
         if (!cancelled) setLastNtpSend({ loading: false, error: null, data })
@@ -111,7 +153,7 @@ export function useCaseDetailNtpWorkflow({
       }
     })()
     return () => { cancelled = true }
-  }, [showSendNtpModal, caseId, apiBase])
+  }, [showSendNtpModal, caseId, apiBase, ntpHoldId])
 
   useEffect(() => {
     if (!showSendNtpModal) return
@@ -124,9 +166,17 @@ export function useCaseDetailNtpWorkflow({
   }, [showSendNtpModal, lastNtpSend, rememberedNtpReason])
 
   useEffect(() => {
-    if (!showSendNtpModal || isTech) return
+    if (!showSendNtpModal || !selectedNtpHold) return
+    const eligible = ntpCustodians.filter(c => isNtpEmailEligible(c))
+    const unsentEligible = eligible.filter(c => ((c.ntp_status || '').toLowerCase() === 'not sent'))
+    setNtpSelection(unsentEligible.map(c => c.id))
+    setNtpPreview({ loading: false, error: null, data: null })
+  }, [isNtpEmailEligible, ntpCustodians, selectedNtpHold, showSendNtpModal])
+
+  useEffect(() => {
+    if (!showSendNtpModal || isTech || !ntpHoldId) return
     loadNtpReminders()
-  }, [showSendNtpModal, isTech, loadNtpReminders])
+  }, [showSendNtpModal, isTech, loadNtpReminders, ntpHoldId])
 
   const {
     showNtpHistoryModal,
@@ -138,7 +188,7 @@ export function useCaseDetailNtpWorkflow({
     loadNtpHistory,
     exportNtpHistoryCsv,
     emailNtpHistoryReport,
-  } = useCaseDetailNtpHistory({ apiBase, caseId, loadNtpReminders, showToast })
+  } = useCaseDetailNtpHistory({ apiBase, caseId, caseHoldId: ntpHoldId, loadNtpReminders, showToast })
 
   const openSendNtp = useCallback(() => {
     if (!ntpTemplates.length) {
@@ -148,7 +198,11 @@ export function useCaseDetailNtpWorkflow({
       showToast(message, { variant: 'warn' })
       return
     }
-    const eligible = custodians.filter(c => isNtpEmailEligible(c))
+    if (!selectedNtpHold) {
+      showToast('Create an active hold and assign custodians before sending an NTP.', { variant: 'warn' })
+      return
+    }
+    const eligible = ntpCustodians.filter(c => isNtpEmailEligible(c))
     if (!eligible.length) {
       showToast('No eligible custodians with valid email addresses available for NTP.', { variant: 'warn' })
       return
@@ -157,8 +211,7 @@ export function useCaseDetailNtpWorkflow({
     const defaultReminderTemplateId =
       ntpTemplates.find(t => t.is_default_reminder)?.id ||
       (ntpTemplates.find(t => String(t?.name || '').toLowerCase().includes('reminder'))?.id || null)
-    const unsentEligible = eligible.filter(c => ((c.ntp_status || '').toLowerCase() === 'not sent'))
-    setNtpSelection(unsentEligible.map(c => c.id))
+
     setSelectedTemplateId(defaultTemplateId)
     setSelectedReminderTemplateId(defaultReminderTemplateId)
     setReminderIntervalDays(REMINDER_INTERVAL_DEFAULT)
@@ -172,7 +225,7 @@ export function useCaseDetailNtpWorkflow({
     })
     setNtpPreview({ loading: false, error: null, data: null })
     setShowSendNtpModal(true)
-  }, [caseData, custodians, isNtpEmailEligible, isRequestor, lastNtpSend?.data, ntpTemplates, rememberedNtpReason, showToast])
+  }, [caseData, isNtpEmailEligible, isRequestor, lastNtpSend?.data, ntpCustodians, ntpTemplates, rememberedNtpReason, selectedNtpHold, showToast])
 
   const closeSendNtp = useCallback(() => {
     setShowSendNtpModal(false)
@@ -215,7 +268,7 @@ export function useCaseDetailNtpWorkflow({
 
   const toggleNtpSelection = useCallback((id, checked) => {
     if (checked) {
-      const target = custodians.find(c => c.id === id)
+      const target = ntpCustodians.find(c => c.id === id)
       if (target && isNtpBlockedCustodian(target)) {
         setNtpBlockedModal({ open: true, custodian: target })
         return
@@ -227,7 +280,7 @@ export function useCaseDetailNtpWorkflow({
       else set.delete(id)
       return Array.from(set)
     })
-  }, [custodians, isNtpBlockedCustodian])
+  }, [isNtpBlockedCustodian, ntpCustodians])
 
   const buildNtpPayloadVariables = useCallback(() => buildNtpPayloadVariablesFromForm(ntpVariables), [ntpVariables])
 
@@ -248,6 +301,7 @@ export function useCaseDetailNtpWorkflow({
         credentials: 'include',
         body: JSON.stringify({
           template_id: selectedTemplateId,
+          case_hold_id: ntpHoldId,
           custodian_ids: ntpSelection,
           variables: buildNtpPayloadVariables(),
         }),
@@ -260,7 +314,7 @@ export function useCaseDetailNtpWorkflow({
       setNtpPreview({ loading: false, error: message, data: null })
       showToast(message, { variant: 'error' })
     }
-  }, [apiBase, buildNtpPayloadVariables, caseId, ntpSelection, selectedTemplateId, showToast])
+  }, [apiBase, buildNtpPayloadVariables, caseId, ntpHoldId, ntpSelection, selectedTemplateId, showToast])
 
   const sendNtpNotices = useCallback(async () => {
     if (!selectedTemplateId) {
@@ -283,6 +337,7 @@ export function useCaseDetailNtpWorkflow({
         credentials: 'include',
         body: JSON.stringify({
           template_id: selectedTemplateId,
+          case_hold_id: ntpHoldId,
           reminder_template_id: selectedReminderTemplateId || null,
           custodian_ids: ntpSelection,
           variables: payloadVariables,
@@ -296,7 +351,7 @@ export function useCaseDetailNtpWorkflow({
         ? { ...c, ntp_status: 'sent', ntp_template_name: selectedTemplateName || c.ntp_template_name || null }
         : c
       ))
-      await loadNtpReminders()
+      await Promise.all([loadNtpReminders(), loadNtpHolds()])
       setNtpOutsideCounselHistory(nextOutsideCounselHistory)
       writeNtpOutsideCounselHistory(nextOutsideCounselHistory)
       showToast('NTP notices sent.', { variant: 'success' })
@@ -311,7 +366,7 @@ export function useCaseDetailNtpWorkflow({
     } finally {
       setSendingNtp(false)
     }
-  }, [apiBase, buildNtpPayloadVariables, caseId, closeSendNtp, loadNtpReminders, ntpOutsideCounselHistory, ntpSelection, ntpTemplates, reminderDurationDays, reminderIntervalDays, selectedReminderTemplateId, selectedTemplateId, setCustodians, showToast])
+  }, [apiBase, buildNtpPayloadVariables, caseId, closeSendNtp, loadNtpHolds, loadNtpReminders, ntpHoldId, ntpOutsideCounselHistory, ntpSelection, ntpTemplates, reminderDurationDays, reminderIntervalDays, selectedReminderTemplateId, selectedTemplateId, setCustodians, showToast])
 
   const pickNextReminder = useCallback(pickNextNtpReminder, [])
 
@@ -331,6 +386,7 @@ export function useCaseDetailNtpWorkflow({
   } = useCaseDetailNtpReminderWorkflow({
     apiBase,
     caseId,
+    caseHoldId: ntpHoldId,
     loadNtpReminders,
     pickNextReminder,
     showToast,
@@ -339,6 +395,12 @@ export function useCaseDetailNtpWorkflow({
   return {
     ntpTemplates,
     ntpTemplatesLoading,
+    ntpHolds,
+    ntpHoldsLoading,
+    loadNtpHolds,
+    ntpHoldId,
+    setNtpHoldId,
+    ntpCustodians,
     ntpReminders,
     ntpRemindersLoading,
     ntpButtonDisabled,

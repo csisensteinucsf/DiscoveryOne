@@ -149,6 +149,9 @@ def apply_approval_request_mutation(
             name=case_name,
             legal_case_name=payload.get("legal_case_name"),
             claimant=payload.get("claimant"),
+            internal_counsel=payload.get("internal_counsel"),
+            outside_counsel=payload.get("outside_counsel"),
+            matter_number=payload.get("matter_number"),
             description=payload.get("description"),
             requestor=record.requestor_email,
             is_private=bool(payload.get("is_private")),
@@ -157,10 +160,17 @@ def apply_approval_request_mutation(
         )
         db.add(case)
         db.flush()
+        trusted_email_intake = (
+            db.query(models.EmailIntakeMessage.id)
+            .filter(models.EmailIntakeMessage.case_request_id == record.id)
+            .first()
+            is not None
+        )
         requestor_entries = case_request_core._normalize_requestor_entries(
             db,
             payload.get("requestors"),
             record.requestor_email,
+            allow_external=trusted_email_intake,
         )
         if requestor_entries:
             case_request_core._apply_case_requestors(case, requestor_entries)
@@ -251,6 +261,23 @@ def apply_approval_request_mutation(
             data.setdefault("name", f"{case.name}-Search {idx}")
             db.add(case_request_core._search_model(case.id, data))
 
+        from .case_holds import ensure_default_hold
+
+        default_hold = ensure_default_hold(db, case, assign_existing=True)
+        requested_hold_name = str(payload.get("hold_name") or "").strip()
+        if requested_hold_name:
+            duplicate_hold = (
+                db.query(models.CaseHold.id)
+                .filter(
+                    models.CaseHold.case_id == case.id,
+                    models.CaseHold.id != default_hold.id,
+                    models.CaseHold.name.ilike(requested_hold_name),
+                )
+                .first()
+            )
+            if duplicate_hold is None:
+                default_hold.name = requested_hold_name[:255]
+        db.flush()
         case_for_tickets = case
         case_analyst_user = analyst
     elif record.request_type == "custodian":
@@ -319,6 +346,11 @@ def apply_approval_request_mutation(
                         record.case_id,
                         getattr(model, "email", None),
                     )
+        if case_for_tickets:
+            from .case_holds import ensure_default_hold
+
+            ensure_default_hold(db, case_for_tickets, assign_existing=True)
+            db.flush()
         _debug_log_custodian_holds("custodian_update", built_custodians)
         hold_notification_ids = [int(c.id) for c in built_custodians if getattr(c, "id", None) is not None]
         hold_notification_should_send = _any_requested_holds(built_custodians)
@@ -428,11 +460,7 @@ def apply_approval_request_mutation(
         raise HTTPException(status_code=400, detail="Unsupported request type")
 
     case_request_core._apply_consents(db, record.case_id, payload.get("consents"))
-    if record.case_id:
-        for proof in list(getattr(record, "consent_proofs", []) or []):
-            if not getattr(proof, "case_id", None):
-                proof.case_id = int(record.case_id)
-                db.add(proof)
+    case_request_core._assign_request_proofs_to_default_hold(db, record)
 
 
     record.status = "approved"

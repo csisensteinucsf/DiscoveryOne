@@ -132,13 +132,13 @@ def test_generic_status_scheduler_uses_provider_facade(monkeypatch):
 
     cases._preservation_poll_timers.clear()
     cases._schedule_preservation_status_poll(13, "test")
-    timer = cases._preservation_poll_timers[(13, 7)]
+    timer = cases._preservation_poll_timers[(13, 0, 7)]
     assert timer.delay == 7.5
 
     timer.callback()
 
     assert status_calls == [
-        {"case_id": 13, "db": status_calls[0]["db"], "request": None, "user": None}
+        {"case_id": 13, "db": status_calls[0]["db"], "request": None, "user": None, "case_hold_id": None}
     ]
     assert isinstance(status_calls[0]["db"], FakeDB)
     assert cases._preservation_poll_timers == {}

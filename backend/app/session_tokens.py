@@ -14,6 +14,12 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
 def _fingerprint(value: str) -> str:
     if value is None:
         return ""
@@ -230,7 +236,7 @@ def find_valid_refresh(db: Session, token: str, *, user_agent: Optional[str] = N
         .filter(models.RefreshToken.revoked_at.is_(None))
         .first()
     )
-    if not record or record.expires_at <= now:
+    if not record or _as_utc(record.expires_at) <= now:
         return None
     # Soft match on UA/IP if provided (do not fail if missing)
     if user_agent and record.user_agent and _trim(user_agent, 255) != record.user_agent:
@@ -238,3 +244,29 @@ def find_valid_refresh(db: Session, token: str, *, user_agent: Optional[str] = N
     if ip and record.ip and _trim(ip, 63) != record.ip:
         return None
     return record
+
+
+def consume_valid_refresh(db: Session, token: str, *, user_agent: Optional[str] = None, ip: Optional[str] = None) -> Optional[models.RefreshToken]:
+    """Atomically revoke and return a valid refresh token exactly once."""
+    record = find_valid_refresh(db, token, user_agent=user_agent, ip=ip)
+    if not record:
+        return None
+    now = _now()
+    try:
+        updated = (
+            db.query(models.RefreshToken)
+            .filter(
+                models.RefreshToken.id == record.id,
+                models.RefreshToken.revoked_at.is_(None),
+                models.RefreshToken.expires_at > now,
+            )
+            .update({"revoked_at": now}, synchronize_session=False)
+        )
+        if updated != 1:
+            db.rollback()
+            return None
+        db.commit()
+        return record
+    except Exception:
+        db.rollback()
+        return None

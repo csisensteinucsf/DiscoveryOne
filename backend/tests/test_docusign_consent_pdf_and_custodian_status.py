@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import cases, docusign_webhook, models
+from app import case_consents, case_holds, cases, docusign_webhook, models
 from app.custodians_summary import custodian_detail, list_custodians
 
 
@@ -126,6 +126,85 @@ def test_custodian_views_include_per_case_consent_status():
         assert detail["cases"][0]["consent"]["status"] == "delivered"
         assert detail["cases"][0]["consent"]["custodian_status"] == "sent"
         assert detail["cases"][0]["consent"]["source"] == "docusign"
+    finally:
+        db.close()
+        engine.dispose()
+
+def test_consent_send_and_completion_are_isolated_to_selected_hold(tmp_path, monkeypatch):
+    engine, db = _session()
+    try:
+        actor = _admin(db)
+        case = models.Case(name="Two Hold Consent")
+        db.add(case)
+        db.commit()
+        custodian = models.Custodian(
+            case_id=case.id,
+            name="Shared Custodian",
+            email="shared@example.edu",
+            consent_status="not sent",
+        )
+        db.add(custodian)
+        db.commit()
+        first_hold = case_holds.ensure_default_hold(db, case, assign_existing=True)
+        second_hold = models.CaseHold(case_id=case.id, name="Hold B", sort_order=1)
+        db.add(second_hold)
+        db.flush()
+        second_membership = models.HoldCustodian(
+            hold_id=second_hold.id,
+            custodian_id=custodian.id,
+            consent_status="not sent",
+        )
+        db.add(second_membership)
+        db.commit()
+        first_membership = db.query(models.HoldCustodian).filter_by(
+            hold_id=first_hold.id,
+            custodian_id=custodian.id,
+        ).one()
+
+        monkeypatch.setattr(case_consents, "current_esignature_provider", lambda: "docusign")
+        monkeypatch.setattr(case_consents, "send_consent_request", lambda **_kwargs: "env-hold-a")
+        monkeypatch.setattr(case_consents, "log_event", lambda *_args, **_kwargs: None)
+        result = case_consents.send_consent_request_route(
+            case.id,
+            {
+                "case_hold_id": first_hold.id,
+                "record_type": "Email",
+                "custodians": [{"custodian_id": custodian.id}],
+            },
+            db=db,
+            request=None,
+            actor=actor,
+        )
+
+        assert result["ok"] is True
+        consent = db.query(models.CaseConsent).filter_by(envelope_id="env-hold-a").one()
+        assert consent.hold_custodian_id == first_membership.id
+        db.refresh(first_membership)
+        db.refresh(second_membership)
+        assert first_membership.consent_status == "sent"
+        assert second_membership.consent_status == "not sent"
+
+        consent.status = "completed"
+        db.add(consent)
+        db.commit()
+        monkeypatch.setattr(docusign_webhook, "CASE_REQUEST_PROOF_DIR", tmp_path)
+        monkeypatch.setattr(
+            docusign_webhook,
+            "download_completed_document",
+            lambda _request_id, **_kwargs: (b"%PDF-1.4 signed", "combined.pdf"),
+        )
+        monkeypatch.setattr(docusign_webhook, "scan_payload", lambda *_args, **_kwargs: None)
+        docusign_webhook._save_completed_docusign_pdf(
+            db,
+            consent=consent,
+            custodian=custodian,
+            request=None,
+        )
+
+        db.refresh(first_membership)
+        db.refresh(second_membership)
+        assert first_membership.consent_status == "received"
+        assert second_membership.consent_status == "not sent"
     finally:
         db.close()
         engine.dispose()

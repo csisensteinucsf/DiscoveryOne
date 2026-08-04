@@ -8,6 +8,7 @@ from . import models
 from .permissions import get_role
 from .safe_log import debug_suppressed
 from .case_request_settings import hold_automation_allow_override
+from .hold_workflows import sync_legacy_custodian_to_default_hold
 
 NO_EMAIL_PLACEHOLDER = "NoEmail"
 UNMATCHED_EMAIL_PLACEHOLDER = "UNMATCHED"
@@ -98,6 +99,10 @@ def filter_rubrik_targets_after_preservation(
     for cust in rubrik_targets:
         if provider_email_hold_complete(cust):
             clear_rubrik_restore_hold_flags(cust)
+            try:
+                sync_legacy_custodian_to_default_hold(db, cust, changed_fields={"holds_rubrik_restore"})
+            except Exception as exc:
+                debug_suppressed("suppressed default-hold sync after Rubrik cleanup", exc)
             cleared.append(cust)
         else:
             keep.append(cust)

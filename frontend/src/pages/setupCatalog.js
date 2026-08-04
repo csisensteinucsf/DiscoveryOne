@@ -19,6 +19,7 @@ export const SETUP_INTEGRATION_FLAGS = [
 export const SYSTEM_INTEGRATION_FLAGS = [
   ['person_lookup', 'Person lookup'],
   ['ntp_ack_bridge', 'DMZ NTP Acknowledgment Server'],
+  ['email_intake', 'Email Intake'],
   ...SETUP_INTEGRATION_FLAGS,
 ]
 
@@ -28,7 +29,7 @@ export const PROVIDER_DEFAULTS = {
   person_lookup_provider: 'none',
   sso_provider: 'local',
   ticket_provider: 'none',
-  mail_provider: 'smtp',
+  mail_provider: 'none',
   esign_provider: 'none',
   preservation_provider: 'none',
   search_export_provider: 'none',
@@ -260,6 +261,25 @@ export const INTEGRATION_CONFIG_DEFAULTS = {
     oauth_state_ttl_seconds: 900,
   },
   ai: AI_DEFAULTS,
+  email_intake: {
+    tenant_id: '',
+    client_id: '',
+    client_secret: '',
+    mailbox: '',
+    folder_id: 'inbox',
+    poll_interval_seconds: 60,
+    max_messages_per_poll: 50,
+    sender_policy: 'any',
+    allowed_senders: '',
+    allowed_sender_domains: '',
+    graph_base: 'https://graph.microsoft.com/v1.0',
+    scope: 'https://graph.microsoft.com/.default',
+    requestor_from_sender: true,
+    process_existing_on_first_run: false,
+    startup_delay_seconds: 15,
+    timeout_seconds: 30,
+    retry_count: 3,
+  },
 }
 
 export const EMPTY_INTEGRATION_CONFIG_DEFAULTS = {
@@ -280,6 +300,7 @@ export const EMPTY_INTEGRATION_CONFIG_DEFAULTS = {
   docusign: {},
   slack: {},
   ai: {},
+  email_intake: {},
 }
 
 export const ENABLED_INTEGRATION_DEFAULTS = Object.fromEntries(

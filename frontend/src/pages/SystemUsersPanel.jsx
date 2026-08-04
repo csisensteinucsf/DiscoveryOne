@@ -102,76 +102,6 @@ export default function SystemUsersPanel({
 
       {canManageUsers && (
         <div className="card" style={{ marginTop: 16 }}>
-          <div style={{ ...titleStyle, marginBottom: 8 }}>Account Review</div>
-          <p style={{ marginTop: 0, color: 'var(--muted,#6b7280)', fontSize: 13 }}>
-            DiscoveryOne can periodically email system administrators an account inventory so access, roles, and local-only accounts can be reviewed. These values are stored in application settings and do not require environment-file changes.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontWeight: 700 }}>
-              <input
-                type="checkbox"
-                checked={accountReviewSettings?.enabled !== false}
-                onChange={e => updateAccountReviewSetting('enabled', e.target.checked)}
-                style={{ marginTop: 3 }}
-              />
-              <span>
-                Send account review emails
-                <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-                  When enabled, DiscoveryOne sends the account review inventory to current system administrators.
-                </span>
-              </span>
-            </label>
-            <label style={{ display: 'block', fontWeight: 700 }}>
-              Review interval days
-              <input
-                className="input"
-                type="number"
-                min="1"
-                max="3650"
-                step="1"
-                value={accountReviewSettings?.interval_days ?? 120}
-                onChange={e => updateAccountReviewSetting('interval_days', e.target.value)}
-                style={{ marginTop: 6 }}
-              />
-              <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-                Number of days between account review emails after the last successful send.
-              </span>
-            </label>
-            <label style={{ display: 'block', fontWeight: 700 }}>
-              Scheduler check interval hours
-              <input
-                className="input"
-                type="number"
-                min="1"
-                max="168"
-                step="1"
-                value={accountReviewSettings?.check_interval_hours ?? 12}
-                onChange={e => updateAccountReviewSetting('check_interval_hours', e.target.value)}
-                style={{ marginTop: 6 }}
-              />
-              <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-                How often the backend checks whether an account review email is due.
-              </span>
-            </label>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-            <button className="btn secondary" type="button" onClick={saveAccountReviewSettings} disabled={accountReviewSaving}>
-              {accountReviewSaving ? 'Saving' : 'Save Account Review'}
-            </button>
-            <span style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>
-              Last sent: {formatDateTime(accountReviewSettings?.last_sent_at)}
-            </span>
-            {accountReviewStatus && (
-              <span style={{ color: accountReviewStatus.toLowerCase().includes('unable') ? '#b91c1c' : 'var(--muted,#6b7280)' }}>
-                {accountReviewStatus}
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {canManageUsers && (
-        <div className="card" style={{ marginTop: 16 }}>
           <div style={{ ...titleStyle, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 8 }}>
             <span>Groups</span>
             <button className="btn secondary" type="button" onClick={openCreateGroup}>Add Group</button>
@@ -273,6 +203,76 @@ export default function SystemUsersPanel({
           ) : (
             <p style={{ color: 'var(--muted,#6b7280)', margin: 0 }}>No account requests.</p>
           )}
+        </div>
+      )}
+
+      {canManageUsers && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <div style={{ ...titleStyle, marginBottom: 8 }}>Account Review</div>
+          <p style={{ marginTop: 0, color: 'var(--muted,#6b7280)', fontSize: 13 }}>
+            DiscoveryOne can periodically email system administrators an account inventory so access, roles, and local-only accounts can be reviewed. These values are stored in application settings and do not require environment-file changes.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontWeight: 700 }}>
+              <input
+                type="checkbox"
+                checked={accountReviewSettings?.enabled !== false}
+                onChange={e => updateAccountReviewSetting('enabled', e.target.checked)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                Send account review emails
+                <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
+                  When enabled, DiscoveryOne sends the account review inventory to current system administrators.
+                </span>
+              </span>
+            </label>
+            <label style={{ display: 'block', fontWeight: 700 }}>
+              Review interval days
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="3650"
+                step="1"
+                value={accountReviewSettings?.interval_days ?? 120}
+                onChange={e => updateAccountReviewSetting('interval_days', e.target.value)}
+                style={{ marginTop: 6 }}
+              />
+              <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
+                Number of days between account review emails after the last successful send.
+              </span>
+            </label>
+            <label style={{ display: 'block', fontWeight: 700 }}>
+              Scheduler check interval hours
+              <input
+                className="input"
+                type="number"
+                min="1"
+                max="168"
+                step="1"
+                value={accountReviewSettings?.check_interval_hours ?? 12}
+                onChange={e => updateAccountReviewSetting('check_interval_hours', e.target.value)}
+                style={{ marginTop: 6 }}
+              />
+              <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
+                How often the backend checks whether an account review email is due.
+              </span>
+            </label>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+            <button className="btn secondary" type="button" onClick={saveAccountReviewSettings} disabled={accountReviewSaving}>
+              {accountReviewSaving ? 'Saving' : 'Save Account Review'}
+            </button>
+            <span style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>
+              Last sent: {formatDateTime(accountReviewSettings?.last_sent_at)}
+            </span>
+            {accountReviewStatus && (
+              <span style={{ color: accountReviewStatus.toLowerCase().includes('unable') ? '#b91c1c' : 'var(--muted,#6b7280)' }}>
+                {accountReviewStatus}
+              </span>
+            )}
+          </div>
         </div>
       )}
     </>

@@ -69,6 +69,9 @@ class Case(Base):
     servicenow_inc_number = Column(String(64), nullable=True)
     claimant = Column(String, nullable=True)
     ler_representative = Column(String, nullable=True)
+    internal_counsel = Column(String, nullable=True)
+    outside_counsel = Column(String, nullable=True)
+    matter_number = Column(String(128), nullable=True)
     requestor = Column(String, nullable=True)
     analyst_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     closed = Column(Boolean, nullable=False, default=False)
@@ -81,6 +84,8 @@ class Case(Base):
     request_ticket_entries_raw = Column("request_ticket_entries", Text, nullable=True)
     # Case consents (DocuSign envelopes) relationship defined below CaseConsent
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)
     notes_internal_count = Column(Integer, nullable=False, default=0)
     notes_requestor_count = Column(Integer, nullable=False, default=0)
     notes_ticket_count = Column(Integer, nullable=False, default=0)
@@ -98,6 +103,7 @@ class Case(Base):
     custodians = relationship("Custodian", back_populates="case", cascade="all, delete-orphan")
     consents = relationship("CaseConsent", back_populates="case", cascade="all, delete-orphan")
     requestors = relationship("CaseRequestor", back_populates="case", cascade="all, delete-orphan")
+    holds = relationship("CaseHold", back_populates="case", cascade="all, delete-orphan", order_by="CaseHold.sort_order")
 
     @property
     def request_ticket_entries(self):
@@ -212,6 +218,7 @@ class Custodian(Base):
 
     case = relationship("Case", back_populates="custodians")
     custom_preservation = relationship("CustodianPreservation", back_populates="custodian", cascade="all, delete-orphan")
+    hold_memberships = relationship("HoldCustodian", back_populates="custodian", cascade="all, delete-orphan")
     ntp_tokens = relationship("NTPTargetToken", back_populates="custodian", cascade="all, delete-orphan")
     consents = relationship("CaseConsent", back_populates="custodian")
 
@@ -234,6 +241,94 @@ class CustodianPreservation(Base):
 
     custodian = relationship("Custodian", back_populates="custom_preservation")
 
+
+class CaseHold(Base):
+    __tablename__ = "case_holds"
+    __table_args__ = (
+        UniqueConstraint("case_id", "name", name="uq_case_hold_name"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(255), nullable=False)
+    description = Column(Text, nullable=True)
+    status = Column(String(32), nullable=False, default="active")
+    sort_order = Column(Integer, nullable=False, default=0)
+    ntp_template_name = Column(String(255), nullable=True)
+    preservation_template_name = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    closed_at = Column(DateTime(timezone=True), nullable=True)
+
+    case = relationship("Case", back_populates="holds")
+    custodian_memberships = relationship("HoldCustodian", back_populates="hold", cascade="all, delete-orphan")
+    search_memberships = relationship("HoldSearch", back_populates="hold", cascade="all, delete-orphan")
+
+
+class HoldCustodian(Base):
+    __tablename__ = "hold_custodians"
+    __table_args__ = (
+        UniqueConstraint("hold_id", "custodian_id", name="uq_hold_custodian"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    hold_id = Column(Integer, ForeignKey("case_holds.id", ondelete="CASCADE"), nullable=False, index=True)
+    custodian_id = Column(Integer, ForeignKey("custodians.id", ondelete="CASCADE"), nullable=False, index=True)
+    ntp_status = Column(String(32), nullable=False, default="not sent")
+    ntp_sent_at = Column(DateTime(timezone=True), nullable=True)
+    ntp_acknowledged_at = Column(DateTime(timezone=True), nullable=True)
+    ntp_template_name = Column(String(255), nullable=True)
+    ntp_not_required_reason = Column(Text, nullable=True)
+    consent_status = Column(String(32), nullable=False, default="not sent")
+    consent_not_required_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    hold = relationship("CaseHold", back_populates="custodian_memberships")
+    custodian = relationship("Custodian", back_populates="hold_memberships")
+    preservation_sources = relationship("HoldPreservationSource", back_populates="hold_custodian", cascade="all, delete-orphan")
+    consents = relationship("CaseConsent", back_populates="hold_custodian")
+    consent_proofs = relationship("CaseRequestConsentProof", back_populates="hold_custodian")
+    ntp_tokens = relationship("NTPTargetToken", back_populates="hold_custodian")
+    ntp_reminders = relationship("NTPReminder", back_populates="hold_custodian")
+
+
+class HoldPreservationSource(Base):
+    __tablename__ = "hold_preservation_sources"
+    __table_args__ = (
+        UniqueConstraint("hold_custodian_id", "source_key", name="uq_hold_custodian_source"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    hold_custodian_id = Column(Integer, ForeignKey("hold_custodians.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_key = Column(String(80), nullable=False)
+    source_label = Column(String(255), nullable=False)
+    status = Column(String(32), nullable=False, default="not_started")
+    provider_reference = Column(String(512), nullable=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    hold_custodian = relationship("HoldCustodian", back_populates="preservation_sources")
+
+
+class HoldSearch(Base):
+    __tablename__ = "hold_searches"
+    __table_args__ = (
+        UniqueConstraint("hold_id", "search_id", name="uq_hold_search"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    hold_id = Column(Integer, ForeignKey("case_holds.id", ondelete="CASCADE"), nullable=False, index=True)
+    search_id = Column(Integer, ForeignKey("searches.id", ondelete="CASCADE"), nullable=False, index=True)
+    status_search = Column(String, nullable=False, default="not performed")
+    status_export = Column(String, nullable=False, default="not performed")
+    status_delivery = Column(String, nullable=False, default="not performed")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    hold = relationship("CaseHold", back_populates="search_memberships")
+    search = relationship("Search", back_populates="hold_memberships")
 
 class CaseRequestor(Base):
     __tablename__ = "case_requestors"
@@ -290,6 +385,7 @@ class Search(Base):
     status_delivery = Column(String, nullable=False, default="not performed")
 
     custodian_ids = Column(Text, nullable=False, default="[]")  # JSON array of ints
+    hold_memberships = relationship("HoldSearch", back_populates="search", cascade="all, delete-orphan")
 
 class CaseNote(Base):
     __tablename__ = "case_notes"
@@ -415,12 +511,84 @@ class CaseRequest(Base):
     )
 
 
+class EmailIntakeTemplate(Base):
+    __tablename__ = "email_intake_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True)
+    description = Column(Text, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    priority = Column(Integer, nullable=False, default=100)
+    sender_pattern = Column(String(512), nullable=True)
+    recipient_pattern = Column(String(512), nullable=True)
+    subject_pattern = Column(String(512), nullable=True)
+    body_markers = Column(Text, nullable=True)
+    field_markers = Column(Text, nullable=True)
+    default_values = Column(Text, nullable=True)
+    hold_name = Column(String(255), nullable=True)
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    created_by = relationship("User", foreign_keys=[created_by_id])
+
+
+class EmailIntakeCursor(Base):
+    __tablename__ = "email_intake_cursors"
+    __table_args__ = (
+        UniqueConstraint("mailbox", "folder_id", name="uq_email_intake_cursor_mailbox_folder"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    mailbox = Column(String(320), nullable=False, index=True)
+    folder_id = Column(String(512), nullable=False)
+    delta_link = Column(Text, nullable=True)
+    baseline_pending = Column(Boolean, nullable=False, default=True)
+    last_polled_at = Column(DateTime(timezone=True), nullable=True)
+    last_success_at = Column(DateTime(timezone=True), nullable=True)
+    last_error = Column(Text, nullable=True)
+    last_error_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class EmailIntakeMessage(Base):
+    __tablename__ = "email_intake_messages"
+    __table_args__ = (
+        UniqueConstraint("mailbox", "graph_message_id", name="uq_email_intake_mailbox_message"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    mailbox = Column(String(320), nullable=False, index=True)
+    graph_message_id = Column(String(1024), nullable=False)
+    internet_message_id = Column(String(1024), nullable=True, index=True)
+    change_key = Column(String(512), nullable=True)
+    status = Column(String(32), nullable=False, default="received", index=True)
+    template_id = Column(Integer, ForeignKey("email_intake_templates.id", ondelete="SET NULL"), nullable=True, index=True)
+    case_request_id = Column(Integer, ForeignKey("case_requests.id", ondelete="SET NULL"), nullable=True, index=True)
+    sender = Column(String(320), nullable=True, index=True)
+    recipients = Column(Text, nullable=True)
+    subject = Column(Text, nullable=True)
+    received_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    body_text = Column(Text, nullable=True)
+    attachment_count = Column(Integer, nullable=False, default=0)
+    attempts = Column(Integer, nullable=False, default=0)
+    last_attempt_at = Column(DateTime(timezone=True), nullable=True)
+    next_retry_at = Column(DateTime(timezone=True), nullable=True, index=True)
+    last_error = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    template = relationship("EmailIntakeTemplate")
+    case_request = relationship("CaseRequest")
+
 class CaseRequestConsentProof(Base):
     __tablename__ = "case_request_consent_proofs"
 
     id = Column(Integer, primary_key=True, index=True)
     case_request_id = Column(Integer, ForeignKey("case_requests.id", ondelete="CASCADE"), nullable=True, index=True)
     case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True, index=True)
+    hold_custodian_id = Column(Integer, ForeignKey("hold_custodians.id", ondelete="SET NULL"), nullable=True, index=True)
     custodian_name = Column(String, nullable=True)
     custodian_email = Column(String, nullable=True)
     stored_filename = Column(String(255), nullable=False, unique=True)
@@ -432,6 +600,7 @@ class CaseRequestConsentProof(Base):
 
     case_request = relationship("CaseRequest", back_populates="consent_proofs")
     case = relationship("Case")
+    hold_custodian = relationship("HoldCustodian", back_populates="consent_proofs")
     uploaded_by = relationship("User", foreign_keys=[uploaded_by_id])
 
 
@@ -441,9 +610,10 @@ class CaseConsent(Base):
         UniqueConstraint("provider", "envelope_id", name="uq_case_consents_provider_request_id"),
     )
 
-    id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, index=True)
     case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=True, index=True)
     custodian_id = Column(Integer, ForeignKey("custodians.id", ondelete="SET NULL"), nullable=True, index=True)
+    hold_custodian_id = Column(Integer, ForeignKey("hold_custodians.id", ondelete="SET NULL"), nullable=True, index=True)
     custodian_name = Column(Text, nullable=True)
     custodian_email = Column(Text, nullable=True)
     provider = Column(String(64), nullable=False, default="docusign", server_default="docusign", index=True)
@@ -460,10 +630,15 @@ class CaseConsent(Base):
 
     case = relationship("Case", back_populates="consents")
     custodian = relationship("Custodian", back_populates="consents")
+    hold_custodian = relationship("HoldCustodian", back_populates="consents")
 
     @property
     def request_id(self) -> str:
         return self.envelope_id
+
+    @property
+    def hold_id(self) -> int | None:
+        return self.hold_custodian.hold_id if self.hold_custodian is not None else None
 
 
 class NTPTemplate(Base):
@@ -496,11 +671,13 @@ class NTPTargetToken(Base):
     token = Column(String(64), nullable=False, unique=True, index=True)
     case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
     custodian_id = Column(Integer, ForeignKey("custodians.id", ondelete="CASCADE"), nullable=False, index=True)
+    hold_custodian_id = Column(Integer, ForeignKey("hold_custodians.id", ondelete="SET NULL"), nullable=True, index=True)
     template_id = Column(Integer, ForeignKey("ntp_templates.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     used_at = Column(DateTime(timezone=True), nullable=True)
 
     custodian = relationship("Custodian", back_populates="ntp_tokens")
+    hold_custodian = relationship("HoldCustodian", back_populates="ntp_tokens")
 
 
 class NTPReminder(Base):
@@ -509,6 +686,7 @@ class NTPReminder(Base):
     id = Column(Integer, primary_key=True)
     case_id = Column(Integer, ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True)
     custodian_id = Column(Integer, ForeignKey("custodians.id", ondelete="CASCADE"), nullable=False, index=True)
+    hold_custodian_id = Column(Integer, ForeignKey("hold_custodians.id", ondelete="SET NULL"), nullable=True, index=True)
     template_id = Column(Integer, ForeignKey("ntp_templates.id", ondelete="SET NULL"), nullable=True)
     token_id = Column(Integer, ForeignKey("ntp_tokens.id", ondelete="CASCADE"), nullable=False, unique=True)
     variables = Column(Text, nullable=True)
@@ -523,6 +701,7 @@ class NTPReminder(Base):
 
     case = relationship("Case")
     custodian = relationship("Custodian")
+    hold_custodian = relationship("HoldCustodian", back_populates="ntp_reminders")
     template = relationship("NTPTemplate")
     token = relationship("NTPTargetToken")
 

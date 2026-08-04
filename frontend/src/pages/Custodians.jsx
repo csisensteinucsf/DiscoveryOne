@@ -1,7 +1,11 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Upload, UserPlus } from 'lucide-react'
+import DataTableHeader from '../components/DataTableHeader.jsx'
+import Modal from '../components/Modal.jsx'
+import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
 
-const lightBtn = { background:'#E5EEF3', color:'#00598C', border:'1px solid #C9D7E2' }
+const lightBtn = { background: '#E5EEF3', color: '#00598C', border: '1px solid #C9D7E2' }
 
 function Chip({ kind = 'default', children, title }) {
   const base = {
@@ -51,37 +55,54 @@ function CaseList({ items = [] }) {
   if (!items.length) return <span>-</span>
   return (
     <>
-      {items.map((k, idx) => (
-        <Fragment key={k.id}>
-          <Link to={`/cases/${k.id}`} onClick={e => e.stopPropagation()} style={{ textDecoration: 'none', color: 'inherit' }}>
-            {k.name}
+      {items.map((item, index) => (
+        <Fragment key={item.id}>
+          <Link to={'/cases/' + item.id} onClick={event => event.stopPropagation()} style={{ textDecoration: 'none', color: 'inherit' }}>
+            {item.name}
           </Link>
-          {k.is_claimant ? <Chip kind="blue-letter" title="Claimant in this case">C</Chip> : null}
-          {idx < items.length - 1 ? ', ' : ''}
+          {item.is_claimant ? <Chip kind="blue-letter" title="Claimant in this case">C</Chip> : null}
+          {index < items.length - 1 ? ', ' : ''}
         </Fragment>
       ))}
     </>
   )
 }
 
+const caseSearchText = (items = []) => items.map(item => item?.name || '').join(' ').toLowerCase()
+
 export default function Custodians({ apiBase = '/api' }) {
   const [q, setQ] = useState('')
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
+  const [sort, setSort] = useState({ key: 'name', dir: 'asc' })
+  const [filters, setFilters] = useState({
+    name: '',
+    email: '',
+    openCases: '',
+    closedCases: '',
+    holds: '',
+  })
+  const [workflowMode, setWorkflowMode] = useState(null)
+  const [caseOptions, setCaseOptions] = useState([])
+  const [selectedCaseId, setSelectedCaseId] = useState('')
+  const [holdOptions, setHoldOptions] = useState([])
+  const [selectedHoldIds, setSelectedHoldIds] = useState([])
+  const [workflowLoading, setWorkflowLoading] = useState(false)
+  const [workflowError, setWorkflowError] = useState('')
   const nav = useNavigate()
 
   async function load() {
     setLoading(true)
     setErr(null)
     try {
-      const url = q ? `${apiBase}/custodians?q=${encodeURIComponent(q)}` : `${apiBase}/custodians`
-      const r = await fetch(url, { credentials:'include' })
-      if (!r.ok) throw new Error(`HTTP ${r.status}`)
-      const data = await r.json()
+      const url = q ? apiBase + '/custodians?q=' + encodeURIComponent(q) : apiBase + '/custodians'
+      const response = await fetch(url, { credentials: 'include' })
+      if (!response.ok) throw new Error('HTTP ' + response.status)
+      const data = await response.json()
       setRows(Array.isArray(data) ? data : [])
-    } catch(e) {
-      setErr(String(e))
+    } catch (error) {
+      setErr(String(error))
     } finally {
       setLoading(false)
     }
@@ -89,67 +110,296 @@ export default function Custodians({ apiBase = '/api' }) {
 
   useEffect(() => { load() }, [])
 
-  const onSearch = (e) => { e.preventDefault(); load() }
+  const toggleSort = (key) => {
+    setSort(current => ({
+      key,
+      dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc',
+    }))
+  }
+
+  const visibleRows = useMemo(() => {
+    const filtered = rows.filter(custodian => {
+      const name = (custodian.name || '').toLowerCase()
+      const email = (custodian.email || '').toLowerCase()
+      const openCases = caseSearchText(custodian.open_cases)
+      const closedCases = caseSearchText(custodian.closed_cases)
+      const holds = custodian.active_holds ? 'yes active hold' : 'no none'
+
+      return (
+        name.includes(filters.name.trim().toLowerCase())
+        && email.includes(filters.email.trim().toLowerCase())
+        && openCases.includes(filters.openCases.trim().toLowerCase())
+        && closedCases.includes(filters.closedCases.trim().toLowerCase())
+        && holds.includes(filters.holds.trim().toLowerCase())
+      )
+    })
+
+    const valueFor = (custodian) => {
+      if (sort.key === 'email') return (custodian.email || '').toLowerCase()
+      if (sort.key === 'openCases') return (custodian.open_cases || []).length
+      if (sort.key === 'closedCases') return (custodian.closed_cases || []).length
+      if (sort.key === 'holds') return Number(custodian.active_holds || 0)
+      return (custodian.name || '').toLowerCase()
+    }
+    const direction = sort.dir === 'desc' ? -1 : 1
+
+    return filtered.sort((a, b) => {
+      const aValue = valueFor(a)
+      const bValue = valueFor(b)
+      if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * direction
+      return String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' }) * direction
+    })
+  }, [filters, rows, sort])
+
+  const onSearch = (event) => {
+    event.preventDefault()
+    load()
+  }
+  const loadHoldsForCase = async (caseId) => {
+    setHoldOptions([])
+    setSelectedHoldIds([])
+    if (!caseId) return
+    const response = await fetch(apiBase + '/cases/' + caseId + '/holds', { credentials: 'include' })
+    if (!response.ok) throw new Error('Unable to load holds for the selected case')
+    const data = await response.json()
+    const nextHolds = Array.isArray(data?.holds) ? data.holds : []
+    const firstActive = nextHolds.find(hold => hold?.status === 'active')
+    setHoldOptions(nextHolds)
+    setSelectedHoldIds(firstActive ? [Number(firstActive.id)] : [])
+  }
+
+  const onWorkflowHoldCreated = (created) => {
+    if (!created?.id) return
+    setHoldOptions(current => current.some(hold => Number(hold.id) === Number(created.id))
+      ? current
+      : [...current, created])
+  }
+
+  const openCustodianWorkflow = async (mode) => {
+    setWorkflowMode(mode)
+    setWorkflowLoading(true)
+    setWorkflowError('')
+    setCaseOptions([])
+    setSelectedCaseId('')
+    setHoldOptions([])
+    setSelectedHoldIds([])
+    try {
+      const response = await fetch(apiBase + '/cases?closed=false', { credentials: 'include' })
+      if (!response.ok) throw new Error('Unable to load active cases')
+      const data = await response.json()
+      const nextCases = Array.isArray(data) ? data : []
+      setCaseOptions(nextCases)
+      if (nextCases.length) {
+        const firstId = String(nextCases[0].id)
+        setSelectedCaseId(firstId)
+        await loadHoldsForCase(firstId)
+      }
+    } catch (error) {
+      setWorkflowError(error?.message || 'Unable to prepare custodian workflow')
+    } finally {
+      setWorkflowLoading(false)
+    }
+  }
+
+  const chooseWorkflowCase = async (caseId) => {
+    setSelectedCaseId(caseId)
+    setWorkflowLoading(true)
+    setWorkflowError('')
+    try {
+      await loadHoldsForCase(caseId)
+    } catch (error) {
+      setWorkflowError(error?.message || 'Unable to load holds')
+    } finally {
+      setWorkflowLoading(false)
+    }
+  }
+
+
+  const continueCustodianWorkflow = () => {
+    if (!selectedCaseId || !selectedHoldIds.length) return
+    const params = new URLSearchParams({
+      action: 'custodians',
+      mode: workflowMode === 'import' ? 'import' : 'add',
+      hold_ids: selectedHoldIds.join(','),
+    })
+    setWorkflowMode(null)
+    nav('/cases/' + selectedCaseId + '?' + params.toString())
+  }
 
   return (
     <div className="wrap">
       <div className="page-header" style={{ marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: 'var(--sidebar-fg)' }}>Custodians</h2>
-        <form onSubmit={onSearch} className="row" style={{ gap: 8 }}>
-          <input
-            type="text" placeholder="Search name, email, case, department..."
-            value={q} onChange={e => setQ(e.target.value)}
-            style={{ minWidth: 320 }}
-          />
-          <button type="submit" className="btn" style={lightBtn}>Search</button>
-        </form>
+        <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button type="button" className="btn secondary" onClick={() => openCustodianWorkflow('add')}>
+            <UserPlus size={16} aria-hidden="true" /> Add Custodians
+          </button>
+          <button type="button" className="btn secondary" onClick={() => openCustodianWorkflow('import')}>
+            <Upload size={16} aria-hidden="true" /> Import Custodians
+          </button>
+          <form onSubmit={onSearch} className="row" style={{ gap: 8 }}>
+            <input
+              type="search"
+              placeholder="Search all custodians..."
+              value={q}
+              onChange={event => setQ(event.target.value)}
+              style={{ minWidth: 260 }}
+            />
+            <button type="submit" className="btn" style={lightBtn}>Search</button>
+          </form>
+        </div>
       </div>
 
       {err && <div className="alert error">Error: {err}</div>}
       <div className="card">
-        <table className="table">
-          <thead>
-            <tr>
-              <th style={{width:'16%'}}>Name</th>
-              <th style={{width:'18%'}}>Email</th>
-              <th>Open cases</th>
-              <th>Closed cases</th>
-              <th style={{width:130}}>Active holds</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan={5}>Loading...</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={5}>No custodians found.</td></tr>
-            ) : rows.map((c,i) => (
-              <tr
-                key={i}
-                onClick={() => {
-                  const params = new URLSearchParams()
-                  if (c.email) params.set('email', c.email)
-                  else if (c.name) params.set('name', c.name)
-                  if ([...params.keys()].length === 0) return
-                  nav(`/custodians/detail?${params.toString()}`)
-                }}
-                style={{cursor:'pointer'}}
-              >
-                <td>
-                  <div>{c.name || '-'}</div>
-                  <div style={{ marginTop: 4 }}>
-                    {c.is_separated ? <Chip kind="yellow-letter" title="Separated employee">S</Chip> : null}
-                  </div>
-                </td>
-                <td>{c.email || '-'}</td>
-                <td><CaseList items={c.open_cases || []} /></td>
-                <td><CaseList items={c.closed_cases || []} /></td>
-                <td>{c.active_holds ? <Chip kind="red">Yes</Chip> : <Chip>No</Chip>}</td>
+        <div className="custodians-table-toolbar">
+          <span style={{ color: 'var(--muted, #64748b)', fontSize: 13 }}>
+            {visibleRows.length} of {rows.length} custodians
+          </span>
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={() => {
+              setFilters({ name: '', email: '', openCases: '', closedCases: '', holds: '' })
+              setSort({ key: 'name', dir: 'asc' })
+            }}
+          >
+            Reset
+          </button>
+        </div>
+        <div className="table-scroll">
+          <table className="table">
+            <thead>
+              <tr>
+                <DataTableHeader
+                  label="Name"
+                  sortKey="name"
+                  sort={sort}
+                  onSort={toggleSort}
+                  filterValue={filters.name}
+                  onFilterChange={value => setFilters(current => ({ ...current, name: value }))}
+                  style={{ width: '16%' }}
+                />
+                <DataTableHeader
+                  label="Email"
+                  sortKey="email"
+                  sort={sort}
+                  onSort={toggleSort}
+                  filterValue={filters.email}
+                  onFilterChange={value => setFilters(current => ({ ...current, email: value }))}
+                  style={{ width: '18%' }}
+                />
+                <DataTableHeader
+                  label="Active cases"
+                  sortKey="openCases"
+                  sort={sort}
+                  onSort={toggleSort}
+                  filterValue={filters.openCases}
+                  onFilterChange={value => setFilters(current => ({ ...current, openCases: value }))}
+                  filterPlaceholder="Case name contains..."
+                />
+                <DataTableHeader
+                  label="Inactive cases"
+                  sortKey="closedCases"
+                  sort={sort}
+                  onSort={toggleSort}
+                  filterValue={filters.closedCases}
+                  onFilterChange={value => setFilters(current => ({ ...current, closedCases: value }))}
+                  filterPlaceholder="Case name contains..."
+                />
+                <DataTableHeader
+                  label="Active holds"
+                  sortKey="holds"
+                  sort={sort}
+                  onSort={toggleSort}
+                  filterValue={filters.holds}
+                  onFilterChange={value => setFilters(current => ({ ...current, holds: value }))}
+                  filterPlaceholder="Yes or no"
+                  style={{ width: 130 }}
+                />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={5}>Loading...</td></tr>
+              ) : visibleRows.length === 0 ? (
+                <tr><td colSpan={5}>No custodians found.</td></tr>
+              ) : visibleRows.map((custodian, index) => (
+                <tr
+                  key={custodian.id || (custodian.email || custodian.name || 'custodian') + '-' + index}
+                  onClick={() => {
+                    const params = new URLSearchParams()
+                    if (custodian.email) params.set('email', custodian.email)
+                    else if (custodian.name) params.set('name', custodian.name)
+                    if ([...params.keys()].length === 0) return
+                    nav('/custodians/detail?' + params.toString())
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <td>
+                    <div>{custodian.name || '-'}</div>
+                    <div style={{ marginTop: 4 }}>
+                      {custodian.is_separated ? <Chip kind="yellow-letter" title="Separated employee">S</Chip> : null}
+                    </div>
+                  </td>
+                  <td>{custodian.email || '-'}</td>
+                  <td><CaseList items={custodian.open_cases || []} /></td>
+                  <td><CaseList items={custodian.closed_cases || []} /></td>
+                  <td>{custodian.active_holds ? <Chip kind="red">Yes</Chip> : <Chip>No</Chip>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
+      <Modal
+        open={!!workflowMode}
+        title={workflowMode === 'import' ? 'Import Custodians' : 'Add Custodians'}
+        onClose={() => setWorkflowMode(null)}
+        width={560}
+        footer={(
+          <div className="row" style={{ justifyContent: 'flex-end' }}>
+            <button type="button" className="btn secondary" onClick={() => setWorkflowMode(null)}>Cancel</button>
+            <button
+              type="button"
+              className="btn"
+              onClick={continueCustodianWorkflow}
+              disabled={workflowLoading || !selectedCaseId || !selectedHoldIds.length}
+            >
+              Continue
+            </button>
+          </div>
+        )}
+      >
+        <p style={{ marginTop: 0, color: 'var(--muted,#64748b)' }}>
+          Choose the active case and every named hold that should receive these custodians. The next screen uses the existing validated add or CSV import workflow.
+        </p>
+        {workflowError && <div className="alert error">{workflowError}</div>}
+        <div className="named-hold-form">
+          <label>
+            Active Case
+            <select className="input" value={selectedCaseId} onChange={event => chooseWorkflowCase(event.target.value)} disabled={workflowLoading}>
+              <option value="">Select a case</option>
+              {caseOptions.map(caseRecord => (
+                <option key={caseRecord.id} value={caseRecord.id}>{caseRecord.legal_case_name || caseRecord.name}</option>
+              ))}
+            </select>
+          </label>
+          <HoldAssignmentPicker
+            apiBase={apiBase}
+            caseId={selectedCaseId}
+            holds={holdOptions}
+            selectedHoldIds={selectedHoldIds}
+            onSelectedHoldIdsChange={setSelectedHoldIds}
+            onHoldCreated={onWorkflowHoldCreated}
+            disabled={workflowLoading || !selectedCaseId}
+          />
+          {workflowLoading && <span className="muted">Loading...</span>}
+          {!workflowLoading && caseOptions.length === 0 && !workflowError && (
+            <span className="muted">Create an active case before adding custodians.</span>
+          )}
+        </div>
+      </Modal>
     </div>
   )
 }
-

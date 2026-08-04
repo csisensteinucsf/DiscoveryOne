@@ -6,6 +6,8 @@ export function CaseDetailAddDocModal({
   closeDocModal,
   submitConsentDocument,
   docForm,
+  namedHolds,
+  handleDocHoldSelect,
   handleDocCustodianSelect,
   handleDocFieldChange,
   custodianOptions,
@@ -14,75 +16,88 @@ export function CaseDetailAddDocModal({
   docUploading,
   docUploadError,
 }) {
+  const selectedHold = (namedHolds || []).find(hold => Number(hold?.id) === Number(docForm.caseHoldId)) || null
+  const holdCustodianIds = new Set((selectedHold?.custodians || []).map(item => Number(item?.custodian_id)))
+  const availableCustodians = (custodianOptions || []).filter(option => holdCustodianIds.has(Number(option.id)))
   if (!open) return null
   return (
-<Modal
-          open
-          title="Upload consent proof"
-          onClose={closeDocModal}
+    <Modal open title="Upload consent proof" onClose={closeDocModal}>
+      <form onSubmit={submitConsentDocument}>
+        <Field
+          label="Named hold"
+          hint="The proof completes consent only for this custodian's workflow in the selected hold."
         >
-          <form onSubmit={submitConsentDocument}>
-            <Field
-              label="Custodian (optional)"
-              hint="Select a custodian to pre-fill their details."
-            >
-              <Select
-                value={docForm.custodianId}
-                onChange={(e) => handleDocCustodianSelect(e.target.value)}
-                disabled={docUploading}
-              >
-                <option value="">Select a custodian</option>
-                {custodianOptions.map(opt => (
-                  <option key={opt.id} value={opt.id}>{opt.label}</option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Custodian name">
-              <TextInput
-                value={docForm.custodianName}
-                onChange={(e) => handleDocFieldChange('custodianName', e.target.value)}
-                placeholder="Full name"
-                disabled={docUploading}
-              />
-            </Field>
-            <Field label="Custodian email">
-              <TextInput
-                type="email"
-                value={docForm.custodianEmail}
-                onChange={(e) => handleDocFieldChange('custodianEmail', e.target.value)}
-                placeholder="name@example.com"
-                disabled={docUploading}
-              />
-            </Field>
-            <Field
-              label="Consent document"
-              hint="Accepted file types: PDF, MSG, or EML (5 MB max)."
-            >
-              <input
-                type="file"
-                accept=".pdf,.msg,.eml"
-                onChange={(e) => setDocFile(e.target.files?.[0] || null)}
-                disabled={docUploading}
-              />
-              {docFile ? (
-                <div style={{ fontSize: 12, color: '#475467', marginTop: 4 }}>
-                  Selected file: {docFile.name}
-                </div>
-              ) : null}
-            </Field>
-            {docUploadError && (
-              <p style={{ color: '#b91c1c', fontSize: 13 }}>{docUploadError}</p>
-            )}
-            <div className="row" style={{ justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
-              <Button type="submit" disabled={docUploading}>
-                {docUploading ? 'Uploading...' : 'Upload proof'}
-              </Button>
-              <Button type="button" variant="ghost" onClick={closeDocModal} disabled={docUploading}>
-                Cancel
-              </Button>
+          <Select
+            value={docForm.caseHoldId}
+            onChange={(event) => handleDocHoldSelect(event.target.value)}
+            disabled={docUploading}
+            required
+          >
+            <option value="">Select an active hold</option>
+            {(namedHolds || []).filter(hold => hold?.status === 'active').map(hold => (
+              <option key={hold.id} value={hold.id}>{hold.name}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field
+          label="Custodian"
+          hint="Only custodians assigned to the selected hold are available."
+        >
+          <Select
+            value={docForm.custodianId}
+            onChange={(event) => handleDocCustodianSelect(event.target.value)}
+            disabled={docUploading || !docForm.caseHoldId}
+            required
+          >
+            <option value="">Select a custodian</option>
+            {availableCustodians.map(option => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Custodian name">
+          <TextInput
+            value={docForm.custodianName}
+            onChange={(event) => handleDocFieldChange('custodianName', event.target.value)}
+            placeholder="Full name"
+            disabled
+          />
+        </Field>
+        <Field label="Custodian email">
+          <TextInput
+            type="email"
+            value={docForm.custodianEmail}
+            onChange={(event) => handleDocFieldChange('custodianEmail', event.target.value)}
+            placeholder="name@example.com"
+            disabled
+          />
+        </Field>
+        <Field label="Consent document" hint="Accepted file types: PDF, MSG, or EML (5 MB max).">
+          <input
+            type="file"
+            accept=".pdf,.msg,.eml"
+            onChange={(event) => setDocFile(event.target.files?.[0] || null)}
+            disabled={docUploading}
+          />
+          {docFile ? (
+            <div style={{ fontSize: 12, color: '#475467', marginTop: 4 }}>
+              Selected file: {docFile.name}
             </div>
-          </form>
-        </Modal>
+          ) : null}
+        </Field>
+        {docUploadError && (
+          <p style={{ color: '#b91c1c', fontSize: 13 }}>{docUploadError}</p>
+        )}
+        <div className="row" style={{ justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
+          <Button type="submit" disabled={docUploading}>
+            {docUploading ? 'Uploading...' : 'Upload proof'}
+          </Button>
+          <Button type="button" variant="ghost" onClick={closeDocModal} disabled={docUploading}>
+            Cancel
+          </Button>
+        </div>
+      </form>
+    </Modal>
   )
 }
 

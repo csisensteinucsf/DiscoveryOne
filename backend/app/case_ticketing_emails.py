@@ -23,10 +23,14 @@ def send_external_ticket_email(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ticket_core.ensure_case_visible(case, _user, db)
+    if ticket_core.is_requestor(_user) or ticket_core.is_tester(_user):
+        raise HTTPException(status_code=403, detail="This account cannot trigger ticket notifications")
     entries = getattr(case, "request_ticket_entries", []) or []
     entry = next((e for e in entries if isinstance(e, dict) and str(e.get("id")) == payload.entry_id), None)
     if not entry:
         raise HTTPException(status_code=404, detail="Ticket entry not found")
+    if entry.get("provider_managed") is not True:
+        raise HTTPException(status_code=400, detail="Manual ticket entries do not support provider notifications")
     ticket = (entry.get("ticket") or "").strip()
     if not ticket:
         raise HTTPException(status_code=400, detail="Ticket number missing")
@@ -140,8 +144,8 @@ def send_requestor_hold_status_email(
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ticket_core.ensure_case_visible(case, _user, db)
-    if ticket_core.is_requestor(_user):
-        raise HTTPException(status_code=403, detail="Requestors cannot trigger notifications")
+    if ticket_core.is_requestor(_user) or ticket_core.is_tester(_user):
+        raise HTTPException(status_code=403, detail="This account cannot trigger notifications")
 
     try:
         base_url = ticket_core._app_base_url(request)

@@ -6,6 +6,7 @@ export default function CaseDetailSearchModals({
   caseId,
   caseData,
   custodians,
+  namedHolds,
   setShowSearchAiModal,
   applyAiSearchSuggestion,
   createSearchesFromAiSuggestions,
@@ -25,6 +26,7 @@ export default function CaseDetailSearchModals({
           caseId={caseId}
           caseData={caseData}
           custodians={custodians}
+          holds={namedHolds}
           onClose={() => setShowSearchAiModal(false)}
           onUseSuggestion={applyAiSearchSuggestion}
           onCreateSuggestions={createSearchesFromAiSuggestions}
@@ -38,6 +40,7 @@ export default function CaseDetailSearchModals({
           suggestedName={suggestedSearchName()}
           readOnly={isRequestor}
           custodians={custodians}
+          holds={namedHolds}
           onClose={() => { setShowSearchModal(false); setEditingSearch(null) }}
           onSave={saveSearchDraft}
           searchQueryLabel={searchQueryLabel}

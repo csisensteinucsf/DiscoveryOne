@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import Modal from '../components/Modal.jsx'
 import { Field, TextInput, Select, Button } from './caseDetailControls.jsx'
 import { displayUserName } from './caseDetailUtils.js'
-export function EditCaseModal({ initial, analysts, requestorOptions, onClose, onSave, useLegalCaseNameAsPrimary = false }) {
+export function EditCaseModal({ initial, analysts, requestorOptions, onClose, onSave, useLegalCaseNameAsPrimary = false, internalCounselLabel = 'Internal Counsel' }) {
   const [form, setForm] = useState({ ...initial, additional_requestors: '' })
   useEffect(() => {
     const primary = (initial.requestor || '').trim().toLowerCase()
@@ -26,7 +26,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
   return (
     <Modal
       open
-      title="Edit eDiscovery Case"
+      title="Edit Case"
       onClose={onClose}
       width={720}
       footer={(
@@ -60,6 +60,28 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
       </label>
       <Field label="Claimant (optional)">
         <TextInput value={form.claimant || ''} onChange={e => setForm({ ...form, claimant: e.target.value })} />
+      </Field>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <Field label="Matter or Claim Number (optional)">
+          <TextInput value={form.matter_number || ''} onChange={e => setForm({ ...form, matter_number: e.target.value })} />
+        </Field>
+        <Field label="Start Date (optional)">
+          <TextInput type="date" value={form.start_date || ''} onChange={e => setForm({ ...form, start_date: e.target.value })} />
+        </Field>
+        <Field label={`${internalCounselLabel} (optional)`}>
+          <TextInput value={form.internal_counsel || ''} onChange={e => setForm({ ...form, internal_counsel: e.target.value })} />
+        </Field>
+        <Field label="Outside Counsel (optional)">
+          <TextInput value={form.outside_counsel || ''} onChange={e => setForm({ ...form, outside_counsel: e.target.value })} />
+        </Field>
+      </div>
+      <Field label="Additional Notes / Comments">
+        <textarea
+          className="input"
+          rows={4}
+          value={form.description || ''}
+          onChange={e => setForm({ ...form, description: e.target.value })}
+        />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
         <Field label="Analyst">

@@ -61,6 +61,7 @@ class PurviewPreservationProviderAdapter:
             db=context.db,
             request=context.request,
             user=context.user,
+            case_hold_id=context.options.get("case_hold_id"),
         ))
 
     def apply_holds(

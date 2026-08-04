@@ -151,8 +151,8 @@ def _ensure_requestor_note_editable(note: models.CaseNote, user: models.User) ->
     return _notes_support()._ensure_requestor_note_editable(note, user)
 
 
-def _ensure_ticket_note_access(user: models.User) -> None:
-    return _notes_support()._ensure_ticket_note_access(user)
+def _ensure_ticket_note_access(user: models.User, *, write: bool = False) -> None:
+    return _notes_support()._ensure_ticket_note_access(user, write=write)
 
 
 def _ensure_active_note_access(user: models.User) -> None:
@@ -250,7 +250,7 @@ def create_note(case_id: int, payload: NoteCreate, db: Session = Depends(get_db)
     row = models.CaseNote(
         case_id=case_id,
         audience="internal",
-        author=payload.author or user.username,
+        author=user.username,
         body=body,
         format=fmt,
         is_pinned=bool(payload.is_pinned),
@@ -530,7 +530,7 @@ def list_ticket_notes(case_id: int, db: Session = Depends(get_db), request: Requ
 @router.post("/{case_id}/ticket_notes", response_model=NoteOut, status_code=status.HTTP_201_CREATED)
 def create_ticket_note(case_id: int, payload: NoteCreate, db: Session = Depends(get_db), request: Request = None, user: models.User = Depends(get_current_user)):
     _ensure_case(db, case_id, user)
-    _ensure_ticket_note_access(user)
+    _ensure_ticket_note_access(user, write=True)
     body, fmt = _sanitize_note(payload.body, payload.format)
     if not body:
         raise HTTPException(status_code=400, detail="body required")
@@ -538,7 +538,7 @@ def create_ticket_note(case_id: int, payload: NoteCreate, db: Session = Depends(
     row = models.CaseNote(
         case_id=case_id,
         audience="ticket",
-        author=payload.author or user.username,
+        author=user.username,
         body=body,
         format=fmt,
         is_pinned=bool(payload.is_pinned),
@@ -584,7 +584,7 @@ def update_ticket_note(
     user: models.User = Depends(get_current_user),
 ):
     _ensure_case(db, case_id, user)
-    _ensure_ticket_note_access(user)
+    _ensure_ticket_note_access(user, write=True)
     row = _get_note_or_404(db, case_id, note_id)
     if (getattr(row, "audience", None) or "internal") != "ticket":
         raise HTTPException(status_code=404, detail="note not found")
@@ -650,7 +650,7 @@ def patch_ticket_note(
 @router.delete("/{case_id}/ticket_notes/{note_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_ticket_note(case_id: int, note_id: int, db: Session = Depends(get_db), request: Request = None, user: models.User = Depends(get_current_user)):
     _ensure_case(db, case_id, user)
-    _ensure_ticket_note_access(user)
+    _ensure_ticket_note_access(user, write=True)
     row = _get_note_or_404(db, case_id, note_id)
     if (getattr(row, "audience", None) or "internal") != "ticket":
         raise HTTPException(status_code=404, detail="note not found")
@@ -713,7 +713,7 @@ def create_requestor_note(case_id: int, payload: NoteCreate, db: Session = Depen
     row = models.CaseNote(
         case_id=case_id,
         audience="requestor",
-        author=payload.author or user.username,
+        author=user.username,
         body=body,
         format=fmt,
         is_pinned=bool(payload.is_pinned),

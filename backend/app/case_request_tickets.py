@@ -35,6 +35,19 @@ def _request_ticket_category_fields() -> dict[str, str]:
 
 MAX_TICKET_LENGTH = 64
 MAX_TICKET_METADATA_LENGTH = 512
+_PROVIDER_MANAGED_KEYS = {
+    "provider_managed",
+    "sys_id",
+    "status",
+    "sn_status",
+    "link",
+    "url",
+    "is_closed",
+    "assigned_to_sys_id",
+    "assigned_to_display",
+    "assigned_to_email",
+    "assignment_email_sent",
+}
 
 def _clean_str(val) -> str:
     if val is None:
@@ -46,14 +59,20 @@ def _clean_str(val) -> str:
     return text.strip()
 
 
-def _normalize_request_ticket_entries(entries, case: models.Case | None = None):
+def _normalize_request_ticket_entries(entries, case: models.Case | None = None, *, trusted_provider: bool = False):
     if entries is None:
         return None
     normalized = []
     custodian_lookup = {}
     existing_ids: set[str] = set()
     existing_created_at_by_id: dict[str, str] = {}
+    existing_entries_by_id: dict[str, dict] = {}
+    valid_hold_ids: set[int] = set()
     if case is not None:
+        try:
+            valid_hold_ids = {int(hold.id) for hold in (getattr(case, "holds", []) or [])}
+        except Exception:
+            valid_hold_ids = set()
         try:
             attached = getattr(case, "custodians", []) or []
         except Exception:
@@ -72,6 +91,7 @@ def _normalize_request_ticket_entries(entries, case: models.Case | None = None):
             if not entry_id:
                 continue
             existing_ids.add(entry_id)
+            existing_entries_by_id[entry_id] = dict(entry)
             created_val = entry.get("created_at")
             if isinstance(created_val, datetime):
                 try:
@@ -106,20 +126,32 @@ def _normalize_request_ticket_entries(entries, case: models.Case | None = None):
                 created_at = existing_created_at_by_id.get(entry_id)
             elif case is not None:
                 created_at = datetime.now(timezone.utc).isoformat()
+        existing_entry = existing_entries_by_id.get(entry_id, {})
+        provider_values = raw if trusted_provider else existing_entry
         record = {
             "id": entry_id,
             "category": category,
             "ticket": ticket[:MAX_TICKET_LENGTH],
             "created_at": created_at,
+            "case_hold_id": None,
             "custodian_id": None,
             "custodian_name": None,
             "custodian_email": None,
-            "sys_id": _clean_str(raw.get("sys_id")) or None,
-            "status": _clean_str(raw.get("status") or raw.get("sn_status")) or None,
-            "assigned_to_sys_id": _clean_str(raw.get("assigned_to_sys_id")) or None,
-            "assigned_to_display": _clean_str(raw.get("assigned_to_display")) or None,
-            "assigned_to_email": _clean_str(raw.get("assigned_to_email")) or None,
+            "provider_managed": bool(provider_values.get("provider_managed")),
+            "sys_id": _clean_str(provider_values.get("sys_id")) or None,
+            "status": _clean_str(provider_values.get("status") or provider_values.get("sn_status")) or None,
+            "assigned_to_sys_id": _clean_str(provider_values.get("assigned_to_sys_id")) or None,
+            "assigned_to_display": _clean_str(provider_values.get("assigned_to_display")) or None,
+            "assigned_to_email": _clean_str(provider_values.get("assigned_to_email")) or None,
         }
+        hold_id_value = raw.get("case_hold_id", existing_entry.get("case_hold_id"))
+        try:
+            hold_id = int(hold_id_value) if hold_id_value is not None else None
+        except (TypeError, ValueError):
+            hold_id = None
+        if hold_id and (case is None or hold_id in valid_hold_ids):
+            record["case_hold_id"] = hold_id
+
         custodian_id = raw.get("custodian_id")
         cid = None
         if custodian_id is not None:
@@ -141,7 +173,9 @@ def _normalize_request_ticket_entries(entries, case: models.Case | None = None):
             record["custodian_email"] = email
         # Preserve any supplemental metadata (e.g., ServiceNow status/assignee) without letting it grow unchecked
         for key, value in raw.items():
-            if key in {"id", "category", "ticket", "created_at", "custodian_id", "custodian_name", "custodian_email"}:
+            if key in {"id", "category", "ticket", "created_at", "case_hold_id", "custodian_id", "custodian_name", "custodian_email"}:
+                continue
+            if key in _PROVIDER_MANAGED_KEYS:
                 continue
             if value is None:
                 continue
@@ -180,9 +214,6 @@ def _normalize_request_ticket_entries(entries, case: models.Case | None = None):
                         )
                 record[key] = windows
                 continue
-            if key == "assignment_email_sent":
-                record[key] = bool(value)
-                continue
             if isinstance(value, str):
                 value = value.strip()
                 if not value:
@@ -192,6 +223,14 @@ def _normalize_request_ticket_entries(entries, case: models.Case | None = None):
                 # Avoid persisting nested structures; keep scalars only
                 continue
             record[key] = value
+        for key in ("link", "url"):
+            value = _clean_str(provider_values.get(key))
+            if value:
+                record[key] = value[:MAX_TICKET_METADATA_LENGTH]
+        if provider_values.get("is_closed") is not None:
+            record["is_closed"] = bool(provider_values.get("is_closed"))
+        if provider_values.get("assignment_email_sent") is not None:
+            record["assignment_email_sent"] = bool(provider_values.get("assignment_email_sent"))
         normalized.append(record)
     return normalized
 
@@ -303,6 +342,7 @@ def _recover_request_ticket_entries_from_audit(
                         "id": str(details.get("entry_id") or uuid4()),
                         "category": category,
                         "ticket": ticket,
+                        "provider_managed": True,
                         "created_at": created_iso,
                         "sys_id": details.get("sys_id"),
                         "custodian_id": details.get("custodian_id"),
@@ -395,6 +435,7 @@ def _recover_request_ticket_entries_from_audit(
                             "id": str(details.get("entry_id") or uuid4()),
                             "category": category,
                             "ticket": ticket,
+                        "provider_managed": True,
                             "created_at": created_iso,
                             "sys_id": details.get("sys_id"),
                             "custodian_id": details.get("custodian_id"),
@@ -450,7 +491,7 @@ def _recover_request_ticket_entries_from_audit(
                 continue
             merged.append(item)
 
-        normalized = _normalize_request_ticket_entries(merged, case) or []
+        normalized = _normalize_request_ticket_entries(merged, case, trusted_provider=True) or []
         if not normalized:
             return False
 

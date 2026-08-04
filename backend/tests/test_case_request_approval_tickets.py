@@ -116,7 +116,7 @@ def test_approval_creates_configured_workflow_with_selected_provider(monkeypatch
     monkeypatch.setattr(
         case_request_approval_tickets.case_request_core,
         "_normalize_request_ticket_entries",
-        lambda entries, _case: entries,
+        lambda entries, _case, **_kwargs: entries,
     )
     monkeypatch.setattr(
         case_request_approval_tickets.case_request_core,

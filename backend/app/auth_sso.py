@@ -148,6 +148,13 @@ def _clear_auth_cookies(response: Response) -> None:
 
 def _revoke_local_session_from_request(request: Request, db: Session) -> None:
     jti = getattr(getattr(request, "state", None), "token_jti", None)
+    if not jti:
+        access_token = request.cookies.get(auth_core.SESSION_COOKIE_NAME) or request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+        if access_token:
+            try:
+                jti = auth_core._decode_token(access_token, verify_exp=False).get("jti")
+            except Exception as exc:
+                auth_core._debug_suppressed("logout access session revoke skipped", exc)
     auth_core.revoke_session_by_jti(db, jti)
     refresh_cookie = request.cookies.get(auth_core.REFRESH_COOKIE_NAME)
     if refresh_cookie:

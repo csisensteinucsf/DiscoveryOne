@@ -22,6 +22,33 @@ def bulk_import_custodians_for_case(
     if not requested:
         return schemas.CustodianBulkCreateResponse()
 
+    from .case_holds import assign_custodians_to_hold, ensure_default_hold
+
+    requested_hold_ids = sorted({int(value) for value in (payload.hold_ids or []) if int(value) > 0})
+    if requested_hold_ids:
+        active_holds = (
+            db.query(models.CaseHold)
+            .filter(
+                models.CaseHold.case_id == case_id,
+                models.CaseHold.id.in_(requested_hold_ids),
+                models.CaseHold.status == "active",
+            )
+            .all()
+        )
+        found_hold_ids = {int(hold.id) for hold in active_holds}
+        missing_hold_ids = sorted(set(requested_hold_ids) - found_hold_ids)
+        if missing_hold_ids:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "message": "Every selected hold must be an active hold for this case",
+                    "hold_ids": missing_hold_ids,
+                },
+            )
+        hold_ids = requested_hold_ids
+    else:
+        hold_ids = [int(ensure_default_hold(db, case, assign_existing=False).id)]
+
     existing_emails = custodian_core._case_custodian_email_set(db, case_id)
     batch_seen: set[str] = set()
     candidate_payloads: list[dict[str, Any]] = []
@@ -69,6 +96,14 @@ def bulk_import_custodians_for_case(
                         request=request,
                         source="custodian_bulk_import",
                     )
+            created_ids = [int(custodian.id) for _data, custodian, _review, _custom in prepared]
+            for hold_id in hold_ids:
+                assign_custodians_to_hold(
+                    db,
+                    case_id=case_id,
+                    hold_id=hold_id,
+                    custodian_ids=created_ids,
+                )
             db.commit()
             for _data, custodian, name_email_review, _custom_preservation in prepared:
                 db.refresh(custodian)
@@ -116,6 +151,13 @@ def bulk_import_custodians_for_case(
                             actor_id=user.id,
                             request=request,
                             source="custodian_bulk_import_fallback",
+                        )
+                    for hold_id in hold_ids:
+                        assign_custodians_to_hold(
+                            db,
+                            case_id=case_id,
+                            hold_id=hold_id,
+                            custodian_ids=[int(custodian.id)],
                         )
                     db.commit()
                     db.refresh(custodian)

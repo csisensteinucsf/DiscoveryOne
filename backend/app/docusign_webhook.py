@@ -22,6 +22,7 @@ from .audit import log_event
 from .consent_notifications import notify_case_analyst_consent_completed
 from .esignature_provider import ESignatureProviderError, download_completed_document
 from .file_security import scan_payload
+from .hold_workflows import set_membership_consent_status
 from .integration_settings import config_value
 from .safe_log import debug_suppressed as _debug_suppressed
 
@@ -95,6 +96,39 @@ def _event_to_status(event_raw: Any) -> Optional[str]:
     return None
 
 
+_STATUS_ORDER = {
+    "created": 0,
+    "sent": 10,
+    "delivered": 20,
+    "signed": 30,
+    "processing": 40,
+    "completed": 100,
+    "declined": 100,
+    "voided": 100,
+    "deleted": 100,
+    "timedout": 100,
+}
+_TERMINAL_STATUSES = {"completed", "declined", "voided", "deleted", "timedout"}
+
+
+def _should_apply_status_transition(current: Any, incoming: Any) -> bool:
+    current_status = str(current or "").strip().lower()
+    incoming_status = str(incoming or "").strip().lower()
+    if not incoming_status or incoming_status == current_status:
+        return False
+    if not current_status:
+        return True
+    if current_status in _TERMINAL_STATUSES:
+        return False
+    if incoming_status in _TERMINAL_STATUSES:
+        return True
+    current_rank = _STATUS_ORDER.get(current_status)
+    incoming_rank = _STATUS_ORDER.get(incoming_status)
+    if current_rank is None or incoming_rank is None:
+        return False
+    return incoming_rank > current_rank
+
+
 def _safe_filename(name: str) -> str:
     base = Path(name or "consent.pdf").name
     safe = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._")
@@ -163,7 +197,9 @@ def _save_completed_docusign_pdf(
     )
     try:
         db.add(proof)
-        if custodian:
+        if consent.hold_custodian is not None:
+            set_membership_consent_status(db, consent.hold_custodian, "received")
+        elif custodian:
             custodian.consent_status = "received"
             db.add(custodian)
         db.commit()
@@ -259,7 +295,10 @@ async def docusign_webhook(request: Request, db: Session = Depends(get_db)):
     if not consent:
         return {"ok": True}
 
-    prev_status = (getattr(consent, "status", None) or "").strip()
+    prev_status = (getattr(consent, "status", None) or "").strip().lower()
+    incoming_status = (status or "").strip().lower()
+    if not _should_apply_status_transition(prev_status, incoming_status):
+        return {"ok": True, "ignored": True}
 
     custodian_obj = None
     if consent.custodian_id:
@@ -274,10 +313,9 @@ async def docusign_webhook(request: Request, db: Session = Depends(get_db)):
                 .first()
             )
 
-    if status:
-        consent.status = status
+    consent.status = incoming_status
     now = datetime.now(timezone.utc)
-    new_status = (status or prev_status or "").strip()
+    new_status = incoming_status
     if new_status and new_status.lower() == "completed":
         if completed_raw:
             try:
@@ -286,9 +324,10 @@ async def docusign_webhook(request: Request, db: Session = Depends(get_db)):
                 consent.completed_at = now
         else:
             consent.completed_at = now
-        # Mark custodian consent as received
         try:
-            if custodian_obj and (custodian_obj.consent_status or "").lower() != "received":
+            if consent.hold_custodian is not None:
+                set_membership_consent_status(db, consent.hold_custodian, "received")
+            elif custodian_obj and (custodian_obj.consent_status or "").lower() != "received":
                 custodian_obj.consent_status = "received"
         except Exception as exc:
             _debug_suppressed("suppressed exception in docusign_webhook.py:198", exc)
@@ -332,6 +371,8 @@ async def docusign_webhook(request: Request, db: Session = Depends(get_db)):
                     "status_new": new_status,
                     "completed_at": getattr(consent, "completed_at", None).isoformat() if getattr(consent, "completed_at", None) else None,
                     "custodian_id": getattr(consent, "custodian_id", None) or getattr(custodian_obj, "id", None),
+                    "hold_id": getattr(consent, "hold_id", None),
+                    "hold_custodian_id": getattr(consent, "hold_custodian_id", None),
                     "custodian_name": (getattr(consent, "custodian_name", None) or "").strip() or getattr(custodian_obj, "name", None),
                     "custodian_email": (getattr(consent, "custodian_email", None) or "").strip() or getattr(custodian_obj, "email", None),
                     "proof_id": getattr(saved_proof, "id", None),

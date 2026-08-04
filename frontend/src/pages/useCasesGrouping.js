@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   yearsClosed: 'cases:years:closed',
   lettersOpen: 'cases:letters:open',
   lettersClosed: 'cases:letters:closed',
+  groupCases: 'cases:group-by-year',
 }
 
 const loadSet = (key) => {
@@ -29,19 +30,39 @@ const persistSet = (key, set) => {
   }
 }
 
+const loadBoolean = (key, fallback = false) => {
+  if (typeof window === 'undefined') return fallback
+  try {
+    const raw = window.localStorage.getItem(key)
+    return raw === null ? fallback : raw === 'true'
+  } catch {
+    return fallback
+  }
+}
+
 export function useCasesGrouping({ openCases, closedCases, stats, analysts, analystsById, caseSortMode }) {
-  const [showFilters, setShowFilters] = useState(false)
-  const [caseSort, setCaseSort] = useState({ key: 'name', dir: 'asc' })
+  const [groupCases, setGroupCases] = useState(() => loadBoolean(STORAGE_KEYS.groupCases, false))
+  const [caseSort, setCaseSort] = useState({ key: 'created', dir: 'desc' })
   const [caseFilters, setCaseFilters] = useState({
     name: '',
     legal: '',
     analyst: '',
     requestor: '',
+    matter: '',
+    counsel: '',
+    notes: '',
   })
 
   const resetCaseFilters = () => {
-    setCaseFilters({ name: '', legal: '', analyst: '', requestor: '' })
-    setCaseSort({ key: 'name', dir: 'asc' })
+    setCaseFilters({ name: '', legal: '', analyst: '', requestor: '', matter: '', counsel: '', notes: '' })
+    setCaseSort({ key: 'created', dir: 'desc' })
+  }
+
+  const toggleSort = (key) => {
+    setCaseSort(current => ({
+      key,
+      dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc',
+    }))
   }
 
   const analystName = (id) => analystsById.get(id) || ''
@@ -57,7 +78,7 @@ export function useCasesGrouping({ openCases, closedCases, stats, analysts, anal
 
   const applyFiltersSort = (list) => {
     const filters = caseFilters
-    let arr = [...list].filter(c => {
+    const arr = [...list].filter(c => {
       const name = (c.name || '').toLowerCase()
       const legal = (c.legal_case_name || '').toLowerCase()
       const requestorEmails = Array.isArray(c.requestors)
@@ -77,21 +98,52 @@ export function useCasesGrouping({ openCases, closedCases, stats, analysts, anal
       const requestorHit = (filters.requestor || '').trim()
         ? allRequestors.some(email => email.includes(filters.requestor.toLowerCase()))
         : true
+      const matterHit = (filters.matter || '').trim()
+        ? (c.matter_number || c.servicenow_inc_number || '').toLowerCase().includes(filters.matter.toLowerCase())
+        : true
+      const counselHit = (filters.counsel || '').trim()
+        ? (c.internal_counsel || c.uc_attorney || c.attorney || c.ler_representative || '').toLowerCase().includes(filters.counsel.toLowerCase())
+        : true
+      const notesHit = (filters.notes || '').trim()
+        ? (c.description || '').toLowerCase().includes(filters.notes.toLowerCase())
+        : true
 
-      return nameHit && legalHit && analystHit && requestorHit
+      return nameHit && legalHit && analystHit && requestorHit && matterHit && counselHit && notesHit
     })
 
     const key = caseSort.key
     const direction = caseSort.dir === 'desc' ? -1 : 1
     const getValue = (c) => {
-      if (key === 'name') return (c.name || '').toLowerCase()
+      if (key === 'name') return (c.name || c.legal_case_name || '').toLowerCase()
       if (key === 'legal') return (c.legal_case_name || '').toLowerCase()
       if (key === 'analyst') return analystName(c.analyst_id).toLowerCase()
       if (key === 'requestor') return (c.requestor || '').toLowerCase()
-      if (key === 'created') return new Date(c.created_at || 0).getTime()
+      if (key === 'created') return Date.parse(c.created_at || '') || 0
+      if (key === 'start') return Date.parse(c.start_date || '') || 0
+      if (key === 'updated') return Date.parse(c.updated_at || c.created_at || '') || 0
+      if (key === 'attorney') {
+        return (c.internal_counsel || c.uc_attorney || c.attorney || c.ler_representative || '').toLowerCase()
+      }
+      if (key === 'matter') return (c.matter_number || c.servicenow_inc_number || '').toLowerCase()
+      if (key === 'notes') return (c.description || '').toLowerCase()
+      if (key === 'hold') {
+        const caseStats = stats[String(c.id)] || stats[c.id] || {}
+        return Number(caseStats.namedHoldCount ?? caseStats.holdCount ?? caseStats.hold ?? 0)
+      }
       return (c.name || '').toLowerCase()
     }
-    arr.sort((a, b) => (getValue(a) < getValue(b) ? -1 : getValue(a) > getValue(b) ? 1 : 0) * direction)
+
+    arr.sort((a, b) => {
+      const aValue = getValue(a)
+      const bValue = getValue(b)
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return (aValue - bValue) * direction
+      }
+      return String(aValue).localeCompare(String(bValue), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      }) * direction
+    })
 
     return arr
   }
@@ -99,11 +151,8 @@ export function useCasesGrouping({ openCases, closedCases, stats, analysts, anal
   const getYear = (c) => {
     const match = (c.name || '').match(/^\s*(\d{4})/)
     if (match) return Number(match[1])
-    try {
-      return new Date(c.created_at).getFullYear()
-    } catch {
-      return new Date().getFullYear()
-    }
+    const created = new Date(c.created_at || '')
+    return Number.isNaN(created.getTime()) ? new Date().getFullYear() : created.getFullYear()
   }
 
   const sortLabel = (c) => {
@@ -137,10 +186,9 @@ export function useCasesGrouping({ openCases, closedCases, stats, analysts, anal
     const years = Array.from(map.keys()).sort((a, b) => (b || 0) - (a || 0))
     return years.map(year => {
       const letterMap = map.get(year)
-      const keyOf = (c) => (sortLabel(c) || '').toLowerCase()
       const letters = Array.from(letterMap.keys()).sort().map(letter => ({
         letter,
-        items: letterMap.get(letter).sort((a, b) => keyOf(a).localeCompare(keyOf(b))),
+        items: letterMap.get(letter),
       }))
       const total = letters.reduce((sum, group) => sum + group.items.length, 0)
       return { year, letters, total }
@@ -156,51 +204,53 @@ export function useCasesGrouping({ openCases, closedCases, stats, analysts, anal
   useEffect(() => { persistSet(STORAGE_KEYS.yearsClosed, expandedYearsClosed) }, [expandedYearsClosed])
   useEffect(() => { persistSet(STORAGE_KEYS.lettersOpen, expandedLettersOpen) }, [expandedLettersOpen])
   useEffect(() => { persistSet(STORAGE_KEYS.lettersClosed, expandedLettersClosed) }, [expandedLettersClosed])
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEYS.groupCases, String(groupCases))
+    } catch {
+      // Best-effort preference persistence.
+    }
+  }, [groupCases])
 
   const toggleYear = (which, year) => {
     const key = String(year)
-    if (which === 'open') {
-      setExpandedYearsOpen(prev => {
-        const next = new Set(prev)
-        next.has(key) ? next.delete(key) : next.add(key)
-        return next
-      })
-    } else {
-      setExpandedYearsClosed(prev => {
-        const next = new Set(prev)
-        next.has(key) ? next.delete(key) : next.add(key)
-        return next
-      })
-    }
+    const update = which === 'open' ? setExpandedYearsOpen : setExpandedYearsClosed
+    update(previous => {
+      const next = new Set(previous)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
   }
 
   const letterKey = (year, letter) => `${year}:${letter}`
 
   const toggleLetter = (which, year, letter) => {
     const key = letterKey(year, letter)
-    if (which === 'open') {
-      setExpandedLettersOpen(prev => {
-        const next = new Set(prev)
-        next.has(key) ? next.delete(key) : next.add(key)
-        return next
-      })
-    } else {
-      setExpandedLettersClosed(prev => {
-        const next = new Set(prev)
-        next.has(key) ? next.delete(key) : next.add(key)
-        return next
-      })
-    }
+    const update = which === 'open' ? setExpandedLettersOpen : setExpandedLettersClosed
+    update(previous => {
+      const next = new Set(previous)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
   }
 
-  const openFiltered = useMemo(() => applyFiltersSort(openCases), [openCases, stats, caseFilters, caseSort, analysts])
-  const closedFiltered = useMemo(() => applyFiltersSort(closedCases), [closedCases, stats, caseFilters, caseSort, analysts])
-  const openGroups = useMemo(() => groupByYear(openFiltered), [openFiltered])
-  const closedGroups = useMemo(() => groupByYear(closedFiltered), [closedFiltered])
+  const openFiltered = useMemo(
+    () => applyFiltersSort(openCases),
+    [openCases, stats, caseFilters, caseSort, analysts, analystsById],
+  )
+  const closedFiltered = useMemo(
+    () => applyFiltersSort(closedCases),
+    [closedCases, stats, caseFilters, caseSort, analysts, analystsById],
+  )
+  const openGroups = useMemo(() => groupByYear(openFiltered), [openFiltered, caseSortMode])
+  const closedGroups = useMemo(() => groupByYear(closedFiltered), [closedFiltered, caseSortMode])
 
   return {
-    showFilters,
-    setShowFilters,
+    groupCases,
+    setGroupCases,
+    caseSort,
+    setCaseSort,
+    toggleSort,
     caseFilters,
     setCaseFilters,
     resetCaseFilters,
@@ -212,6 +262,8 @@ export function useCasesGrouping({ openCases, closedCases, stats, analysts, anal
     toggleYear,
     toggleLetter,
     letterKey,
+    openFiltered,
+    closedFiltered,
     openGroups,
     closedGroups,
   }

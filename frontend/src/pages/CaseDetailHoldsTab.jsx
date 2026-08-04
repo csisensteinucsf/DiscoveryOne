@@ -13,7 +13,7 @@ export default function CaseDetailHoldsTab({
   formatActionLabel,
 }) {
   return (
-<section className="card" style={{ padding: 12 }}>
+<section className="legacy-hold-timeline">
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <h3 style={{ margin: 0 }}>Holds Detail</h3>

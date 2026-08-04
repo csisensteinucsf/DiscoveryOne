@@ -4,6 +4,7 @@ import { REMINDER_DURATION_DEFAULT, REMINDER_INTERVAL_DEFAULT, daysFromNow } fro
 export function useCaseDetailNtpReminderWorkflow({
   apiBase,
   caseId,
+  caseHoldId,
   loadNtpReminders,
   pickNextReminder,
   showToast,
@@ -74,7 +75,7 @@ export function useCaseDetailNtpReminderWorkflow({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ enabled: true }),
+        body: JSON.stringify({ case_hold_id: caseHoldId, enabled: true }),
       })
       if (!res.ok) {
         let msg = ''
@@ -99,7 +100,7 @@ export function useCaseDetailNtpReminderWorkflow({
         return next
       })
     }
-  }, [apiBase, caseId, loadNtpReminders, showToast])
+  }, [apiBase, caseHoldId, caseId, loadNtpReminders, showToast])
 
   const reactivateEligibleCancelledNtpReminders = useCallback(async (eligibleReminderReactivationCustodianIds) => {
     const ids = Array.isArray(eligibleReminderReactivationCustodianIds) ? eligibleReminderReactivationCustodianIds : []
@@ -112,7 +113,7 @@ export function useCaseDetailNtpReminderWorkflow({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ custodian_ids: ids, enabled: true }),
+        body: JSON.stringify({ case_hold_id: caseHoldId, custodian_ids: ids, enabled: true }),
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.detail || data?.message || 'Unable to enable reminders')
@@ -129,7 +130,7 @@ export function useCaseDetailNtpReminderWorkflow({
     } finally {
       setReactivatingNtpRemindersBulk(false)
     }
-  }, [apiBase, caseId, loadNtpReminders, showToast])
+  }, [apiBase, caseHoldId, caseId, loadNtpReminders, showToast])
 
   const saveReminderEditor = useCallback(async (activeReminderCustodianIds) => {
     if (!caseId || !reminderEditor.custodian) return
@@ -142,6 +143,7 @@ export function useCaseDetailNtpReminderWorkflow({
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
+          case_hold_id: caseHoldId,
           interval_days: interval,
           duration_days: duration,
           enabled: reminderEditor.enabled,
@@ -181,7 +183,7 @@ export function useCaseDetailNtpReminderWorkflow({
       showToast(err?.message || 'Unable to update reminders.', { variant: 'error' })
       setReminderEditor(prev => ({ ...prev, busy: false }))
     }
-  }, [apiBase, caseId, loadNtpReminders, reminderEditor, resetReminderEditor, showToast])
+  }, [apiBase, caseHoldId, caseId, loadNtpReminders, reminderEditor, resetReminderEditor, showToast])
 
   return {
     showReminderListModal,

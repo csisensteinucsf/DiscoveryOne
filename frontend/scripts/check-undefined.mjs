@@ -37,11 +37,24 @@ function sourceFiles(directory) {
 const failures = [];
 for (const filename of sourceFiles(sourceRoot)) {
   const source = fs.readFileSync(filename, "utf8");
-  const ast = parse(source, {
-    sourceType: "module",
-    plugins: ["jsx"],
-    errorRecovery: false,
-  });
+  let ast;
+  try {
+    ast = parse(source, {
+      sourceType: "module",
+      plugins: ["jsx"],
+      errorRecovery: false,
+    });
+  } catch (error) {
+    const location = error?.loc ?? { line: 1, column: 0 };
+    failures.push({
+      file: path.relative(projectRoot, filename),
+      line: location.line,
+      column: location.column + 1,
+      name: error?.reasonCode ?? "syntax error",
+      kind: error?.message ?? "could not parse source file",
+    });
+    continue;
+  }
 
   traverse(ast, {
     ReferencedIdentifier(identifierPath) {

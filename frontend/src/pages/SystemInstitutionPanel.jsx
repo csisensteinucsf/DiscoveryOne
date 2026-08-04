@@ -47,6 +47,10 @@ export default function SystemInstitutionPanel({
           Support Email
           <input className="input" type="email" value={institutionSettings.support_email || ''} onChange={event => updateInstitutionSetting('support_email', event.target.value)} placeholder="support@example.edu" />
           <span style={helpStyle}>The support contact shown to users for access and workflow assistance.</span>
+        </label>        <label>
+          Internal Counsel Label
+          <input className="input" value={institutionSettings.internal_counsel_label || ''} onChange={event => updateInstitutionSetting('internal_counsel_label', event.target.value)} placeholder="Internal Counsel" />
+          <span style={helpStyle}>The label used for your organization's attorney field on case forms and case lists, such as UC Attorney or Agency Counsel.</span>
         </label>
         <label>
           SSO Display Name

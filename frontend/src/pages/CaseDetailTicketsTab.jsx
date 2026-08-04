@@ -7,6 +7,7 @@ export default function CaseDetailTicketsTab({
   isTech,
   isReadOnly,
   custodianOptions,
+  namedHolds = [],
   visibleTicketCategories,
   requestEntries,
   openBulkRequestModal,
@@ -82,6 +83,8 @@ export default function CaseDetailTicketsTab({
                       ) : entriesForCategory.map(entry => {
                         const primary = primaryCustodian(entry)
                         const displayValue = primary.email || primary.name || ''
+                        const selectedHold = (namedHolds || []).find(hold => Number(hold.id) === Number(entry.case_hold_id))
+                        const selectableHolds = (namedHolds || []).filter(hold => hold?.status === 'active' || Number(hold.id) === Number(entry.case_hold_id))
                         const linkageText = Array.isArray(entry.bulk_custodians) && entry.bulk_custodians.length > 1
                           ? `${entry.bulk_custodians.length} custodians selected`
                           : ''
@@ -133,6 +136,22 @@ export default function CaseDetailTicketsTab({
                         const showStatusBadge = hasTicketNumber
                         return (
                         <div key={entry.id} style={{ background: 'var(--card, #fff)', border: '1px solid var(--border, #e5e7eb)', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                              <span style={{ fontSize: 12, color: '#475467' }}>Named Hold</span>
+                              {isReadOnly ? (
+                                <strong>{selectedHold?.name || 'Not assigned'}</strong>
+                              ) : (
+                                <select
+                                  className="input"
+                                  value={entry.case_hold_id || ''}
+                                  onChange={event => updateRequestEntry(entry.id, { case_hold_id: event.target.value ? Number(event.target.value) : null })}
+                                  disabled={!!entry.ticket}
+                                >
+                                  <option value="">Select a hold</option>
+                                  {selectableHolds.map(hold => <option key={hold.id} value={hold.id}>{hold.name}</option>)}
+                                </select>
+                              )}
+                            </label>
                             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                               <span style={{ fontSize: 12, color: '#475467' }}>Custodians</span>
                               {hasCustodian ? (

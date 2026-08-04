@@ -1,9 +1,34 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react'
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AUTH_EXPIRED_EVENT, AUTH_SYNC_CHANNEL, AUTH_SYNC_STORAGE_KEY } from './lib/apiClient.js'
 
 const BRANDING_EVENT = 'branding:update'
 const emitBrandingUpdate = () => {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new Event(BRANDING_EVENT))
+  }
+}
+
+const AUTH_TAB_ID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+  ? crypto.randomUUID()
+  : `${Date.now()}-${Math.random()}`
+
+function publishAuthClear(reason) {
+  if (typeof window === 'undefined') return
+  const payload = { type: 'clear', reason, source: AUTH_TAB_ID, at: Date.now() }
+  try {
+    window.localStorage.setItem(AUTH_SYNC_STORAGE_KEY, JSON.stringify(payload))
+  } catch {
+    // Storage can be disabled; BroadcastChannel remains the primary path.
+  }
+  if (typeof window.BroadcastChannel === 'function') {
+    try {
+      const channel = new window.BroadcastChannel(AUTH_SYNC_CHANNEL)
+      channel.postMessage(payload)
+      channel.close()
+    } catch {
+      // The current tab is still cleared even when cross-tab messaging fails.
+    }
   }
 }
 
@@ -34,7 +59,10 @@ const normalizeUser = (payload) => {
 const AuthCtx = createContext(null)
 
 export function AuthProvider({ apiBase, children }) {
+  const navigate = useNavigate()
   const [user, setUser] = useState(null)
+  const userRef = useRef(null)
+  const expiryHandledRef = useRef(false)
   const [loading, setLoading] = useState(true)
   const [authConfig, setAuthConfig] = useState({
     sso_enabled: false,
@@ -56,6 +84,66 @@ export function AuthProvider({ apiBase, children }) {
     required: false,
     has_sys_admin: true,
   })
+
+  useEffect(() => {
+    userRef.current = user
+  }, [user])
+
+  const clearBrowserAuth = useCallback((reason = 'logout', { broadcast = true, redirect = true } = {}) => {
+    userRef.current = null
+    setUser(null)
+    emitBrandingUpdate()
+    if (broadcast) publishAuthClear(reason)
+    if (!redirect || typeof window === 'undefined') return
+
+    const expired = reason === 'expired'
+    const target = expired ? '/login?reason=expired' : '/login'
+    const currentPath = `${window.location.pathname}${window.location.search}`
+    if (currentPath === target) return
+    const from = window.location.pathname !== '/login'
+      ? { pathname: window.location.pathname, search: window.location.search }
+      : undefined
+    navigate(target, { replace: true, state: from ? { from } : undefined })
+  }, [navigate])
+
+  useEffect(() => {
+    const expireCurrentSession = () => {
+      if (!userRef.current || expiryHandledRef.current) return
+      expiryHandledRef.current = true
+      void fetch(`${apiBase}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
+      clearBrowserAuth('expired')
+    }
+    const consumeSync = (payload) => {
+      if (!payload || payload.type !== 'clear' || payload.source === AUTH_TAB_ID) return
+      expiryHandledRef.current = payload.reason === 'expired'
+      clearBrowserAuth(payload.reason === 'expired' ? 'expired' : 'logout', { broadcast: false })
+    }
+    const onStorage = (event) => {
+      if (event.key !== AUTH_SYNC_STORAGE_KEY || !event.newValue) return
+      try {
+        consumeSync(JSON.parse(event.newValue))
+      } catch {
+        // Ignore malformed cross-tab messages.
+      }
+    }
+
+    window.addEventListener(AUTH_EXPIRED_EVENT, expireCurrentSession)
+    window.addEventListener('storage', onStorage)
+    let channel = null
+    if (typeof window.BroadcastChannel === 'function') {
+      try {
+        channel = new window.BroadcastChannel(AUTH_SYNC_CHANNEL)
+        channel.addEventListener('message', (event) => consumeSync(event.data))
+      } catch {
+        channel = null
+      }
+    }
+    return () => {
+      window.removeEventListener(AUTH_EXPIRED_EVENT, expireCurrentSession)
+      window.removeEventListener('storage', onStorage)
+      channel?.close()
+    }
+  }, [apiBase, clearBrowserAuth])
 
   const refreshSetupStatus = useCallback(async () => {
     try {
@@ -124,13 +212,18 @@ export function AuthProvider({ apiBase, children }) {
       const res = await fetch(`${apiBase}/auth/me`, { credentials: 'include' })
       if (res.ok) {
         const data = await res.json()
-        setUser(normalizeUser(data))
+        const normalized = normalizeUser(data)
+        userRef.current = normalized
+        expiryHandledRef.current = false
+        setUser(normalized)
         emitBrandingUpdate()
         return data
       }
+      userRef.current = null
       setUser(null)
       return null
     } catch {
+      userRef.current = null
       setUser(null)
       return null
     }
@@ -168,7 +261,10 @@ export function AuthProvider({ apiBase, children }) {
     }
     const data = await res.json()
     if (!data?.mfa_required) {
-      setUser(normalizeUser(data.user))
+      const normalized = normalizeUser(data.user)
+      userRef.current = normalized
+      expiryHandledRef.current = false
+      setUser(normalized)
       emitBrandingUpdate()
     }
     return data
@@ -192,7 +288,10 @@ export function AuthProvider({ apiBase, children }) {
       throw new Error(message)
     }
     const data = await res.json()
-    setUser(normalizeUser(data.user))
+    const normalized = normalizeUser(data.user)
+    userRef.current = normalized
+    expiryHandledRef.current = false
+    setUser(normalized)
     emitBrandingUpdate()
     return data
   }
@@ -205,14 +304,17 @@ export function AuthProvider({ apiBase, children }) {
   const logout = async (nextPath = '/login') => {
     const normalizedNext = nextPath || '/login'
     if (authConfig?.sso_enabled && user?.auth_provider === 'sso') {
-      setUser(null)
-      emitBrandingUpdate()
+      clearBrowserAuth('logout', { redirect: false })
       window.location.assign(`${apiBase}/auth/oidc/logout?next=${encodeURIComponent(normalizedNext)}`)
       return { redirected: true }
     }
-    await fetch(`${apiBase}/auth/logout`, { method: 'POST', credentials: 'include' })
-    setUser(null)
-    emitBrandingUpdate()
+    try {
+      await fetch(`${apiBase}/auth/logout`, { method: 'POST', credentials: 'include' })
+    } catch {
+      // Logout is local-first; a network failure must not strand browser state.
+    } finally {
+      clearBrowserAuth('logout', { redirect: false })
+    }
     return { redirected: false }
   }
 

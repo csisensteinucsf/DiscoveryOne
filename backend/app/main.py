@@ -311,7 +311,7 @@ app.add_middleware(
     cookie_name=os.getenv("CSRF_COOKIE_NAME", "csrf"),
     header_name=os.getenv("CSRF_HEADER_NAME", "X-CSRF-Token"),
     session_cookie=os.getenv("SESSION_COOKIE_NAME", "access_token"),
-    skip_paths={"/api/auth/token", "/api/setup/complete"},
+    skip_paths={"/api/auth/token", "/api/auth/logout", "/api/setup/complete"},
 )
 
 # Rate-limit login endpoint + other expensive routes
@@ -377,10 +377,12 @@ from .system_admin import router as system_admin_router
 from .system_backups import router as system_backups_router
 from .system_branding import router as system_branding_router
 from .system_ops import router as system_ops_router
+from .email_intake_api import router as email_intake_router
 app.include_router(system_admin_router, dependencies=[Depends(current_user)])
 app.include_router(system_backups_router, dependencies=[Depends(current_user)])
 app.include_router(system_branding_router, dependencies=[Depends(current_user)])
 app.include_router(system_ops_router, dependencies=[Depends(current_user)])
+app.include_router(email_intake_router, dependencies=[Depends(current_user)])
 
 from .case_requests import router as case_requests_router
 from .case_request_files import router as case_request_files_router
@@ -405,12 +407,13 @@ app.include_router(setup_router)
 
 from .ntp_templates import router as ntp_templates_router
 from .ntp_history import router as ntp_history_router
-from .ntp import router as ntp_router, acknowledge_ntp, start_ntp_reminder_scheduler
+from .ntp import router as ntp_router, acknowledge_ntp, confirm_ntp_acknowledgement, start_ntp_reminder_scheduler
 from .case_closure import start_case_closure_scheduler
 from .consent_notifications import start_weekly_pending_consent_scheduler
 from .search_delivery_reminders import start_search_delivery_reminder_scheduler
 from .purview_exports import start_purview_export_scheduler
 from .account_reviews import start_account_review_scheduler
+from .email_intake_scheduler import start_email_intake_scheduler
 from .slack_oauth import router as slack_oauth_router
 app.include_router(ntp_templates_router)
 app.include_router(ntp_history_router)
@@ -476,6 +479,10 @@ def _case_custodians_router():
     from .case_custodians import router as r
     return r
 _safe_include(_case_custodians_router, dependencies=[Depends(current_user)])
+def _case_holds_router():
+    from .case_holds import router as r
+    return r
+_safe_include(_case_holds_router, dependencies=[Depends(current_user)])
 
 def _case_purview_router():
     from .case_purview import router as r
@@ -529,11 +536,19 @@ _safe_include(_dashboards_router, dependencies=[Depends(current_user)])
 
 @app.get("/ntp/ack/{token}", include_in_schema=False)
 def ntp_acknowledge(token: str):
-    return acknowledge_ntp(token)
+    return acknowledge_ntp(token, action_path=f"/ntp/ack/{token}")
 
 @app.get("/api/ntp/ack/{token}", include_in_schema=False)
 def api_ntp_acknowledge(token: str):
-    return acknowledge_ntp(token)
+    return acknowledge_ntp(token, action_path=f"/api/ntp/ack/{token}")
+
+@app.post("/ntp/ack/{token}", include_in_schema=False)
+def ntp_acknowledge_confirm(token: str):
+    return confirm_ntp_acknowledgement(token)
+
+@app.post("/api/ntp/ack/{token}", include_in_schema=False)
+def api_ntp_acknowledge_confirm(token: str):
+    return confirm_ntp_acknowledgement(token)
 
 # Simple JSON route list to verify what's mounted (no /api on purpose)
 if os.getenv("DEBUG_ROUTES") == "1":
@@ -661,6 +676,7 @@ def _start_background_schedulers() -> None:
     start_search_delivery_reminder_scheduler()
     start_purview_export_scheduler()
     start_account_review_scheduler()
+    start_email_intake_scheduler()
     try:
         sync_case_request_attachment_bytes()
     except Exception as exc:

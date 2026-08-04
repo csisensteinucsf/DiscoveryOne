@@ -110,6 +110,7 @@ function toApiSearch(s) {
     status_export: s.status_export ?? 'not performed',
     status_delivery: s.status_delivery ?? 'not performed',
     custodian_ids: (s.custodian_ids ?? s.custodianIds ?? []).map(Number),
+    hold_ids: (s.hold_ids ?? s.holdIds ?? []).map(Number),
   };
 }
 function fromApiSearch(s) {
@@ -140,6 +141,8 @@ function fromApiSearch(s) {
     purview_search_name: s.purview_search_name ?? null,
     purview_case_id: s.purview_case_id ?? null,
     custodianIds: (s.custodian_ids ?? []).map(Number),
+    holdIds: (s.hold_ids ?? []).map(Number),
+    holdStatuses: Array.isArray(s.hold_statuses) ? s.hold_statuses : [],
   };
 }
 function isSearchPushedToProvider(search) {
@@ -269,6 +272,7 @@ function aiSuggestionToDraft(suggestion) {
     providerQuery: normalized.providerQuery,
     purviewKql: normalized.purviewKql,
     custodianIds: Array.isArray(suggestion?.custodian_ids) ? suggestion.custodian_ids.map(Number).filter(Number.isFinite) : [],
+    holdIds: Array.isArray(suggestion?.hold_ids) ? suggestion.hold_ids.map(Number).filter(Number.isFinite) : [],
     status: { search: 'not performed', export: 'not performed', delivery: 'not performed' },
     status_search: 'not performed',
     status_export: 'not performed',

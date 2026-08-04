@@ -138,6 +138,25 @@ def test_setup_complete_creates_admin_and_persists_settings(db_session, settings
     assert not any(item["key"] == "rubrik" for item in settings_store["preservation_sources"])
 
 
+def test_setup_complete_keeps_smtp_disabled_when_default_provider_is_stale(db_session, settings_store):
+    payload = {
+        "bootstrap_secret": "test-bootstrap-secret-1234567890",
+        "admin_password": "ChangeMeNow!123",
+        "enabled_integrations": {"smtp": False},
+        "integrations": {"mail_provider": "smtp"},
+        "smtp": {
+            "port": 587,
+            "use_tls": True,
+            "use_ssl": False,
+            "timeout_seconds": 15,
+        },
+    }
+
+    setup.complete_setup(payload=json.dumps(payload), logo=None, request=None, db=db_session)
+
+    assert settings_store["enabled_integrations"]["smtp"] is False
+    assert settings_store["integrations"]["mail_provider"] == "none"
+
 def test_setup_complete_is_rejected_after_sys_admin_exists(db_session, settings_store):
     admin = models.User(
         username="existing-admin",

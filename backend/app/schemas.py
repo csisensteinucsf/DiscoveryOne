@@ -139,6 +139,7 @@ class CustodianCreate(CustodianBase):
 
 class CustodianBulkCreateRequest(BaseModel):
     custodians: list[CustodianCreate]
+    hold_ids: list[int] = Field(default_factory=list)
 
 class CustodianUpdate(BaseModel):
     # all optional for partial updates
@@ -244,6 +245,7 @@ class CaseRequestTicketEntry(BaseModel):
     category: str
     ticket: str = ""
     created_at: Optional[datetime] = None
+    case_hold_id: Optional[int] = None
     custodian_id: Optional[int] = None
     custodian_name: Optional[str] = None
     custodian_email: Optional[str] = None
@@ -271,6 +273,7 @@ class ExternalTicketTimeWindow(BaseModel):
 class ExternalTicketRequest(BaseModel):
     category: str
     entry_id: Optional[str] = None
+    case_hold_id: Optional[int] = None
     custodian_id: Optional[int] = None
     custodian_name: Optional[str] = None
     custodian_email: Optional[str] = None
@@ -336,6 +339,7 @@ class HelpVideoRead(HelpVideoBase):
 
 class PreservationHoldRequest(BaseModel):
     custodian_ids: List[int] = Field(default_factory=list)
+    case_hold_id: Optional[int] = Field(default=None, ge=1)
     included_sources: Optional[List[str]] = None
     delete_hold_policy: bool = False
     # Optional: allow provider adapters to wait for external source state.
@@ -351,6 +355,8 @@ class CaseConsent(BaseModel):
     id: int
     case_id: Optional[int] = None
     custodian_id: Optional[int] = None
+    hold_id: Optional[int] = None
+    hold_custodian_id: Optional[int] = None
     custodian_name: Optional[str] = None
     custodian_email: Optional[str] = None
     provider: str
@@ -384,6 +390,9 @@ class CaseBase(BaseModel):
     servicenow_inc_number: Optional[str] = None
     claimant: Optional[str] = None
     ler_representative: Optional[str] = None
+    internal_counsel: Optional[str] = Field(default=None, max_length=500)
+    outside_counsel: Optional[str] = Field(default=None, max_length=500)
+    matter_number: Optional[str] = Field(default=None, max_length=128)
     requestor: Optional[str] = None
     requestors: List[CaseRequestorEntry] = Field(default_factory=list)
     analyst_id: Optional[int] = None
@@ -408,6 +417,8 @@ class CaseRead(CaseBase):
     analyst_name: Optional[str] = None
     servicenow_inc_link: Optional[str] = None
     created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
     status: Optional[CaseStatus] = None
     notes_internal_count: int = 0
     notes_requestor_count: int = 0
@@ -424,10 +435,14 @@ class CaseUpdate(BaseModel):
     servicenow_inc_number: Optional[str] = None
     claimant: Optional[str] = None
     ler_representative: Optional[str] = None
+    internal_counsel: Optional[str] = Field(default=None, max_length=500)
+    outside_counsel: Optional[str] = Field(default=None, max_length=500)
+    matter_number: Optional[str] = Field(default=None, max_length=128)
     requestor: Optional[str] = None
     requestors: Optional[List[CaseRequestorEntry]] = None
     analyst_id: Optional[int] = None
     closed: Optional[bool] = None
+    close_active_holds: bool = False
     is_private: Optional[bool] = None
     color: Optional[str] = None
     description: Optional[str] = None
@@ -453,7 +468,8 @@ class SearchBase(BaseModel):
     status_export: str = "not performed"
     export_without_consent: bool = False
     status_delivery: str = "not performed"
-    custodian_ids: list[int] = []
+    custodian_ids: list[int] = Field(default_factory=list)
+    hold_ids: list[int] = Field(default_factory=list)
 
 class SearchCreate(SearchBase):
     pass
@@ -471,6 +487,7 @@ class SearchUpdate(BaseModel):
     export_without_consent: bool | None = None
     status_delivery: str | None = None
     custodian_ids: list[int] | None = None
+    hold_ids: list[int] | None = None
 
 class SearchRead(SearchBase):
     id: int

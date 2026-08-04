@@ -19,7 +19,6 @@ const Custodians = lazy(() => import('./pages/Custodians.jsx'))
 const Reports = lazy(() => import('./pages/Reports.jsx'))
 const System = lazy(() => import('./pages/System.jsx'))
 const CaseDetail = lazy(() => import('./pages/CaseDetail.jsx'))
-const Logs = lazy(() => import('./pages/Logs.jsx'))
 const CustodianDetail = lazy(() => import('./pages/CustodianDetail.jsx'))
 const Help = lazy(() => import('./pages/Help.jsx'))
 const Setup = lazy(() => import('./pages/Setup.jsx'))
@@ -218,9 +217,6 @@ function Shell() {
                 }}>{registrationPending}</span>
               )}
             </Link>
-            {(isSysAdmin || isRequestor) && (
-              <Link to="/logs" className={isActive('/logs') ? 'active' : ''} aria-current={isActive('/logs') ? 'page' : undefined}>Logs</Link>
-            )}
             <button onClick={doLogout} className="nav-logout">Logout</button>
           </nav>
         </aside>
@@ -252,20 +248,7 @@ function Shell() {
             <Route path="/reports" element={<Protected>{isTech ? (<div className="card" style={{ marginTop: 24 }}><p style={{ margin: 0, color: 'var(--muted,#6b7280)' }}>Reports are not available for tech accounts.</p></div>) : (<Reports />)}</Protected>} />
             <Route path="/system" element={<Protected><System apiBase={apiBase} /></Protected>} />
             <Route path="/cases/:caseId" element={<Protected><CaseDetail apiBase={apiBase} /></Protected>} />
-            <Route
-              path="/logs"
-              element={(
-                <Protected>
-                  {(isSysAdmin || isRequestor) ? (
-                    <Logs apiBase={apiBase} />
-                  ) : (
-                    <div className="card" style={{ marginTop: 24 }}>
-                      <p style={{ margin: 0, color: 'var(--muted,#6b7280)' }}>Logs are not available for this role.</p>
-                    </div>
-                  )}
-                </Protected>
-              )}
-            />
+            <Route path="/logs" element={<Navigate to="/system?section=operations&view=logs" replace />} />
             <Route path="/requests" element={<Protected>{isTech ? (<div className="card" style={{ marginTop: 24 }}><p style={{ margin: 0, color: 'var(--muted,#6b7280)' }}>Requests are not available for tech accounts.</p></div>) : (<CaseRequests apiBase={apiBase} />)}</Protected>} />
             <Route path="/help" element={<Help />} />
           </Routes>

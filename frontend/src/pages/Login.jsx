@@ -17,6 +17,7 @@ export default function Login({ apiBase }) {
   const nav = useNavigate()
   const loc = useLocation()
   const searchParams = useMemo(() => new URLSearchParams(loc.search), [loc.search])
+  const expiredSession = searchParams.get('reason') === 'expired'
   const ssoRegistrationPrompt = searchParams.get('sso_unregistered') === '1'
   const ssoRegistrationToken = searchParams.get('sso_registration_token') || ''
   const [showRegister, setShowRegister] = useState(searchParams.get('register') === '1')
@@ -142,6 +143,11 @@ export default function Login({ apiBase }) {
     <div className="wrap" style={{maxWidth:420}}>
       <div className="card">
         <h3>{ssoEnabled && !showPasswordForm ? `Sign in with ${ssoDisplayName}` : 'Sign in'}</h3>
+        {expiredSession && (
+          <p role="status" aria-live="polite" className="auth-session-message">
+            Your session expired. Sign in again to continue.
+          </p>
+        )}
         {ssoEnabled && !showPasswordForm && (
           <>
             <p style={{ color: 'var(--muted,#6b7280)' }}>

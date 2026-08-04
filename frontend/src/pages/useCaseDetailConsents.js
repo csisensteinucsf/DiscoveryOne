@@ -17,6 +17,8 @@ export function useCaseDetailConsents({
   esignDisplayName = 'e-signature provider',
 }) {
   const [showConsentModal, setShowConsentModal] = useState(false)
+  const [consentHolds, setConsentHolds] = useState([])
+  const [consentHoldId, setConsentHoldId] = useState('')
   const [consentSelection, setConsentSelection] = useState(new Set())
   const [consentFormInline, setConsentFormInline] = useState(emptyConsentForm)
   const [consentSendBusy, setConsentSendBusy] = useState(false)
@@ -27,6 +29,47 @@ export function useCaseDetailConsents({
   const [consentsError, setConsentsError] = useState(null)
   const [consentActionBusy, setConsentActionBusy] = useState({ id: null, type: null })
   const [consentDownloadBusyId, setConsentDownloadBusyId] = useState(null)
+
+  useEffect(() => {
+    if (!showConsentModal || !caseId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const response = await fetch(apiBase + '/cases/' + caseId + '/holds', { credentials: 'include' })
+        if (!response.ok) throw new Error(await response.text() || 'Unable to load holds')
+        const data = await response.json()
+        const next = (Array.isArray(data?.holds) ? data.holds : []).filter(hold => hold.status === 'active')
+        if (cancelled) return
+        setConsentHolds(next)
+        setConsentHoldId(current => {
+          if (next.some(hold => String(hold.id) === String(current))) return current
+          return next.length ? String(next[0].id) : ''
+        })
+      } catch (error) {
+        if (!cancelled) showToast(error?.message || 'Unable to load holds for consent.', { variant: 'error' })
+      }
+    })()
+    return () => { cancelled = true }
+  }, [apiBase, caseId, showConsentModal, showToast])
+
+  useEffect(() => {
+    setConsentSelection(new Set())
+  }, [consentHoldId])
+
+  const selectedConsentHold = useMemo(
+    () => consentHolds.find(hold => String(hold.id) === String(consentHoldId)) || null,
+    [consentHolds, consentHoldId],
+  )
+  const consentCustodians = useMemo(() => {
+    if (!selectedConsentHold) return []
+    const byId = new Map((custodians || []).map(custodian => [Number(custodian.id), custodian]))
+    return (selectedConsentHold.custodians || []).map(member => ({
+      ...(byId.get(Number(member.custodian_id)) || member),
+      id: Number(member.custodian_id),
+      consent_status: member.consent_status || 'not sent',
+      hold_membership_id: member.membership_id,
+    }))
+  }, [custodians, selectedConsentHold])
 
   const loadConsents = useCallback(async () => {
     if (!caseId) return
@@ -50,34 +93,36 @@ export function useCaseDetailConsents({
   const consentReceivedIds = useMemo(() => {
     const ids = new Set()
     ;(consents || []).forEach(c => {
+      if (consentHoldId && String(c?.hold_id || '') !== String(consentHoldId)) return
       const status = String(c?.status || '').trim().toLowerCase()
       if (!['completed', 'received'].includes(status)) return
       const id = Number(c?.custodian_id)
       if (Number.isFinite(id)) ids.add(id)
     })
-    ;(custodians || []).forEach(c => {
+    ;(consentCustodians || []).forEach(c => {
       const id = Number(c?.id)
       const status = String(c?.consent_status || '').trim().toLowerCase()
       if (Number.isFinite(id) && status === 'received') ids.add(id)
     })
     return ids
-  }, [consents, custodians])
+  }, [consentCustodians, consentHoldId, consents])
 
   const consentReceivedEmails = useMemo(() => {
     const emails = new Set()
     ;(consents || []).forEach(c => {
+      if (consentHoldId && String(c?.hold_id || '') !== String(consentHoldId)) return
       const status = String(c?.status || '').trim().toLowerCase()
       if (!['completed', 'received'].includes(status)) return
       const email = (c?.custodian_email || '').trim().toLowerCase()
       if (email) emails.add(email)
     })
-    ;(custodians || []).forEach(c => {
+    ;(consentCustodians || []).forEach(c => {
       const status = String(c?.consent_status || '').trim().toLowerCase()
       const email = (c?.email || '').trim().toLowerCase()
       if (status === 'received' && email) emails.add(email)
     })
     return emails
-  }, [consents, custodians])
+  }, [consentCustodians, consentHoldId, consents])
 
   const consentRequestTracker = useMemo(() => {
     const byCustodian = new Map()
@@ -114,12 +159,12 @@ export function useCaseDetailConsents({
 
   const custodiansById = useMemo(() => {
     const byId = new Map()
-    ;(custodians || []).forEach(c => {
+    ;(consentCustodians || []).forEach(c => {
       const id = Number(c?.id)
       if (Number.isFinite(id)) byId.set(id, c)
     })
     return byId
-  }, [custodians])
+  }, [consentCustodians])
 
   const isConsentUnavailable = useCallback((custodian) => {
     if (!custodian) return true
@@ -151,11 +196,11 @@ export function useCaseDetailConsents({
   }, [searches, custodiansById, isConsentUnavailable])
 
   const filteredConsentCustodians = useMemo(() => {
-    const list = Array.isArray(custodians) ? custodians : []
+    const list = Array.isArray(consentCustodians) ? consentCustodians : []
     const q = (consentSearch || '').trim().toLowerCase()
     if (!q) return list
     return list.filter(c => (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q))
-  }, [custodians, consentSearch])
+  }, [consentCustodians, consentSearch])
 
   const consentSelectedRecipients = useMemo(() => {
     const rows = Array.from(consentSelection || [])
@@ -250,7 +295,12 @@ export function useCaseDetailConsents({
       }
       if (!ok) return
     }
+    if (!consentHoldId) {
+      showToast('Select an active hold before sending consent requests.', { variant: 'error' })
+      return
+    }
     const payload = {
+      case_hold_id: Number(consentHoldId),
       record_type: recordType,
       date_from: (consentFormInline.dateFrom || '').trim() || 'NA',
       date_to: (consentFormInline.dateTo || '').trim() || 'NA',
@@ -379,6 +429,10 @@ export function useCaseDetailConsents({
   return {
     showConsentModal,
     setShowConsentModal,
+    consentHolds,
+    consentHoldId,
+    setConsentHoldId,
+    consentCustodians,
     consentSelection,
     setConsentSelection,
     consentFormInline,

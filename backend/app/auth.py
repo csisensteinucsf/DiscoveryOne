@@ -40,6 +40,7 @@ from .session_tokens import (
     revoke_refresh_by_jti,
     revoke_all_refresh_for_user,
     find_valid_refresh,
+    consume_valid_refresh,
 )
 from .emailer import send_email
 from .notifications import _app_base_url, notify_user_password_change, notify_user_mfa_change, _send_teams_notification, render_email_template
@@ -152,6 +153,11 @@ OIDC_LOGOUT_REDIRECT_PATH = "/api/auth/oidc/logout/callback"
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
 
 def _is_seed_admin(user: Optional[models.User]) -> bool:
     if not user or not SEED_ADMIN_USERNAME:
@@ -181,6 +187,7 @@ def _public_institution_config() -> dict:
         "org_short_name": settings.get("org_short_name") or "",
         "allowed_requestor_email_domains": settings.get("allowed_requestor_email_domains") or [],
         "employee_id_label": "Employee ID",
+        "internal_counsel_label": settings.get("internal_counsel_label") or "Internal Counsel",
         "sso_display_name": settings.get("sso_display_name") or "Single sign-on",
         "support_email": settings.get("support_email") or "",
     }
@@ -434,7 +441,7 @@ def _hash_token(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
-def _decode_token(token: str, *, purpose: Optional[str] = None) -> dict:
+def _decode_token(token: str, *, purpose: Optional[str] = None, verify_exp: bool = True) -> dict:
     """
     Decode a JWT, preferring RS256 when RSA keys are configured.
     When JWT_ALLOW_HS_FALLBACK is true, HS256 is tried if RS256 validation fails.
@@ -442,7 +449,7 @@ def _decode_token(token: str, *, purpose: Optional[str] = None) -> dict:
     errors = []
     if USE_RS256:
         try:
-            data = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=["RS256"])
+            data = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=["RS256"], options={"verify_exp": verify_exp})
             if purpose and data.get("purpose") != purpose:
                 raise JWTError("purpose mismatch")
             return data
@@ -451,7 +458,7 @@ def _decode_token(token: str, *, purpose: Optional[str] = None) -> dict:
             if not JWT_ALLOW_HS_FALLBACK:
                 raise
     try:
-        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        data = jwt.decode(token, SECRET_KEY, algorithms=["HS256"], options={"verify_exp": verify_exp})
         if purpose and data.get("purpose") != purpose:
             raise JWTError("purpose mismatch")
         return data
@@ -1312,10 +1319,10 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> models.User
             .filter(models.SessionToken.jti == jti)
             .first()
         )
-        now = datetime.now(timezone.utc)
+        now = _now()
         if not session:
             raise HTTPException(401, "Session expired")
-        if session.revoked_at is not None or session.expires_at <= now:
+        if session.revoked_at is not None or _as_utc(session.expires_at) <= now:
             try:
                 db.delete(session)
                 db.commit()
@@ -1326,7 +1333,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> models.User
             raise HTTPException(401, "Session invalid")
         last_seen = getattr(session, "last_seen_at", None)
         if SESSION_IDLE_TIMEOUT_MINUTES > 0 and last_seen is not None:
-            idle_seconds = (now - last_seen).total_seconds()
+            idle_seconds = (now - _as_utc(last_seen)).total_seconds()
             if idle_seconds > SESSION_IDLE_TIMEOUT_MINUTES * 60:
                 try:
                     session.revoked_at = now
@@ -1341,7 +1348,7 @@ def current_user(request: Request, db: Session = Depends(get_db)) -> models.User
             _debug_suppressed("session activity touch skipped", exc)
         request.state.token_jti = jti
         request.state.session_token_id = session.id
-        request.state.session_expires_at = session.expires_at
+        request.state.session_expires_at = _as_utc(session.expires_at)
         request.state.session_last_seen_at = now
         return user
     except JWTError:
@@ -1369,18 +1376,16 @@ def _refresh_session_impl(
     refresh_cookie = request.cookies.get(REFRESH_COOKIE_NAME)
     if not refresh_cookie:
         raise HTTPException(status_code=401, detail="No refresh token")
-    record = find_valid_refresh(db, refresh_cookie, user_agent=request.headers.get("user-agent"), ip=_client_ip(request))
+    record = consume_valid_refresh(db, refresh_cookie, user_agent=request.headers.get("user-agent"), ip=_client_ip(request))
     if not record:
         raise HTTPException(status_code=401, detail="Invalid or expired refresh")
     user = db.query(models.User).filter(models.User.id == int(record.user_id)).first()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     if not _user_is_active(user):
-        revoke_refresh_by_jti(db, record.jti)
         raise HTTPException(status_code=401, detail="Account disabled")
 
-    # Rotate refresh
-    revoke_refresh_by_jti(db, record.jti)
+    # The old refresh token was atomically consumed before issuing this replacement.
     new_refresh_value, new_refresh_exp, new_refresh_jti = create_access_token(
         user.username,
         expires_delta=timedelta(days=REFRESH_TOKEN_DAYS),
@@ -1454,10 +1459,11 @@ def logout(
     response: Response,
     request: Request,
     db: Session = Depends(get_db),
-    user: models.User = Depends(current_user),
 ):
-    _revoke_local_session_from_request(request, db)
-    _clear_auth_cookies(response)
+    try:
+        _revoke_local_session_from_request(request, db)
+    finally:
+        _clear_auth_cookies(response)
     return {"ok": True}
 
 def require_admin(user: models.User = Depends(current_user)):

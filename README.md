@@ -2,6 +2,10 @@
 
 Internal eDiscovery workspace that tracks matters, custodians, holds, NTP/consent proofs, search requests, reports, tools, and system administration in one place. The frontend is Vite + React; the backend is FastAPI + Postgres with Caddy in front and ClamAV for upload scanning.
 
+## Administrator Guide
+- [DiscoveryOne Universal Administrator Guide](output/pdf/DiscoveryOne_Universal_Administrator_Guide.pdf) - detailed installation, first-time setup, security, backup, and integration instructions.
+- [Guide source](output/pdf/DiscoveryOne_Administrator_Guide.md) - editable source used by scripts/generate_admin_guide.py.
+
 ## What it does
 - Case + request intake: requestors submit new cases/custodian/search/close requests; analysts/admins approve or decline with reasons and badges for pending work.
 - Case workspace: manage custodians, legal names, claimants, holds (Email for O365/Google, OneDrive, Google Drive, Box, Dropbox, Slack, Zoom), NTP + consent status with proof uploads, searches, notes, and progress badges.

@@ -310,32 +310,36 @@ def drilldown(
         allowed = {"not sent", "sent", "acknowledged", "na"}
         if status_filter and status_filter not in allowed:
             raise HTTPException(status_code=422, detail="invalid ntp status")
-        status_col = func.lower(func.coalesce(models.Custodian.ntp_status, "not sent"))
+        status_col = func.lower(func.coalesce(models.HoldCustodian.ntp_status, "not sent"))
 
-        q = db.query(models.Custodian, models.Case).join(models.Case, models.Case.id == models.Custodian.case_id)
+        q = (
+            db.query(models.HoldCustodian, models.Custodian, models.CaseHold, models.Case)
+            .join(models.Custodian, models.Custodian.id == models.HoldCustodian.custodian_id)
+            .join(models.CaseHold, models.CaseHold.id == models.HoldCustodian.hold_id)
+            .join(models.Case, models.Case.id == models.CaseHold.case_id)
+        )
         if open_only:
             q = q.filter(models.Case.closed.is_(False))
         q = _filter_case_ids(q, models.Case.id, case_ids)
         if status_filter:
             q = q.filter(status_col == status_filter)
-        q = q.order_by(models.Case.id.asc(), models.Custodian.id.asc())
-        q = q.limit(limit_n)
-        rows = q.all()
+        rows = q.order_by(models.Case.id.asc(), models.CaseHold.sort_order.asc(), models.Custodian.id.asc()).limit(limit_n).all()
         items = []
-        for cust, case in rows:
-            items.append(
-                {
-                    "case_id": getattr(case, "id", None),
-                    "case_name": getattr(case, "name", None),
-                    "case_closed": bool(getattr(case, "closed", False)),
-                    "custodian_id": getattr(cust, "id", None),
-                    "custodian_name": getattr(cust, "name", None),
-                    "custodian_email": getattr(cust, "email", None),
-                    "ntp_status": getattr(cust, "ntp_status", None),
-                    "ntp_sent_at": str(getattr(cust, "ntp_sent_at", "") or ""),
-                    "ntp_acknowledged_at": str(getattr(cust, "ntp_acknowledged_at", "") or ""),
-                }
-            )
+        for membership, custodian, hold, case in rows:
+            items.append({
+                "case_id": case.id,
+                "case_name": case.name,
+                "case_closed": bool(case.closed),
+                "hold_id": hold.id,
+                "hold_name": hold.name,
+                "hold_status": hold.status,
+                "custodian_id": custodian.id,
+                "custodian_name": custodian.name,
+                "custodian_email": custodian.email,
+                "ntp_status": membership.ntp_status,
+                "ntp_sent_at": str(membership.ntp_sent_at or ""),
+                "ntp_acknowledged_at": str(membership.ntp_acknowledged_at or ""),
+            })
         return {"items": items, "count": len(items), "limit": limit_n}
 
     if kind == "ntp_reminders_list":
@@ -350,10 +354,19 @@ def drilldown(
         now = datetime.now(timezone.utc)
 
         q = (
-            db.query(models.NTPReminder, models.Case, models.Custodian, models.NTPTemplate)
+            db.query(
+                models.NTPReminder,
+                models.Case,
+                models.Custodian,
+                models.NTPTemplate,
+                models.HoldCustodian,
+                models.CaseHold,
+            )
             .join(models.Case, models.Case.id == models.NTPReminder.case_id)
             .outerjoin(models.Custodian, models.Custodian.id == models.NTPReminder.custodian_id)
             .outerjoin(models.NTPTemplate, models.NTPTemplate.id == models.NTPReminder.template_id)
+            .outerjoin(models.HoldCustodian, models.HoldCustodian.id == models.NTPReminder.hold_custodian_id)
+            .outerjoin(models.CaseHold, models.CaseHold.id == models.HoldCustodian.hold_id)
         )
         if open_only:
             q = q.filter(models.Case.closed.is_(False))
@@ -383,12 +396,16 @@ def drilldown(
         q = q.limit(limit_n)
         rows = q.all()
         items = []
-        for reminder, case, custodian, template in rows:
+        for reminder, case, custodian, template, membership, hold in rows:
             items.append(
                 {
                     "case_id": getattr(case, "id", None),
                     "case_name": getattr(case, "name", None),
                     "case_closed": bool(getattr(case, "closed", False)),
+                    "hold_id": getattr(hold, "id", None) if hold else None,
+                    "hold_name": getattr(hold, "name", None) if hold else None,
+                    "hold_status": getattr(hold, "status", None) if hold else None,
+                    "hold_custodian_id": getattr(membership, "id", None) if membership else None,
                     "custodian_id": getattr(custodian, "id", None) if custodian else None,
                     "custodian_name": getattr(custodian, "name", None) if custodian else None,
                     "custodian_email": getattr(custodian, "email", None) if custodian else None,
@@ -409,45 +426,43 @@ def drilldown(
         open_only = bool(config.get("open_only", True))
         mode = (config.get("mode") or "pending").strip().lower()
         hold_type = (config.get("hold_type") or "").strip().lower()
-        keys = ["email", "onedrive", "box", "slack", "rubrik_restore"]
-        if hold_type and hold_type not in keys:
-            raise HTTPException(status_code=422, detail="invalid hold_type")
-        pending = mode != "active"
+        if mode not in {"pending", "active"}:
+            raise HTTPException(status_code=422, detail="invalid hold mode")
 
-        q = db.query(models.Custodian, models.Case).join(models.Case, models.Case.id == models.Custodian.case_id)
+        q = (
+            db.query(models.HoldPreservationSource, models.HoldCustodian, models.Custodian, models.CaseHold, models.Case)
+            .join(models.HoldCustodian, models.HoldCustodian.id == models.HoldPreservationSource.hold_custodian_id)
+            .join(models.Custodian, models.Custodian.id == models.HoldCustodian.custodian_id)
+            .join(models.CaseHold, models.CaseHold.id == models.HoldCustodian.hold_id)
+            .join(models.Case, models.Case.id == models.CaseHold.case_id)
+            .filter(func.lower(models.HoldPreservationSource.status) == mode)
+        )
         if open_only:
             q = q.filter(models.Case.closed.is_(False))
         q = _filter_case_ids(q, models.Case.id, case_ids)
-
-        def _col(key: str):
-            if pending:
-                return getattr(models.Custodian, f"holds_{key}_pending")
-            return getattr(models.Custodian, f"holds_{key}")
-
         if hold_type:
-            q = q.filter(_col(hold_type).is_(True))
-        else:
-            q = q.filter(or_(*[_col(k).is_(True) for k in keys]))
+            q = q.filter(func.lower(models.HoldPreservationSource.source_key) == hold_type)
+        rows = q.order_by(models.Case.id.asc(), models.CaseHold.sort_order.asc(), models.Custodian.id.asc()).limit(limit_n).all()
 
-        q = q.order_by(models.Case.id.asc(), models.Custodian.id.asc())
-        q = q.limit(limit_n)
-        rows = q.all()
-        items = []
-        for cust, case in rows:
-            active_map = {k: bool(getattr(cust, f"holds_{k}", False)) for k in keys}
-            pending_map = {k: bool(getattr(cust, f"holds_{k}_pending", False)) for k in keys}
-            items.append(
-                {
-                    "case_id": getattr(case, "id", None),
-                    "case_name": getattr(case, "name", None),
-                    "case_closed": bool(getattr(case, "closed", False)),
-                    "custodian_id": getattr(cust, "id", None),
-                    "custodian_name": getattr(cust, "name", None),
-                    "custodian_email": getattr(cust, "email", None),
-                    "holds_active": active_map,
-                    "holds_pending": pending_map,
-                }
-            )
+        grouped: dict[int, dict] = {}
+        for source, membership, custodian, hold, case in rows:
+            item = grouped.setdefault(int(membership.id), {
+                "case_id": case.id,
+                "case_name": case.name,
+                "case_closed": bool(case.closed),
+                "hold_id": hold.id,
+                "hold_name": hold.name,
+                "hold_status": hold.status,
+                "custodian_id": custodian.id,
+                "custodian_name": custodian.name,
+                "custodian_email": custodian.email,
+                "holds_active": {},
+                "holds_pending": {},
+            })
+            key = str(source.source_key or "unknown").lower()
+            item["holds_active"][key] = source.status == "active"
+            item["holds_pending"][key] = source.status == "pending"
+        items = list(grouped.values())
         return {"items": items, "count": len(items), "limit": limit_n}
 
     if kind == "searches_list":
@@ -467,11 +482,15 @@ def drilldown(
         if metric not in allowed:
             raise HTTPException(status_code=422, detail="invalid search metric")
 
-        search_col = func.lower(func.coalesce(models.Search.status_search, "not performed"))
-        export_col = func.lower(func.coalesce(models.Search.status_export, "not performed"))
-        delivery_col = func.lower(func.coalesce(models.Search.status_delivery, "not performed"))
-
-        q = db.query(models.Search, models.Case).join(models.Case, models.Case.id == models.Search.case_id)
+        search_col = func.lower(func.coalesce(models.HoldSearch.status_search, "not performed"))
+        export_col = func.lower(func.coalesce(models.HoldSearch.status_export, "not performed"))
+        delivery_col = func.lower(func.coalesce(models.HoldSearch.status_delivery, "not performed"))
+        q = (
+            db.query(models.HoldSearch, models.Search, models.CaseHold, models.Case)
+            .join(models.Search, models.Search.id == models.HoldSearch.search_id)
+            .join(models.CaseHold, models.CaseHold.id == models.HoldSearch.hold_id)
+            .join(models.Case, models.Case.id == models.CaseHold.case_id)
+        )
         if open_only:
             q = q.filter(models.Case.closed.is_(False))
         q = _filter_case_ids(q, models.Case.id, case_ids)
@@ -489,40 +508,35 @@ def drilldown(
         elif metric == "delivery_not_required":
             q = q.filter(delivery_col == "not required")
         elif metric == "delivery_pending":
-            q = q.filter(export_col == "performed")
-            q = q.filter(delivery_col.notin_(("performed", "not required")))
+            q = q.filter(export_col == "performed", delivery_col.notin_(("performed", "not required")))
         elif metric == "export_without_consent":
             q = q.filter(models.Search.export_without_consent.is_(True))
 
-        q = q.order_by(models.Case.id.asc(), models.Search.id.asc())
-        q = q.limit(limit_n)
-        rows = q.all()
-
+        rows = q.order_by(models.Case.id.asc(), models.CaseHold.sort_order.asc(), models.Search.id.asc()).limit(limit_n).all()
         items = []
-        for search, case in rows:
-            custodian_count = 0
+        for membership, search, hold, case in rows:
             try:
                 raw_ids = json.loads(getattr(search, "custodian_ids", "[]") or "[]")
-                if isinstance(raw_ids, list):
-                    custodian_count = len([x for x in raw_ids if str(x or "").strip()])
+                custodian_count = len(raw_ids) if isinstance(raw_ids, list) else 0
             except Exception:
                 custodian_count = 0
-
-            items.append(
-                {
-                    "case_id": getattr(case, "id", None),
-                    "case_name": getattr(case, "name", None),
-                    "case_closed": bool(getattr(case, "closed", False)),
-                    "search_id": getattr(search, "id", None),
-                    "search_name": getattr(search, "name", None),
-                    "status_search": getattr(search, "status_search", None),
-                    "status_export": getattr(search, "status_export", None),
-                    "status_delivery": getattr(search, "status_delivery", None),
-                    "export_without_consent": bool(getattr(search, "export_without_consent", False)),
-                    "custodian_count": custodian_count,
-                }
-            )
+            items.append({
+                "case_id": case.id,
+                "case_name": case.name,
+                "case_closed": bool(case.closed),
+                "hold_id": hold.id,
+                "hold_name": hold.name,
+                "hold_status": hold.status,
+                "search_id": search.id,
+                "search_name": search.name,
+                "status_search": membership.status_search,
+                "status_export": membership.status_export,
+                "status_delivery": membership.status_delivery,
+                "export_without_consent": bool(search.export_without_consent),
+                "custodian_count": custodian_count,
+            })
         return {"items": items, "count": len(items), "limit": limit_n}
+
     if kind == "requests_list":
         status = (config.get("status") or "pending").strip().lower()
         if status != "pending":

@@ -9,6 +9,8 @@ from typing import Any, Dict
 from fastapi import HTTPException
 
 from . import models, preservation_provider, schemas, ticket_provider
+from .case_holds import ensure_default_hold
+from .hold_workflows import sync_legacy_custodian_to_default_hold
 from .audit import log_event
 from .cases import (
     _apply_request_holds,
@@ -70,6 +72,9 @@ def auto_apply_case_request_holds(
         case_for_tickets = db.get(models.Case, int(record.case_id))
         if not case_for_tickets:
             return
+        default_hold = ensure_default_hold(db, case_for_tickets, assign_existing=True)
+        db.flush()
+        default_hold_id = int(default_hold.id)
         actor = None
         try:
             actor = db.get(models.User, int(getattr(record, "reviewed_by_id", 0) or 0))
@@ -142,11 +147,15 @@ def auto_apply_case_request_holds(
                             payload=schemas.PreservationHoldRequest(
                                 custodian_ids=[int(i) for i in ids],
                                 included_sources=list(sources_key),
+                                case_hold_id=default_hold_id,
                             ),
                             db=db,
                             request=None,
                             user=actor,
                         )
+                        for updated_custodian in custodians:
+                            if int(updated_custodian.id) in {int(value) for value in ids}:
+                                sync_legacy_custodian_to_default_hold(db, updated_custodian)
                         try:
                             db.commit()
                         except Exception:
@@ -161,7 +170,7 @@ def auto_apply_case_request_holds(
                             exc,
                         )
                 try:
-                    _schedule_preservation_status_poll(case_id_val, "auto_case_request", delay_seconds=10)
+                    _schedule_preservation_status_poll(case_id_val, "auto_case_request", delay_seconds=10, case_hold_id=default_hold_id)
                 except Exception as exc:
                     debug_suppressed("suppressed exception in case_requests.py:354", exc)
         except Exception as exc:
@@ -228,7 +237,10 @@ def auto_apply_case_request_holds(
                         entries.append({
                             "id": str(uuid.uuid4()),
                             "category": category,
+                            "case_hold_id": default_hold_id,
+                            "case_hold_name": default_hold.name,
                             "ticket": ticket_number,
+                            "provider_managed": True,
                             "created_at": datetime.now(timezone.utc).isoformat(),
                             "custodian_id": getattr(primary, "id", None),
                             "custodian_name": getattr(primary, "name", None),
@@ -247,7 +259,10 @@ def auto_apply_case_request_holds(
                                     "case_id": getattr(case_for_tickets, "id", None),
                                     "case_name": getattr(case_for_tickets, "name", None),
                                     "category": category,
+                            "case_hold_id": default_hold_id,
+                            "case_hold_name": default_hold.name,
                                     "ticket": ticket_number,
+                                    "provider_managed": True,
                                     "sys_id": sys_id,
                                     "custodian_id": getattr(primary, "id", None),
                                     "custodian_name": getattr(primary, "name", None),
@@ -272,7 +287,7 @@ def auto_apply_case_request_holds(
                         logger.warning("auto_case_request_box_ticket_failed ts=%s request_id=%s error=%s", now_ts(), record.id, exc)
 
                     try:
-                        normalized_entries = _normalize_request_ticket_entries(entries, case_for_tickets) or []
+                        normalized_entries = _normalize_request_ticket_entries(entries, case_for_tickets, trusted_provider=True) or []
                         case_for_tickets.request_ticket_entries = normalized_entries
                         _sync_legacy_request_tickets(case_for_tickets, normalized_entries)
                         _apply_request_holds(case_for_tickets, normalized_entries)

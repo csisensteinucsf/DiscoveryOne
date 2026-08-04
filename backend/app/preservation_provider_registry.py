@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
 
@@ -9,6 +9,7 @@ class PreservationOperationContext:
     db: Any
     request: Any = None
     user: Any = None
+    options: dict[str, Any] = field(default_factory=dict)
 
 
 class PreservationProviderAdapter(Protocol):

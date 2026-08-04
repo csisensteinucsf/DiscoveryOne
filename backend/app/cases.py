@@ -126,30 +126,35 @@ logger = logging.getLogger(__name__)
 FALLBACK_CUSTOMER_ID = ""
 
 _preservation_poll_lock = threading.Lock()
-# Keyed by (case_id, delay_seconds_int) so we can schedule a short retry without canceling a longer follow-up poll.
-_preservation_poll_timers: dict[tuple[int, int], threading.Timer] = {}
+# Keyed by (case_id, named_hold_id, delay_seconds_int) so polls for separate holds never cancel each other.
+_preservation_poll_timers: dict[tuple[int, int, int], threading.Timer] = {}
 _case_hold_email_lock = threading.Lock()
 _case_hold_email_timers: dict[int, threading.Timer] = {}
 
 
-def _schedule_preservation_status_poll(case_id: int, reason: str, delay_seconds: Optional[float] = None) -> None:
+def _schedule_preservation_status_poll(
+    case_id: int,
+    reason: str,
+    delay_seconds: Optional[float] = None,
+    case_hold_id: Optional[int] = None,
+) -> None:
     if not preservation_provider.preservation_automation_ready():
         return
     delay = preservation_provider.status_poll_delay_seconds() if delay_seconds is None else delay_seconds
     if delay <= 0:
         return
     delay_key = int(delay)
-    key = (case_id, delay_key)
+    key = (case_id, int(case_hold_id or 0), delay_key)
     def _run() -> None:
         with _preservation_poll_lock:
             _preservation_poll_timers.pop(key, None)
         db = SessionLocal()
         try:
-            logger.info("preservation_status_poll_start case_id=%s reason=%s delay=%.1f", case_id, reason, delay)
-            preservation_provider.get_status(case_id=case_id, db=db, request=None, user=None)
-            logger.info("preservation_status_poll_complete case_id=%s reason=%s", case_id, reason)
+            logger.info("preservation_status_poll_start case_id=%s case_hold_id=%s reason=%s delay=%.1f", case_id, case_hold_id, reason, delay)
+            preservation_provider.get_status(case_id=case_id, db=db, request=None, user=None, case_hold_id=case_hold_id)
+            logger.info("preservation_status_poll_complete case_id=%s case_hold_id=%s reason=%s", case_id, case_hold_id, reason)
         except Exception as exc:
-            logger.warning("preservation_status_poll_failed case_id=%s reason=%s error=%s", case_id, reason, exc)
+            logger.warning("preservation_status_poll_failed case_id=%s case_hold_id=%s reason=%s error=%s", case_id, case_hold_id, reason, exc)
         finally:
             try:
                 db.close()
@@ -658,47 +663,74 @@ def case_stats(
     if not visible_ids:
         return {}
 
-    hold_expr = or_(
-        models.Custodian.holds_email.is_(True),
-        models.Custodian.holds_onedrive.is_(True),
-        models.Custodian.holds_box.is_(True),
-        models.Custodian.holds_slack.is_(True),
-        models.Custodian.holds_rubrik_restore.is_(True),
-    )
-
     cust_rows = (
-        db.query(
-            models.Custodian.case_id,
-            func.count(models.Custodian.id),
-            func.sum(sql_case((hold_expr, 1), else_=0)),
-            func.sum(sql_case((func.lower(func.coalesce(models.Custodian.ntp_status, "")) == "sent", 1), else_=0)),
-            func.sum(sql_case((func.lower(func.coalesce(models.Custodian.ntp_status, "")) == "acknowledged", 1), else_=0)),
-            func.sum(sql_case((models.Custodian.consent_status == "sent", 1), else_=0)),
-            func.sum(sql_case((models.Custodian.consent_status == "received", 1), else_=0)),
-        )
+        db.query(models.Custodian.case_id, func.count(models.Custodian.id))
         .filter(models.Custodian.case_id.in_(visible_ids))
         .group_by(models.Custodian.case_id)
         .all()
     )
-
-    search_rows = (
+    workflow_rows = (
         db.query(
-            models.Search.case_id,
-            func.count(models.Search.id),
-            func.sum(sql_case((models.Search.status_search == "performed", 1), else_=0)),
-            func.sum(sql_case((models.Search.status_export == "performed", 1), else_=0)),
-            func.sum(sql_case((models.Search.status_delivery == "performed", 1), else_=0)),
+            models.CaseHold.case_id,
+            func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.ntp_status, "")) == "sent", 1), else_=0)),
+            func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.ntp_status, "")) == "acknowledged", 1), else_=0)),
+            func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.consent_status, "")) == "sent", 1), else_=0)),
+            func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.consent_status, "")) == "received", 1), else_=0)),
         )
-        .filter(models.Search.case_id.in_(visible_ids))
-        .group_by(models.Search.case_id)
+        .join(models.HoldCustodian, models.HoldCustodian.hold_id == models.CaseHold.id)
+        .filter(models.CaseHold.case_id.in_(visible_ids), models.CaseHold.status == "active")
+        .group_by(models.CaseHold.case_id)
+        .all()
+    )
+    preservation_rows = (
+        db.query(
+            models.CaseHold.case_id,
+            func.count(func.distinct(models.HoldCustodian.id)),
+        )
+        .join(models.HoldCustodian, models.HoldCustodian.hold_id == models.CaseHold.id)
+        .join(
+            models.HoldPreservationSource,
+            models.HoldPreservationSource.hold_custodian_id == models.HoldCustodian.id,
+        )
+        .filter(
+            models.CaseHold.case_id.in_(visible_ids),
+            models.CaseHold.status == "active",
+            models.HoldPreservationSource.status == "active",
+        )
+        .group_by(models.CaseHold.case_id)
         .all()
     )
 
+    named_hold_rows = (
+        db.query(
+            models.CaseHold.case_id,
+            func.count(models.CaseHold.id),
+            func.sum(sql_case((models.CaseHold.status == "active", 1), else_=0)),
+        )
+        .filter(models.CaseHold.case_id.in_(visible_ids))
+        .group_by(models.CaseHold.case_id)
+        .all()
+    )
+    search_rows = (
+        db.query(
+            models.CaseHold.case_id,
+            func.count(models.HoldSearch.id),
+            func.sum(sql_case((models.HoldSearch.status_search == "performed", 1), else_=0)),
+            func.sum(sql_case((models.HoldSearch.status_export == "performed", 1), else_=0)),
+            func.sum(sql_case((models.HoldSearch.status_delivery == "performed", 1), else_=0)),
+        )
+        .join(models.HoldSearch, models.HoldSearch.hold_id == models.CaseHold.id)
+        .filter(models.CaseHold.case_id.in_(visible_ids), models.CaseHold.status == "active")
+        .group_by(models.CaseHold.case_id)
+        .all()
+    )
     out: dict[str, dict[str, int]] = {}
     for cid in visible_ids:
         out[str(cid)] = {
             "total": 0,
             "hold": 0,
+            "namedHoldCount": 0,
+            "namedHoldActiveCount": 0,
             "ntpSent": 0,
             "ntpAck": 0,
             "consentSent": 0,
@@ -715,15 +747,39 @@ def case_stats(
         except Exception:
             continue
         key = str(cid)
+        if key in out:
+            out[key]["total"] = int(row[1] or 0)
+
+    for row in workflow_rows:
+        try:
+            cid = int(row[0])
+        except Exception:
+            continue
+        key = str(cid)
         if key not in out:
             continue
-        out[key]["total"] = int(row[1] or 0)
-        out[key]["hold"] = int(row[2] or 0)
-        out[key]["ntpSent"] = int(row[3] or 0)
-        out[key]["ntpAck"] = int(row[4] or 0)
-        out[key]["consentSent"] = int(row[5] or 0)
-        out[key]["consentReceived"] = int(row[6] or 0)
+        out[key]["ntpSent"] = int(row[1] or 0)
+        out[key]["ntpAck"] = int(row[2] or 0)
+        out[key]["consentSent"] = int(row[3] or 0)
+        out[key]["consentReceived"] = int(row[4] or 0)
 
+    for row in preservation_rows:
+        try:
+            cid = int(row[0])
+        except Exception:
+            continue
+        key = str(cid)
+        if key in out:
+            out[key]["hold"] = int(row[1] or 0)
+    for row in named_hold_rows:
+        try:
+            cid = int(row[0])
+        except Exception:
+            continue
+        key = str(cid)
+        if key in out:
+            out[key]["namedHoldCount"] = int(row[1] or 0)
+            out[key]["namedHoldActiveCount"] = int(row[2] or 0)
     for row in search_rows:
         try:
             cid = int(row[0])
@@ -796,9 +852,13 @@ def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), requ
             servicenow_inc_number=servicenow_inc_number,
             claimant=payload.claimant,
             ler_representative=ler_representative,
+            internal_counsel=payload.internal_counsel,
+            outside_counsel=payload.outside_counsel,
+            matter_number=payload.matter_number,
             requestor=requestor_email,
             analyst_id=analyst_user.id if analyst_user else None,
             closed=bool(payload.closed) if payload.closed is not None else False,
+            closed_at=datetime.now(timezone.utc) if bool(payload.closed) else None,
             is_private=bool(getattr(payload, "is_private", False)),
             color=case_color,
             description=payload.description,
@@ -823,6 +883,9 @@ def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), requ
             _apply_case_requestors(case, requestor_entries)
 
         db.add(case)
+        db.flush()
+        from .case_holds import ensure_default_hold
+        ensure_default_hold(db, case, assign_existing=False)
         db.commit()
         db.refresh(case)
         try:
@@ -962,16 +1025,53 @@ def release_purview_holds(*args, **kwargs):
 def _log_purview_failure(*args, **kwargs):
     return _case_purview_impl()._log_purview_failure(*args, **kwargs)
 
+def _case_history_counts(db: Session, case_id: int) -> dict[str, int]:
+    counts = {
+        "custodians": db.query(models.Custodian).filter(models.Custodian.case_id == case_id).count(),
+        "searches": db.query(models.Search).filter(models.Search.case_id == case_id).count(),
+        "notes": db.query(models.CaseNote).filter(models.CaseNote.case_id == case_id).count(),
+        "consents": db.query(models.CaseConsent).filter(models.CaseConsent.case_id == case_id).count(),
+        "requests": db.query(models.CaseRequest).filter(models.CaseRequest.case_id == case_id).count(),
+    }
+    return {key: int(value or 0) for key, value in counts.items()}
+
+
 @router.delete("/{case_id}")
 def delete_case(
-    case_id: int, db: Session = Depends(get_db), request: Request = None, _user: models.User = Depends(get_current_user),
+    case_id: int,
+    override: bool = Query(default=False),
+    override_reason: Optional[str] = Query(default=None, max_length=1000),
+    db: Session = Depends(get_db),
+    request: Request = None,
+    _user: models.User = Depends(get_current_user),
 ):
     case = db.get(models.Case, case_id)
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     ensure_case_visible(case, _user, db)
-    ensure_case_editable(_user)
-    case_name = getattr(case, 'name', None)
+    if not is_sys_admin(_user):
+        raise HTTPException(status_code=403, detail="Only system administrators can permanently delete cases")
+
+    history = _case_history_counts(db, case_id)
+    has_significant_history = any(history.values())
+    override_enabled = override if isinstance(override, bool) else False
+    reason = override_reason.strip() if isinstance(override_reason, str) else ""
+    if has_significant_history and not override_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "case_has_history",
+                "message": "Close this case to retain its record. Permanent deletion requires an override reason.",
+                "history": history,
+            },
+        )
+    if has_significant_history and len(reason) < 10:
+        raise HTTPException(
+            status_code=422,
+            detail="An override reason of at least 10 characters is required to delete a case with history",
+        )
+
+    case_name = getattr(case, "name", None)
     (
         db.query(models.CaseRequest)
         .filter(
@@ -985,7 +1085,7 @@ def delete_case(
     try:
         notify_case_requestor_case_event(case, event="deleted", request=request)
     except Exception as exc:
-        _debug_suppressed("suppressed exception in cases.py:5415", exc)
+        _debug_suppressed("suppressed exception in cases.py:delete_notification", exc)
     db.delete(case)
     db.commit()
     log_event(
@@ -994,7 +1094,13 @@ def delete_case(
         target_type="case",
         target_id=case_id,
         actor_id=_user.id,
-        details={"case_id": case_id, "case_name": case_name},
+        details={
+            "case_id": case_id,
+            "case_name": case_name,
+            "history": history,
+            "override": bool(has_significant_history),
+            "override_reason": reason or None,
+        },
         request=request,
     )
     return {"ok": True}

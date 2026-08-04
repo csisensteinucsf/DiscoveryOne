@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { saveUserRequest } from '../lib/userApi.js'
 import {
   ADMIN_USERNAME,
   makeEmptyForm,
@@ -282,32 +283,9 @@ export function useSystemUsersWorkflow({
       if (form.password) payload.password = form.password
     }
 
-    const url = editingId ? `${apiBase}/users/${editingId}` : `${apiBase}/users`
-    const method = editingId ? 'PATCH' : 'POST'
     setUserSaveBusy(true)
     try {
-      const res = await fetch(url, {
-        method,
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        let message = 'Unable to save user.'
-        try {
-          const data = await res.json()
-          if (typeof data?.detail === 'string' && data.detail.trim()) message = data.detail
-          else if (Array.isArray(data?.detail) && data.detail.length) message = data.detail.map((item) => item?.msg || item?.message || String(item)).join(', ')
-        } catch {
-          try {
-            const text = await res.text()
-            if (text.trim()) message = text
-          } catch {
-            // ignore secondary parse failure
-          }
-        }
-        throw new Error(message)
-      }
+      await saveUserRequest(apiBase, { editingId, payload })
       await loadUsers()
       await loadGroups()
       closeModal()

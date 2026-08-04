@@ -83,6 +83,7 @@ class InstitutionSettingsPayload(BaseModel):
     requestor_email_exceptions: Optional[List[EmailStr]] = None
     sso_display_name: Optional[str] = None
     support_email: Optional[EmailStr] = None
+    internal_counsel_label: Optional[str] = None
 
 
 class PreservationSourcesPayload(BaseModel):
@@ -613,12 +614,14 @@ def normalize_institution_config(values: Optional[Dict[str, Any]]) -> Dict[str, 
     org_short_name = str(data.get("org_short_name") or "").strip()[:80]
     sso_display_name = str(data.get("sso_display_name") or "").strip()[:80]
     support_email = str(data.get("support_email") or "").strip().lower()[:255]
+    internal_counsel_label = str(data.get("internal_counsel_label") or "Internal Counsel").strip()[:80]
     return {
         "org_name": org_name,
         "org_short_name": org_short_name or org_name,
         "allowed_requestor_email_domains": domains,
         "requestor_email_exceptions": exceptions,
         "employee_id_label": "Employee ID",
+        "internal_counsel_label": internal_counsel_label or "Internal Counsel",
         "sso_display_name": sso_display_name or "Single sign-on",
         "support_email": support_email,
     }

@@ -34,6 +34,7 @@ from . import models
 from .preservation_catalog import configured_hold_catalog, custodian_configured_hold_flags, custodian_has_configured_hold
 from .auth import current_user as get_current_user
 from .permissions import (
+    ensure_case_editable,
     get_visible_case_ids,
     is_requestor,
     get_requestor_allowed_emails,
@@ -157,6 +158,34 @@ def _status_count(values: List[str], status: str):
     return sum(1 for v in values if (v or "").lower() == status)
 
 
+def _case_hold_memberships(db: Session, case_id: int, *, active_only: bool = False):
+    query = (
+        db.query(models.HoldCustodian)
+        .join(models.CaseHold, models.HoldCustodian.hold_id == models.CaseHold.id)
+        .options(
+            selectinload(models.HoldCustodian.custodian),
+            selectinload(models.HoldCustodian.preservation_sources),
+            selectinload(models.HoldCustodian.hold),
+        )
+        .filter(models.CaseHold.case_id == int(case_id))
+    )
+    if active_only:
+        query = query.filter(models.CaseHold.status == "active")
+    return query.all()
+
+
+def _case_hold_searches(db: Session, case_id: int, *, active_only: bool = False):
+    query = (
+        db.query(models.HoldSearch)
+        .join(models.CaseHold, models.HoldSearch.hold_id == models.CaseHold.id)
+        .options(selectinload(models.HoldSearch.search), selectinload(models.HoldSearch.hold))
+        .filter(models.CaseHold.case_id == int(case_id))
+    )
+    if active_only:
+        query = query.filter(models.CaseHold.status == "active")
+    return query.all()
+
+
 def _case_aging_items(db: Session, case_ids: Optional[set]):
     now = datetime.now(timezone.utc)
     q = _filter_cases_query(db.query(models.Case), case_ids)
@@ -171,39 +200,50 @@ def _case_aging_items(db: Session, case_ids: Optional[set]):
         anchor_date = c.start_date or created_at.date()
         days_open = max((now.date() - anchor_date).days, 0) if anchor_date else 0
         custodians = db.query(models.Custodian).filter(models.Custodian.case_id == c.id).all()
-        searches = db.query(models.Search).filter(models.Search.case_id == c.id).all()
-        def cnt(field):
-            return sum(1 for s in searches if getattr(s, field, "") == "performed")
+        holds = db.query(models.CaseHold).filter(models.CaseHold.case_id == c.id).all()
+        memberships = _case_hold_memberships(db, c.id)
+        hold_searches = _case_hold_searches(db, c.id)
+
+        def count_status(field):
+            return sum(1 for link in hold_searches if getattr(link, field, "") == "performed")
+
         items.append({
             "case": c.name,
             "case_id": c.id,
-            "status": "Closed" if c.closed else "Open",
+            "status": "Inactive" if c.closed else "Active",
             "created_at": created_at.isoformat(),
             "days_open": days_open,
             "custodians": len(custodians),
-            "searches_total": len(searches),
-            "searches_done": cnt("status_search"),
-            "exports_done": cnt("status_export"),
-            "deliveries_done": cnt("status_delivery"),
+            "holds_total": len(holds),
+            "active_holds": sum(1 for hold in holds if hold.status == "active"),
+            "custodian_hold_links": len(memberships),
+            "searches_total": len(hold_searches),
+            "searches_done": count_status("status_search"),
+            "exports_done": count_status("status_export"),
+            "deliveries_done": count_status("status_delivery"),
             "analyst": getattr(getattr(c, "analyst", None), "username", None),
         })
     return items
 
-
 def _ntp_consent_summary_items(db: Session, case_ids: Optional[set]):
-    q = _filter_by_case_ids(db.query(models.Custodian), models.Custodian.case_id, case_ids)
-    custodians = q.all()
+    query = (
+        db.query(models.HoldCustodian)
+        .join(models.CaseHold, models.HoldCustodian.hold_id == models.CaseHold.id)
+    )
+    query = _filter_by_case_ids(query, models.CaseHold.case_id, case_ids)
+    memberships = query.all()
+
     def gather(field, label):
         counts: Dict[str, int] = {}
-        for cu in custodians:
-            key = (getattr(cu, field, "") or "not sent").lower()
+        for membership in memberships:
+            key = (getattr(membership, field, "") or "not sent").lower()
             counts[key] = counts.get(key, 0) + 1
-        rows = []
-        for status, count in sorted(counts.items()):
-            rows.append({"type": label, "status": status, "count": count})
-        return rows
-    return gather("ntp_status", "NTP") + gather("consent_status", "Consent")
+        return [
+            {"type": label, "status": status, "count": count}
+            for status, count in sorted(counts.items())
+        ]
 
+    return gather("ntp_status", "NTP") + gather("consent_status", "Consent")
 
 def _custodian_gaps_items(db: Session, case_ids: Optional[set]):
     q = _filter_cases_query(db.query(models.Case), case_ids)
@@ -211,24 +251,36 @@ def _custodian_gaps_items(db: Session, case_ids: Optional[set]):
     items = []
     for c in cases:
         custodians = db.query(models.Custodian).filter(models.Custodian.case_id == c.id).all()
-        without_hold = sum(1 for cu in custodians if not custodian_has_configured_hold(cu))
+        memberships = _case_hold_memberships(db, c.id, active_only=True)
+        assigned_ids = {int(membership.custodian_id) for membership in memberships}
+        without_hold = sum(1 for custodian in custodians if int(custodian.id) not in assigned_ids)
+        without_preservation = sum(
+            1
+            for membership in memberships
+            if not any(
+                (source.status or "not_started").lower() in {"pending", "active"}
+                for source in membership.preservation_sources or []
+            )
+        )
         ntp_not_sent = sum(
-            1 for cu in custodians
-            if (cu.ntp_status or "").lower() == "not sent"
+            1 for membership in memberships
+            if (membership.ntp_status or "").lower() == "not sent"
         )
         consent_not_received = sum(
-            1 for cu in custodians
-            if (cu.consent_status or "").lower() not in {"received", "na"}
+            1 for membership in memberships
+            if (membership.consent_status or "").lower() not in {"received", "na"}
         )
         items.append({
             "case": c.name,
             "custodians": len(custodians),
+            "active_holds": len({membership.hold_id for membership in memberships}),
+            "custodian_hold_links": len(memberships),
             "without_hold": without_hold,
+            "without_preservation": without_preservation,
             "ntp_not_sent": ntp_not_sent,
             "consent_not_received": consent_not_received,
         })
     return items
-
 
 def _parse_audit_details(val):
     if isinstance(val, (dict, list)) or val is None:
@@ -243,6 +295,7 @@ def _parse_audit_details(val):
 
 
 def _case_timeline_items(db: Session, case_id: int, limit: int, actor) -> List[Dict[str, Any]]:
+    ensure_case_editable(actor)
     allowed = _visible_case_ids(db, actor)
     if allowed is not None and case_id not in allowed:
         raise HTTPException(status_code=404, detail="Case not found")
@@ -286,13 +339,16 @@ def _consents_by_case_items(db: Session, case_ids: Optional[set]):
     cases = q.all()
     items = []
     for c in cases:
-        cur = db.query(models.Custodian).filter(models.Custodian.case_id == c.id).all()
-        statuses = [cu.consent_status or "not sent" for cu in cur]
+        memberships = _case_hold_memberships(db, c.id)
+        statuses = [membership.consent_status or "not sent" for membership in memberships]
         items.append({
             "case_name": c.name,
+            "holds": len({membership.hold_id for membership in memberships}),
+            "custodian_hold_links": len(memberships),
             "not_sent": _status_count(statuses, "not sent"),
             "sent": _status_count(statuses, "sent"),
             "received": _status_count(statuses, "received"),
+            "not_required": _status_count(statuses, "na"),
         })
     return items
 
@@ -310,7 +366,7 @@ def rpt_consents_export(
     actor = Depends(get_current_user),
 ):
     items = _consents_by_case_items(db, _visible_case_ids(db, actor))
-    return _csv_response(items, ["case_name", "not_sent", "sent", "received"], "consents_by_case.csv")
+    return _csv_response(items, ["case_name", "holds", "custodian_hold_links", "not_sent", "sent", "received", "not_required"], "consents_by_case.csv")
 
 
 @router.get("/reports/case_timeline")
@@ -349,20 +405,43 @@ def rpt_case_timeline_export(
 
 
 def _holds_items(db: Session, case_ids: Optional[set]):
-    # Bucket cases by whether ANY hold toggle is set on any custodian
-    items = {"Holds Set": {"hold_status": "Holds Set", "cases_open": 0, "cases_closed": 0, "custodian_case_links": 0},
-             "No Holds": {"hold_status": "No Holds", "cases_open": 0, "cases_closed": 0, "custodian_case_links": 0}}
     q = _filter_cases_query(db.query(models.Case), case_ids)
     cases = q.all()
-    for c in cases:
-        custodians = db.query(models.Custodian).filter(models.Custodian.case_id == c.id).all()
-        has_hold = any(custodian_has_configured_hold(cu) for cu in custodians)
-        key = "Holds Set" if has_hold else "No Holds"
-        row = items[key]
-        if c.closed: row["cases_closed"] += 1
-        else: row["cases_open"] += 1
-        row["custodian_case_links"] += len(custodians)
-    return list(items.values())
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for case in cases:
+        holds = db.query(models.CaseHold).filter(models.CaseHold.case_id == case.id).all()
+        if not holds:
+            holds = [None]
+        for hold in holds:
+            status = "no holds" if hold is None else str(hold.status or "active").lower()
+            label = status.replace("_", " ").title()
+            row = buckets.setdefault(label, {
+                "hold_status": label,
+                "hold_count": 0,
+                "cases_open_ids": set(),
+                "cases_closed_ids": set(),
+                "custodian_case_links": 0,
+            })
+            if hold is not None:
+                row["hold_count"] += 1
+                row["custodian_case_links"] += db.query(models.HoldCustodian).filter(
+                    models.HoldCustodian.hold_id == hold.id
+                ).count()
+            if case.closed:
+                row["cases_closed_ids"].add(int(case.id))
+            else:
+                row["cases_open_ids"].add(int(case.id))
+
+    items = []
+    for row in buckets.values():
+        items.append({
+            "hold_status": row["hold_status"],
+            "hold_count": row["hold_count"],
+            "cases_open": len(row["cases_open_ids"]),
+            "cases_closed": len(row["cases_closed_ids"]),
+            "custodian_case_links": row["custodian_case_links"],
+        })
+    return sorted(items, key=lambda item: item["hold_status"])
 
 @router.get("/reports/holds")
 def rpt_holds(
@@ -378,7 +457,7 @@ def rpt_holds_export(
     actor = Depends(get_current_user),
 ):
     items = _holds_items(db, _visible_case_ids(db, actor))
-    return _csv_response(items, ["hold_status","cases_open","cases_closed","custodian_case_links"], "holds.csv")
+    return _csv_response(items, ["hold_status","hold_count","cases_open","cases_closed","custodian_case_links"], "holds.csv")
 
 def _cases_by_year_items(db: Session, case_ids: Optional[set]):
     items: Dict[str, int] = {}
@@ -415,20 +494,27 @@ def _cases_summary_items(db: Session, case_ids: Optional[set], open_only: bool):
     items = []
     for c in cases:
         custodians = db.query(models.Custodian).filter(models.Custodian.case_id == c.id).all()
-        searches = db.query(models.Search).filter(models.Search.case_id == c.id).all()
-        def cnt_status(arr, attr, value):
-            return sum(1 for s in arr if getattr(s, attr, "") == value)
+        holds = db.query(models.CaseHold).filter(models.CaseHold.case_id == c.id).all()
+        memberships = _case_hold_memberships(db, c.id)
+        hold_searches = _case_hold_searches(db, c.id)
+
+        def count_status(rows, field, value):
+            return sum(1 for row in rows if getattr(row, field, "") == value)
+
         items.append({
             "name": c.name,
             "custodians": len(custodians),
-            "search_total": len(searches),
-            "search_done": cnt_status(searches, "status_search", "performed"),
-            "export_done": cnt_status(searches, "status_export", "performed"),
-            "delivered": cnt_status(searches, "status_delivery", "performed"),
-            "ntp_sent": sum(1 for cu in custodians if (cu.ntp_status or "").lower() == "sent"),
-            "ntp_acknowledged": sum(1 for cu in custodians if (cu.ntp_status or "").lower() == "acknowledged"),
-            "consent_sent": sum(1 for cu in custodians if (cu.consent_status or "").lower() == "sent"),
-            "consent_received": sum(1 for cu in custodians if (cu.consent_status or "").lower() == "received"),
+            "holds_total": len(holds),
+            "active_holds": sum(1 for hold in holds if hold.status == "active"),
+            "custodian_hold_links": len(memberships),
+            "search_total": len(hold_searches),
+            "search_done": count_status(hold_searches, "status_search", "performed"),
+            "export_done": count_status(hold_searches, "status_export", "performed"),
+            "delivered": count_status(hold_searches, "status_delivery", "performed"),
+            "ntp_sent": count_status(memberships, "ntp_status", "sent"),
+            "ntp_acknowledged": count_status(memberships, "ntp_status", "acknowledged"),
+            "consent_sent": count_status(memberships, "consent_status", "sent"),
+            "consent_received": count_status(memberships, "consent_status", "received"),
         })
     return items
 
@@ -448,22 +534,21 @@ def rpt_cases_summary_export(
     actor = Depends(get_current_user),
 ):
     items = _cases_summary_items(db, _visible_case_ids(db, actor), open_only)
-    headers = ["name","custodians","search_total","search_done","export_done","delivered","ntp_sent","ntp_acknowledged","consent_sent","consent_received"]
+    headers = ["name","custodians","holds_total","active_holds","custodian_hold_links","search_total","search_done","export_done","delivered","ntp_sent","ntp_acknowledged","consent_sent","consent_received"]
     return _csv_response(items, headers, "cases_summary.csv")
 
 def _searches_by_status_items(db: Session, case_ids: Optional[set]) -> List[Dict[str, Any]]:
-    q = db.query(models.Search)
-    if case_ids is not None:
-        if not case_ids:
-            return []
-        q = q.filter(models.Search.case_id.in_(case_ids))
-    items = []
+    q = (
+        db.query(models.HoldSearch)
+        .join(models.CaseHold, models.HoldSearch.hold_id == models.CaseHold.id)
+    )
+    q = _filter_by_case_ids(q, models.CaseHold.case_id, case_ids)
     total = q.count()
-    performed = q.filter(models.Search.status_search == "performed").count()
-    not_perf = total - performed
-    items.append({"search": "performed", "export": None, "delivery": None, "rows": performed})
-    items.append({"search": "not performed", "export": None, "delivery": None, "rows": not_perf})
-    return items
+    performed = q.filter(models.HoldSearch.status_search == "performed").count()
+    return [
+        {"search": "performed", "export": None, "delivery": None, "rows": performed},
+        {"search": "not performed", "export": None, "delivery": None, "rows": total - performed},
+    ]
 
 @router.get("/reports/searches_by_status")
 def rpt_searches_by_status(
@@ -497,7 +582,7 @@ def rpt_case_aging_export(
     actor = Depends(get_current_user),
 ):
     items = _case_aging_items(db, _visible_case_ids(db, actor))
-    headers = ["case","status","analyst","created_at","days_open","custodians","searches_total","searches_done","exports_done","deliveries_done"]
+    headers = ["case","status","analyst","created_at","days_open","custodians","holds_total","active_holds","custodian_hold_links","searches_total","searches_done","exports_done","deliveries_done"]
     return _csv_response(items, headers, "case_aging.csv")
 
 
@@ -532,14 +617,41 @@ def rpt_custodian_gaps_export(
     actor = Depends(get_current_user),
 ):
     items = _custodian_gaps_items(db, _visible_case_ids(db, actor))
-    headers = ["case","custodians","without_hold","ntp_not_sent","consent_not_received"]
+    headers = ["case","custodians","active_holds","custodian_hold_links","without_hold","without_preservation","ntp_not_sent","consent_not_received"]
     return _csv_response(items, headers, "custodian_gaps.csv")
 
 # --- Custodian report (searchable) ---
 def _custodian_hold_flags(cu: models.Custodian) -> Dict[str, bool]:
-    holds = custodian_configured_hold_flags(cu)
-    holds["any"] = any(holds.values())
+    memberships = list(getattr(cu, "hold_memberships", None) or [])
+    if not memberships:
+        holds = custodian_configured_hold_flags(cu)
+        holds["any"] = any(holds.values())
+        return holds
+    holds = {key: False for key, _field, _label in configured_hold_catalog(enabled_only=True)}
+    for membership in memberships:
+        for source in getattr(membership, "preservation_sources", None) or []:
+            key = str(getattr(source, "source_key", "") or "").strip().lower()
+            status = str(getattr(source, "status", "") or "").strip().lower()
+            if key and status in {"pending", "active"}:
+                holds[key] = True
+    holds["any"] = bool(memberships)
     return holds
+
+
+def _custodian_named_holds(cu: models.Custodian) -> List[Dict[str, Any]]:
+    result = []
+    for membership in getattr(cu, "hold_memberships", None) or []:
+        hold = getattr(membership, "hold", None)
+        if hold is None:
+            continue
+        result.append({
+            "id": int(hold.id),
+            "name": hold.name,
+            "status": hold.status,
+            "ntp_status": membership.ntp_status,
+            "consent_status": membership.consent_status,
+        })
+    return sorted(result, key=lambda item: (str(item.get("name") or "").lower(), int(item["id"])))
 
 
 def _find_custodians(
@@ -554,7 +666,13 @@ def _find_custodians(
     query = (
         db.query(models.Custodian, models.Case)
         .join(models.Case, models.Custodian.case_id == models.Case.id)
-        .options(selectinload(models.Custodian.custom_preservation))
+        .options(
+            selectinload(models.Custodian.custom_preservation),
+            selectinload(models.Custodian.hold_memberships)
+            .selectinload(models.HoldCustodian.preservation_sources),
+            selectinload(models.Custodian.hold_memberships)
+            .selectinload(models.HoldCustodian.hold),
+        )
     )
     query = _filter_by_case_ids(query, models.Custodian.case_id, case_ids)
     if q_norm:
@@ -581,14 +699,15 @@ def _find_custodians(
     if case_ids_in_page:
         rows = (
             db.query(
-                models.Search.case_id,
-                func.count(models.Search.id).label("total"),
-                func.sum(sql_case((models.Search.status_search == "performed", 1), else_=0)).label("search_done"),
-                func.sum(sql_case((models.Search.status_export == "performed", 1), else_=0)).label("export_done"),
-                func.sum(sql_case((models.Search.status_delivery == "performed", 1), else_=0)).label("delivered"),
+                models.CaseHold.case_id,
+                func.count(models.HoldSearch.id).label("total"),
+                func.sum(sql_case((models.HoldSearch.status_search == "performed", 1), else_=0)).label("search_done"),
+                func.sum(sql_case((models.HoldSearch.status_export == "performed", 1), else_=0)).label("export_done"),
+                func.sum(sql_case((models.HoldSearch.status_delivery == "performed", 1), else_=0)).label("delivered"),
             )
-            .filter(models.Search.case_id.in_(case_ids_in_page))
-            .group_by(models.Search.case_id)
+            .join(models.CaseHold, models.HoldSearch.hold_id == models.CaseHold.id)
+            .filter(models.CaseHold.case_id.in_(case_ids_in_page))
+            .group_by(models.CaseHold.case_id)
             .all()
         )
         for row in rows:
@@ -612,6 +731,7 @@ def _find_custodians(
                 "name": cu.name,
                 "email": cu.email,
                 "holds": _custodian_hold_flags(cu),
+                "named_holds": _custodian_named_holds(cu),
             },
             "case": {"id": case.id, "name": case.name},
             "searches": counts,

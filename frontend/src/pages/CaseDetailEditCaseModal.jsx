@@ -10,6 +10,8 @@ export default function CaseDetailEditCaseModal({
   updateCase,
   setCaseData,
   showToast,
+  useLegalCaseNameAsPrimary = false,
+  internalCounselLabel = 'Internal Counsel',
   defaultClosureNagDays = 180,
 }) {
   if (!open) return null
@@ -21,6 +23,11 @@ export default function CaseDetailEditCaseModal({
         legal_case_name: caseData?.legal_case_name || '',
         servicenow_inc_number: caseData?.servicenow_inc_number || '',
         claimant: caseData?.claimant || '',
+        matter_number: caseData?.matter_number || '',
+        internal_counsel: caseData?.internal_counsel || '',
+        outside_counsel: caseData?.outside_counsel || '',
+        description: caseData?.description || '',
+        start_date: caseData?.start_date || '',
         analyst_id: caseData?.analyst_id || null,
         requestor: caseData?.requestor || '',
         requestors: caseData?.requestors || [],
@@ -30,6 +37,8 @@ export default function CaseDetailEditCaseModal({
       }}
       analysts={analystOptions}
       requestorOptions={requestorOptions}
+      useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
+      internalCounselLabel={internalCounselLabel}
       onClose={onClose}
       onSave={async (form) => {
         try {
@@ -65,6 +74,11 @@ export default function CaseDetailEditCaseModal({
             legal_case_name: form.legal_case_name,
             servicenow_inc_number: null,
             claimant: trimmedClaimant || null,
+            matter_number: (form.matter_number || '').trim() || null,
+            internal_counsel: (form.internal_counsel || '').trim() || null,
+            outside_counsel: (form.outside_counsel || '').trim() || null,
+            description: (form.description || '').trim() || null,
+            start_date: form.start_date || null,
             ler_representative: null,
             requestor: trimmed || null,
             requestors: requestorsPayload.length ? requestorsPayload : undefined,
@@ -78,7 +92,7 @@ export default function CaseDetailEditCaseModal({
           setCaseData(updated)
           showToast('Case updated.', { variant: 'success' })
         } catch (e) {
-          showToast('Failed to update case: ' + e.message, { variant: 'error' })
+          if (!e?.cancelled) showToast('Failed to update case: ' + e.message, { variant: 'error' })
         }
       }}
     />

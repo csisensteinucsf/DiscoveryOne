@@ -6,7 +6,7 @@ import { useConfirm } from '../components/ConfirmProvider.jsx'
 import { fetchSystemSettings } from '../lib/systemSettingsClient.js'
 import { normalizeCaseNamingMode } from './setupCatalog.js'
 import { useBrandingSettings } from '../lib/useBrandingSettings.js'
-import { CaseEditorModal, RequestorGroupInviteModal } from './CaseModals.jsx'
+import { CaseDeleteModal, CaseEditorModal, RequestorGroupInviteModal } from './CaseModals.jsx'
 import CasesGroupedTable from './CasesGroupedTable.jsx'
 import { CasesTableRow, tableStyles } from './CasesTableRow.jsx'
 import { useCasesGrouping } from './useCasesGrouping.js'
@@ -32,17 +32,19 @@ export default function Cases({ apiBase }) {
   const role = user?.role || (user?.is_admin ? 'sys_admin' : 'analyst')
   const caseSortMode = (user?.case_sort_mode || 'ediscovery').toLowerCase()
   const requestorGroup = normalizeGroupValue(user?.requestor_group || '')
+  const isSysAdmin = role === 'sys_admin'
   const isRequestor = role === 'requestor'
   const isTech = role === 'tech'
   const isReadOnly = isRequestor || isTech
   const [caseNamingMode, setCaseNamingMode] = useState('legal_case_name')
   const [defaultClosureNagDays, setDefaultClosureNagDays] = useState(180)
+  const [internalCounselLabel, setInternalCounselLabel] = useState('Internal Counsel')
   const useLegalCaseNameAsPrimary = caseNamingMode === 'legal_case_name'
   const showSecondaryCaseNameColumn = !isTech && !useLegalCaseNameAsPrimary
   const primaryCaseNameLabel = useLegalCaseNameAsPrimary ? 'Case Name' : 'eDiscovery Name'
   const prefersLegalCaseLabel = requestorGroup === 'risk' || requestorGroup === 'legal'
   const secondaryCaseNameLabel = prefersLegalCaseLabel ? 'Legal Case Name' : 'Case Name'
-  const caseTableColumnCount = 5 + (showSecondaryCaseNameColumn ? 1 : 0)
+  const caseTableColumnCount = 9 + (showSecondaryCaseNameColumn ? 1 : 0)
   const [cases, setCases] = useState([])
   const [analysts, setAnalysts] = useState([])
   const [users, setUsers] = useState([])
@@ -54,6 +56,10 @@ export default function Cases({ apiBase }) {
   const [inviteGroup, setInviteGroup] = useState('')
   const [inviteNewGroup, setInviteNewGroup] = useState('')
   const [stats, setStats] = useState({})
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleteWarning, setDeleteWarning] = useState(null)
+  const [deleteOverrideReason, setDeleteOverrideReason] = useState('')
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const navigate = useNavigate()
   const closeModal = () => {
     setShowModal(false)
@@ -128,6 +134,7 @@ export default function Cases({ apiBase }) {
         if (!alive) return
         setCaseNamingMode(normalizeCaseNamingMode(data?.case_naming?.mode))
         setDefaultClosureNagDays(Number(data?.case_closure?.default_nag_days) || 180)
+        setInternalCounselLabel(data?.institution?.internal_counsel_label || 'Internal Counsel')
       })
       .catch(() => {
         if (alive) {
@@ -181,6 +188,11 @@ export default function Cases({ apiBase }) {
       name: c.name || '',
       legal_case_name: c.legal_case_name || '',
       servicenow_inc_number: c.servicenow_inc_number || '',
+      matter_number: c.matter_number || '',
+      internal_counsel: c.internal_counsel || '',
+      outside_counsel: c.outside_counsel || '',
+      description: c.description || '',
+      start_date: c.start_date || '',
       claimant: c.claimant || '',
       requestor: c.requestor || '',
       analyst_id: c.analyst_id ? String(c.analyst_id) : '',
@@ -358,6 +370,9 @@ export default function Cases({ apiBase }) {
       servicenow_inc_number: null,
       claimant: trimmedClaimant || null,
       ler_representative: null,
+      internal_counsel: (form.internal_counsel || '').trim() || null,
+      outside_counsel: (form.outside_counsel || '').trim() || null,
+      matter_number: (form.matter_number || '').trim() || null,
       requestor: trimmedRequestor || null,
       requestors: requestorsPayload.length ? requestorsPayload : undefined,
       analyst_id: form.analyst_id ? Number(form.analyst_id) : null,
@@ -393,28 +408,94 @@ export default function Cases({ apiBase }) {
     showToast(`${editingId ? 'Update' : 'Create'} failed: ${t || 'Unknown error'}`, { variant: 'error' })
   }
 
-  const remove = async (id) => {
+  const toggleClosed = async (caseRecord) => {
     if (isReadOnly) return
+    const closing = !caseRecord.closed
     const accepted = await confirmDialog({
-      title: 'Delete case',
-      description: 'Are you sure you want to delete this case? This action cannot be undone.',
-      confirmLabel: 'Delete case',
-      destructive: true,
+      title: closing ? 'Close case' : 'Reopen case',
+      description: closing
+        ? 'Close this case and move it to Inactive Cases? Its history will be retained.'
+        : 'Reopen this case and move it to Active Cases?',
+      confirmLabel: closing ? 'Close case' : 'Reopen case',
     })
     if (!accepted) return
-    const res = await fetch(`${apiBase}/cases/${id}`, { method: 'DELETE', credentials: 'include' })
-    if (!res.ok) {
-      const t = await res.text().catch(() => '')
-      showToast(`Delete failed: ${t || 'Unknown error'}`, { variant: 'error' })
+
+    const response = await fetch(apiBase + '/cases/' + caseRecord.id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ closed: closing }),
+    })
+    if (!response.ok) {
+      const message = await response.text().catch(() => '')
+      showToast((closing ? 'Close' : 'Reopen') + ' failed: ' + (message || 'Unknown error'), { variant: 'error' })
       return
     }
-    showToast('Case deleted.', { variant: 'success' })
-    load()
+    showToast(closing ? 'Case closed.' : 'Case reopened.', { variant: 'success' })
+    await load()
   }
 
+  const remove = (caseRecord) => {
+    if (!isSysAdmin) return
+    setDeleteTarget(caseRecord)
+    setDeleteWarning(null)
+    setDeleteOverrideReason('')
+  }
+
+  const closeDeleteModal = () => {
+    if (deleteBusy) return
+    setDeleteTarget(null)
+    setDeleteWarning(null)
+    setDeleteOverrideReason('')
+  }
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || !isSysAdmin || deleteBusy) return
+    const requiresOverride = deleteWarning?.code === 'case_has_history'
+    const reason = deleteOverrideReason.trim()
+    if (requiresOverride && reason.length < 10) {
+      showToast('Enter an override reason of at least 10 characters.', { variant: 'warn' })
+      return
+    }
+
+    setDeleteBusy(true)
+    try {
+      const params = new URLSearchParams()
+      if (requiresOverride) {
+        params.set('override', 'true')
+        params.set('override_reason', reason)
+      }
+      const suffix = params.toString() ? '?' + params.toString() : ''
+      const response = await fetch(apiBase + '/cases/' + deleteTarget.id + suffix, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const body = await response.json().catch(() => null)
+      if (response.status === 409 && body?.detail?.code === 'case_has_history') {
+        setDeleteWarning(body.detail)
+        return
+      }
+      if (!response.ok) {
+        const message = body?.detail?.message || body?.detail || 'Unknown error'
+        showToast('Delete failed: ' + message, { variant: 'error' })
+        return
+      }
+
+      showToast('Case permanently deleted.', { variant: 'success' })
+      setDeleteTarget(null)
+      setDeleteWarning(null)
+      setDeleteOverrideReason('')
+      await load()
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
   const {
-    showFilters,
-    setShowFilters,
+    groupCases,
+    setGroupCases,
+    caseSort,
+    setCaseSort,
+    toggleSort,
     caseFilters,
     setCaseFilters,
     resetCaseFilters,
@@ -426,6 +507,8 @@ export default function Cases({ apiBase }) {
     toggleYear,
     toggleLetter,
     letterKey,
+    openFiltered,
+    closedFiltered,
     openGroups,
     closedGroups,
   } = useCasesGrouping({
@@ -445,7 +528,9 @@ export default function Cases({ apiBase }) {
       analystFirstName={analystFirstName}
       requestorDisplayName={(email) => displayNameFromEmail(email, usersByEmail)}
       isReadOnly={isReadOnly}
+      canDelete={isSysAdmin}
       onEdit={openEdit}
+      onToggleClosed={toggleClosed}
       onDelete={remove}
     />
   )
@@ -479,18 +564,23 @@ export default function Cases({ apiBase }) {
       )}
 
       <CasesGroupedTable
-        title="Open Cases"
+        title="Active Cases"
+        items={openFiltered}
         groups={openGroups}
-        emptyLabel="No open cases"
+        emptyLabel="No active cases"
         which="open"
-        showFilters={showFilters}
-        setShowFilters={setShowFilters}
+        caseSort={caseSort}
+        setCaseSort={setCaseSort}
+        toggleSort={toggleSort}
+        groupCases={groupCases}
+        setGroupCases={setGroupCases}
         resetCaseFilters={resetCaseFilters}
         caseFilters={caseFilters}
         setCaseFilters={setCaseFilters}
         showSecondaryCaseNameColumn={showSecondaryCaseNameColumn}
         primaryCaseNameLabel={primaryCaseNameLabel}
         secondaryCaseNameLabel={secondaryCaseNameLabel}
+        internalCounselLabel={internalCounselLabel}
         tableStyles={tableStyles}
         caseTableColumnCount={caseTableColumnCount}
         expandedYears={expandedYearsOpen}
@@ -502,18 +592,23 @@ export default function Cases({ apiBase }) {
         style={{ marginBottom: '1rem' }}
       />
       <CasesGroupedTable
-        title="Closed Cases"
+        title="Inactive Cases"
+        items={closedFiltered}
         groups={closedGroups}
-        emptyLabel="No closed cases"
+        emptyLabel="No inactive cases"
         which="closed"
-        showFilters={showFilters}
-        setShowFilters={setShowFilters}
+        caseSort={caseSort}
+        setCaseSort={setCaseSort}
+        toggleSort={toggleSort}
+        groupCases={groupCases}
+        setGroupCases={setGroupCases}
         resetCaseFilters={resetCaseFilters}
         caseFilters={caseFilters}
         setCaseFilters={setCaseFilters}
         showSecondaryCaseNameColumn={showSecondaryCaseNameColumn}
         primaryCaseNameLabel={primaryCaseNameLabel}
         secondaryCaseNameLabel={secondaryCaseNameLabel}
+        internalCounselLabel={internalCounselLabel}
         tableStyles={tableStyles}
         caseTableColumnCount={caseTableColumnCount}
         expandedYears={expandedYearsClosed}
@@ -533,12 +628,22 @@ export default function Cases({ apiBase }) {
         caseNamingMode={caseNamingMode}
         secondaryCaseNameLabel={secondaryCaseNameLabel}
         useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
+        internalCounselLabel={internalCounselLabel}
         onClose={closeModal}
         onSubmit={submit}
         onLegalCaseNameChange={updateLegalCaseName}
         formatAnalystName={formatUserName}
       />
 
+      <CaseDeleteModal
+        target={deleteTarget}
+        warning={deleteWarning}
+        overrideReason={deleteOverrideReason}
+        setOverrideReason={setDeleteOverrideReason}
+        busy={deleteBusy}
+        onClose={closeDeleteModal}
+        onConfirm={confirmDelete}
+      />
       <RequestorGroupInviteModal
         inviteGroupModal={inviteGroupModal}
         inviteGroup={inviteGroup}

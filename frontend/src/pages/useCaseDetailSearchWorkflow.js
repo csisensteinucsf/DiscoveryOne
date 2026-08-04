@@ -14,6 +14,7 @@ export function useCaseDetailSearchWorkflow({
   caseId,
   caseData,
   custodians,
+  holds,
   searches,
   setSearches,
   isRequestor,
@@ -25,6 +26,11 @@ export function useCaseDetailSearchWorkflow({
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [showSearchAiModal, setShowSearchAiModal] = useState(false)
   const [editingSearch, setEditingSearch] = useState(null)
+
+  function defaultHoldIds() {
+    const first = (holds || []).find(hold => hold?.status === 'active') || (holds || [])[0]
+    return first?.id ? [Number(first.id)] : []
+  }
 
   async function updateSearchStatus(s, field, value) {
     if (isRequestor) return
@@ -100,6 +106,7 @@ export function useCaseDetailSearchWorkflow({
   function applyAiSearchSuggestion(suggestion) {
     if (!suggestion) return
     const draft = aiSuggestionToDraft(suggestion)
+    if (!(draft.holdIds || []).length) draft.holdIds = defaultHoldIds()
     setShowSearchAiModal(false)
     setEditingSearch({ ...draft, name: (draft.name || '').trim() || suggestedSearchName() })
     setShowSearchModal(true)
@@ -118,6 +125,7 @@ export function useCaseDetailSearchWorkflow({
     let skippedNoCustodianCount = 0
     for (const row of rows) {
       const draft = aiSuggestionToDraft(row)
+      if (!(draft.holdIds || []).length) draft.holdIds = defaultHoldIds()
       const assignedIds = (draft.custodianIds || []).map(Number).filter(Number.isFinite)
       if (!assignedIds.length) {
         skippedNoCustodianCount += 1
@@ -165,6 +173,7 @@ export function useCaseDetailSearchWorkflow({
       searchOverview: '',
       purviewKql: '',
       custodianIds: [],
+      holdIds: defaultHoldIds(),
       status: { search: 'not performed', export: 'not performed', delivery: 'not performed' },
     })
     setShowSearchModal(true)
@@ -179,6 +188,7 @@ export function useCaseDetailSearchWorkflow({
   async function saveSearchDraft(draft) {
     let next = [...searches]
     draft = { ...draft, ...normalizeSearchDraftFields(draft) }
+    if (!(draft.holdIds || draft.hold_ids || []).length) draft.holdIds = defaultHoldIds()
     if (!draft.id) {
       const n = nextSearchNumber(caseData?.name, next)
       draft.id = uuid()
@@ -238,6 +248,7 @@ export function useCaseDetailSearchWorkflow({
         dateFrom: search.dateFrom || search.date_from || '',
         dateTo: search.dateTo || search.date_to || '',
         custodianIds: assignedIds,
+        holdIds: (search.holdIds ?? search.hold_ids ?? defaultHoldIds()).map(Number),
         status_search: 'not performed',
         status_export: 'not performed',
         status_delivery: 'not performed',
