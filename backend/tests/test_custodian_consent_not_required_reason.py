@@ -13,7 +13,7 @@ def test_apply_consent_not_required_defaults_sets_separated_reason():
 
     cases._apply_consent_not_required_defaults(case, custodian)
 
-    assert custodian.consent_status == "na"
+    assert custodian.consent_status == "implied"
     assert custodian.consent_not_required_reason == cases.CONSENT_NOT_REQUIRED_REASON_SEPARATED
 
 
@@ -25,20 +25,20 @@ def test_apply_consent_not_required_defaults_sets_claimant_reason():
 
     cases._apply_consent_not_required_defaults(case, custodian)
 
-    assert custodian.consent_status == "na"
+    assert custodian.consent_status == "implied"
     assert custodian.consent_not_required_reason == cases.CONSENT_NOT_REQUIRED_REASON_CLAIMANT
 
 
-def test_apply_consent_not_required_defaults_sets_default_reason_for_manual_na():
+def test_apply_consent_not_required_defaults_sets_default_reason_for_manual_implied():
     from app import cases, models
 
     case = models.Case(name="Case A", claimant="")
-    custodian = models.Custodian(case_id=1, name="User", email="user@example.edu", consent_status="na")
+    custodian = models.Custodian(case_id=1, name="User", email="user@example.edu", consent_status="implied")
     custodian.consent_not_required_reason = ""
 
     cases._apply_consent_not_required_defaults(case, custodian)
 
-    assert custodian.consent_status == "na"
+    assert custodian.consent_status == "implied"
     assert custodian.consent_not_required_reason == cases.CONSENT_NOT_REQUIRED_REASON_DEFAULT
 
 

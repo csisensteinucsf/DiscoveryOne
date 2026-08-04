@@ -591,9 +591,9 @@ class CaseSpreadsheetImporter:
                 email=getattr(custodian, "email", None),
             ):
                 if (getattr(custodian, "ntp_status", "") or "").strip().lower() != "acknowledged":
-                    custodian.ntp_status = "na"
+                    custodian.ntp_status = "silent"
                 if (getattr(custodian, "consent_status", "") or "").strip().lower() != "received":
-                    custodian.consent_status = "na"
+                    custodian.consent_status = "implied"
 
             if _status_flag(mapping.get("search completed") or mapping.get("completed")):
                 custodian.search_done = True

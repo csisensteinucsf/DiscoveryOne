@@ -1,0 +1,49 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+
+import {
+  CONSENT_STATUS_OPTIONS,
+  NTP_STATUS_OPTIONS,
+  consentStatusLabel,
+  isConsentComplete,
+  normalizeConsentStatus,
+  normalizeNtpStatus,
+  ntpStatusLabel,
+} from '../../src/pages/custodianStatusCatalog.js'
+import {
+  buildCustodianWorkflowQuery,
+  normalizeOptionalHoldIds,
+} from '../../src/pages/holdAssignmentUtils.js'
+
+test('custodian workflow permits matter-level assignment without a Hold', () => {
+  assert.deepEqual(normalizeOptionalHoldIds([]), [])
+  const params = buildCustodianWorkflowQuery('add', [])
+  assert.equal(params.get('action'), 'custodians')
+  assert.equal(params.get('mode'), 'add')
+  assert.equal(params.has('hold_ids'), false)
+})
+
+test('custodian workflow preserves only explicit valid Hold selections', () => {
+  assert.deepEqual(normalizeOptionalHoldIds(['4', 4, 9, 0, 'bad']), [4, 9])
+  const params = buildCustodianWorkflowQuery('import', ['4', 9])
+  assert.equal(params.get('mode'), 'import')
+  assert.equal(params.get('hold_ids'), '4,9')
+})
+
+test('legacy NTP and consent statuses map to universal terminology', () => {
+  assert.equal(normalizeNtpStatus('na'), 'silent')
+  assert.equal(ntpStatusLabel('na'), 'Silent')
+  assert.equal(normalizeConsentStatus('na'), 'implied')
+  assert.equal(consentStatusLabel('na'), 'Implied')
+  assert.equal(NTP_STATUS_OPTIONS.some(option => option.value === 'na'), false)
+  assert.equal(CONSENT_STATUS_OPTIONS.some(option => option.value === 'na'), false)
+})
+
+test('AWOC satisfies consent only as a recognized completed status', () => {
+  assert.equal(consentStatusLabel('awoc'), 'AWOC')
+  assert.equal(isConsentComplete('awoc'), true)
+  assert.equal(isConsentComplete('received'), true)
+  assert.equal(isConsentComplete('implied'), true)
+  assert.equal(isConsentComplete('sent'), false)
+  assert.equal(CONSENT_STATUS_OPTIONS.some(option => option.value === 'awoc'), false)
+})

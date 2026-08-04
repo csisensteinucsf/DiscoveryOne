@@ -192,10 +192,9 @@ export function AddCustodiansModal({
     }
     return { ok: issues.length === 0, issues }
   }, [manualRows, personLookupEnabled, rows, lookupResults])
-  const holdSelectionValid = selectedHoldIds.length > 0
-  const canSubmit = holdSelectionValid && (personLookupEnabled
+  const canSubmit = personLookupEnabled
     ? hasAtLeastOneName && lookupHasRun && !lookupBusy && !saving && validation.ok
-    : manualRows.length > 0 && !saving && validation.ok)
+    : manualRows.length > 0 && !saving && validation.ok
   return (
     <Modal
       open
@@ -205,7 +204,7 @@ export function AddCustodiansModal({
       footer={(
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button onClick={() => onSave(mergedRows)} disabled={!canSubmit} title={!holdSelectionValid ? 'Select at least one active hold' : (!canSubmit ? (validation.issues[0] || "Run person lookup first") : "Add")}>{saving ? "Adding..." : "Add"}</Button>
+          <Button onClick={() => onSave(mergedRows)} disabled={!canSubmit} title={!canSubmit ? (validation.issues[0] || "Run person lookup first") : "Add"}>{saving ? "Adding..." : "Add"}</Button>
         </div>
       )}
     >
@@ -340,5 +339,4 @@ export function AddCustodiansModal({
     </Modal>
   )
 }
-
 

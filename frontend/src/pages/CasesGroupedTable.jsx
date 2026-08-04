@@ -12,7 +12,7 @@ const SORT_OPTIONS = [
   { key: 'attorney', label: 'Internal counsel' },
   { key: 'analyst', label: 'Analyst' },
   { key: 'requestor', label: 'Requestor' },
-  { key: 'hold', label: 'Hold count' },
+  { key: 'hold', label: 'Preservation count' },
   { key: 'notes', label: 'Notes' },
 ]
 
@@ -31,6 +31,7 @@ export default function CasesGroupedTable({
   caseFilters,
   setCaseFilters,
   showSecondaryCaseNameColumn,
+  visibleColumns = [],
   primaryCaseNameLabel = 'Case Name',
   secondaryCaseNameLabel,
   internalCounselLabel = 'Internal Counsel',
@@ -44,17 +45,18 @@ export default function CasesGroupedTable({
   RowComponent,
   style,
 }) {
+  const columnVisible = key => visibleColumns.includes(key)
   const TableColumns = () => (
     <colgroup>
       <col style={tableStyles.caseNameCell} />
       {showSecondaryCaseNameColumn && <col style={tableStyles.legalCaseCell} />}
-      <col style={tableStyles.matterCell} />
-      <col style={tableStyles.counselCell} />
-      <col style={tableStyles.analystCell} />
-      <col style={tableStyles.requestorCell} />
-      <col style={tableStyles.stateCell} />
-      <col style={tableStyles.statusCell} />
-      <col style={tableStyles.notesCell} />
+      {columnVisible('matter_number') && <col style={tableStyles.matterCell} />}
+      {columnVisible('internal_counsel') && <col style={tableStyles.counselCell} />}
+      {columnVisible('analyst') && <col style={tableStyles.analystCell} />}
+      {columnVisible('requestor') && <col style={tableStyles.requestorCell} />}
+      {columnVisible('state') && <col style={tableStyles.stateCell} />}
+      {columnVisible('holds') && <col style={tableStyles.statusCell} />}
+      {columnVisible('notes') && <col style={tableStyles.notesCell} />}
       <col style={tableStyles.actionsCell} />
     </colgroup>
   )
@@ -151,7 +153,7 @@ export default function CasesGroupedTable({
       </div>
 
       <div className="table-scroll">
-        <table style={tableStyles.table}>
+        <table style={{ ...tableStyles.table, minWidth: Math.max(560, caseTableColumnCount * 125) }}>
           <TableColumns />
           <thead>
             <tr>
@@ -177,7 +179,7 @@ export default function CasesGroupedTable({
                   style={{ ...tableStyles.headerCell, ...tableStyles.legalCaseCell }}
                 />
               )}
-              <DataTableHeader
+              {columnVisible('matter_number') && <DataTableHeader
                 label="Matter Number"
                 sortKey="matter"
                 sort={caseSort}
@@ -185,8 +187,8 @@ export default function CasesGroupedTable({
                 filterValue={caseFilters.matter}
                 onFilterChange={value => setCaseFilters(filters => ({ ...filters, matter: value }))}
                 style={{ ...tableStyles.headerCell, ...tableStyles.matterCell }}
-              />
-              <DataTableHeader
+              />}
+              {columnVisible('internal_counsel') && <DataTableHeader
                 label={internalCounselLabel}
                 sortKey="attorney"
                 sort={caseSort}
@@ -194,8 +196,8 @@ export default function CasesGroupedTable({
                 filterValue={caseFilters.counsel}
                 onFilterChange={value => setCaseFilters(filters => ({ ...filters, counsel: value }))}
                 style={{ ...tableStyles.headerCell, ...tableStyles.counselCell }}
-              />
-              <DataTableHeader
+              />}
+              {columnVisible('analyst') && <DataTableHeader
                 label="Analyst"
                 sortKey="analyst"
                 sort={caseSort}
@@ -203,8 +205,8 @@ export default function CasesGroupedTable({
                 filterValue={caseFilters.analyst}
                 onFilterChange={value => setCaseFilters(filters => ({ ...filters, analyst: value }))}
                 style={{ ...tableStyles.headerCell, ...tableStyles.analystCell }}
-              />
-              <DataTableHeader
+              />}
+              {columnVisible('requestor') && <DataTableHeader
                 label="Requestor"
                 sortKey="requestor"
                 sort={caseSort}
@@ -212,19 +214,19 @@ export default function CasesGroupedTable({
                 filterValue={caseFilters.requestor}
                 onFilterChange={value => setCaseFilters(filters => ({ ...filters, requestor: value }))}
                 style={{ ...tableStyles.headerCell, ...tableStyles.requestorCell }}
-              />
-              <DataTableHeader
+              />}
+              {columnVisible('state') && <DataTableHeader
                 label="State"
                 style={{ ...tableStyles.headerCell, ...tableStyles.stateCell }}
-              />
-              <DataTableHeader
-                label="Holds"
+              />}
+              {columnVisible('holds') && <DataTableHeader
+                label="Preservation"
                 sortKey="hold"
                 sort={caseSort}
                 onSort={toggleSort}
                 style={{ ...tableStyles.headerCell, ...tableStyles.statusCell }}
-              />
-              <DataTableHeader
+              />}
+              {columnVisible('notes') && <DataTableHeader
                 label="Additional Notes / Comments"
                 sortKey="notes"
                 sort={caseSort}
@@ -232,7 +234,7 @@ export default function CasesGroupedTable({
                 filterValue={caseFilters.notes}
                 onFilterChange={value => setCaseFilters(filters => ({ ...filters, notes: value }))}
                 style={{ ...tableStyles.headerCell, ...tableStyles.notesCell }}
-              />
+              />}
               <th style={{ ...tableStyles.headerCell, ...tableStyles.actionsCell }} aria-label="Actions" />
             </tr>
           </thead>

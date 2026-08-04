@@ -8,6 +8,7 @@ import {
   serverUpdateSearch,
 } from './caseDetailPersistence.js'
 import { nextSearchNumber, saveSearches, uuid } from './caseDetailUtils.js'
+import { isConsentComplete } from './custodianStatusCatalog.js'
 
 export function useCaseDetailSearchWorkflow({
   apiBase,
@@ -27,11 +28,6 @@ export function useCaseDetailSearchWorkflow({
   const [showSearchAiModal, setShowSearchAiModal] = useState(false)
   const [editingSearch, setEditingSearch] = useState(null)
 
-  function defaultHoldIds() {
-    const first = (holds || []).find(hold => hold?.status === 'active') || (holds || [])[0]
-    return first?.id ? [Number(first.id)] : []
-  }
-
   async function updateSearchStatus(s, field, value) {
     if (isRequestor) return
     const fieldName = `status_${field}`
@@ -42,7 +38,7 @@ export function useCaseDetailSearchWorkflow({
         const pendingConsent = custodians.filter(c => {
           if (!assignedIds.includes(Number(c.id))) return false
           const consent = String(c.consent_status || '').toLowerCase()
-          return consent !== 'received' && consent !== 'na'
+          return !isConsentComplete(consent)
         })
         if (pendingConsent.length) {
           setBlockedConsent({
@@ -106,17 +102,21 @@ export function useCaseDetailSearchWorkflow({
   function applyAiSearchSuggestion(suggestion) {
     if (!suggestion) return
     const draft = aiSuggestionToDraft(suggestion)
-    if (!(draft.holdIds || []).length) draft.holdIds = defaultHoldIds()
     setShowSearchAiModal(false)
     setEditingSearch({ ...draft, name: (draft.name || '').trim() || suggestedSearchName() })
     setShowSearchModal(true)
   }
 
-  async function createSearchesFromAiSuggestions(suggestions) {
+  async function createSearchesFromAiSuggestions(suggestions, selectedHoldIds = []) {
     if (isRequestor || !caseId) return
     const rows = Array.isArray(suggestions) ? suggestions.filter(Boolean) : []
     if (!rows.length) {
-      showToast('No Versa suggestions to create.', { variant: 'info' })
+      showToast('No AI suggestions to create.', { variant: 'info' })
+      return
+    }
+    const explicitHoldIds = [...new Set((selectedHoldIds || []).map(Number).filter(Number.isFinite))]
+    if (!explicitHoldIds.length) {
+      showToast('Select at least one Hold before creating AI search suggestions.', { variant: 'warn' })
       return
     }
     let next = [...searches]
@@ -125,7 +125,7 @@ export function useCaseDetailSearchWorkflow({
     let skippedNoCustodianCount = 0
     for (const row of rows) {
       const draft = aiSuggestionToDraft(row)
-      if (!(draft.holdIds || []).length) draft.holdIds = defaultHoldIds()
+      draft.holdIds = explicitHoldIds
       const assignedIds = (draft.custodianIds || []).map(Number).filter(Number.isFinite)
       if (!assignedIds.length) {
         skippedNoCustodianCount += 1
@@ -149,13 +149,13 @@ export function useCaseDetailSearchWorkflow({
       setShowSearchAiModal(false)
     }
     if (createdCount > 0) {
-      showToast(`Created ${createdCount} Versa search suggestion${createdCount === 1 ? '' : 's'}.`, { variant: 'success' })
+      showToast(`Created ${createdCount} AI search suggestion${createdCount === 1 ? '' : 's'}.`, { variant: 'success' })
     }
     if (skippedNoCustodianCount > 0) {
-      showToast(`${skippedNoCustodianCount} Versa suggestion${skippedNoCustodianCount === 1 ? '' : 's'} had no custodian assignment and was skipped. Review before creating.`, { variant: 'warn' })
+      showToast(`${skippedNoCustodianCount} AI suggestion${skippedNoCustodianCount === 1 ? '' : 's'} had no custodian assignment and was skipped. Review before creating.`, { variant: 'warn' })
     }
     if (failedCount > 0) {
-      showToast(`${failedCount} Versa suggestion${failedCount === 1 ? '' : 's'} could not be created.`, { variant: 'warn' })
+      showToast(`${failedCount} AI suggestion${failedCount === 1 ? '' : 's'} could not be created.`, { variant: 'warn' })
     }
   }
 
@@ -173,7 +173,7 @@ export function useCaseDetailSearchWorkflow({
       searchOverview: '',
       purviewKql: '',
       custodianIds: [],
-      holdIds: defaultHoldIds(),
+      holdIds: [],
       status: { search: 'not performed', export: 'not performed', delivery: 'not performed' },
     })
     setShowSearchModal(true)
@@ -188,7 +188,10 @@ export function useCaseDetailSearchWorkflow({
   async function saveSearchDraft(draft) {
     let next = [...searches]
     draft = { ...draft, ...normalizeSearchDraftFields(draft) }
-    if (!(draft.holdIds || draft.hold_ids || []).length) draft.holdIds = defaultHoldIds()
+    if (!(draft.holdIds || draft.hold_ids || []).length) {
+      showToast('Select at least one Hold for this search.', { variant: 'warn' })
+      return
+    }
     if (!draft.id) {
       const n = nextSearchNumber(caseData?.name, next)
       draft.id = uuid()
@@ -248,11 +251,17 @@ export function useCaseDetailSearchWorkflow({
         dateFrom: search.dateFrom || search.date_from || '',
         dateTo: search.dateTo || search.date_to || '',
         custodianIds: assignedIds,
-        holdIds: (search.holdIds ?? search.hold_ids ?? defaultHoldIds()).map(Number),
+        holdIds: (search.holdIds ?? search.hold_ids ?? []).map(Number),
         status_search: 'not performed',
         status_export: 'not performed',
         status_delivery: 'not performed',
         status: { search: 'not performed', export: 'not performed', delivery: 'not performed' },
+      }
+      if (!draft.holdIds.length) {
+        setEditingSearch(draft)
+        setShowSearchModal(true)
+        showToast('Select at least one Hold before creating the copied search.', { variant: 'warn' })
+        return
       }
       let entry = draft
       const created = await serverCreateSearch(caseId, draft)

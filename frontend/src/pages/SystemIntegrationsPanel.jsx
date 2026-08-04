@@ -152,6 +152,7 @@ export default function SystemIntegrationsPanel({
               apiBase={apiBase}
               enabled={!!integrationSettings.enabled?.email_intake}
               showToast={showToast}
+              mode="operations"
             />
           )}
         </div>

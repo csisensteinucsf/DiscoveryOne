@@ -236,9 +236,9 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 3 }}
             />
             <span>
-              Auto-create Rubrik restore holds for separated email custodians
+              Auto-create Rubrik restore preservation for separated email custodians
               <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-                Off by default for universal deployments. Enable only if your organization uses Rubrik restore tickets for separated custodians with email holds.
+                Off by default for universal deployments. Enable only if your organization uses Rubrik restore tickets for separated custodians with email preservation.
               </span>
             </span>
           </label>
@@ -251,7 +251,7 @@ export function SystemCaseNamingPanel({
             <input className="input" type="number" min="1" max="168" value={caseRequestSettings?.pending_cleanup_interval_hours ?? 12} onChange={e => updateCaseRequestSetting('pending_cleanup_interval_hours', e.target.value)} style={{ marginTop: 6 }} />
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
-            Hold status email delay seconds
+            Preservation status email delay seconds
             <input className="input" type="number" min="0" max="86400" value={caseRequestSettings?.hold_status_email_delay_seconds ?? 300} onChange={e => updateCaseRequestSetting('hold_status_email_delay_seconds', e.target.value)} style={{ marginTop: 6 }} />
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -284,13 +284,13 @@ export function SystemCaseNamingPanel({
       </div>
 
       <div style={{ borderTop: '1px solid var(--border,#d1d5db)', marginTop: 22, paddingTop: 18 }}>
-        <div style={titleStyle}>Case Closure Reminders</div>
+        <div style={titleStyle}>Case Status Notifications</div>
         <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-          These values control the default case closure reminder behavior that DiscoveryOne stores in its application settings. New cases use the default reminder days unless a case-specific value is entered, while the scheduler interval and batch size control how often the backend checks for due reminders and how many it sends per pass.
+          These values control the case status notifications sent to requestors. New cases use the default interval unless a case-specific value is entered, while the scheduler interval and batch size control how often DiscoveryOne checks for due notifications and how many it sends per pass.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <label style={{ display: 'block', fontWeight: 700 }}>
-            Default reminder days
+            Default notification interval days
             <input
               className="input"
               type="number"
@@ -302,7 +302,7 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              Number of days after case creation, and between later reminders, before DiscoveryOne asks the requestor whether the case can be closed.
+              Number of days after case creation, and between later notifications, before DiscoveryOne asks the requestor for a case status update.
             </span>
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -318,11 +318,11 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              How often the backend wakes up to look for closure reminders that are due. The default is once per hour.
+              How often the backend wakes up to look for case status notifications that are due. The default is once per hour.
             </span>
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
-            Reminder batch size
+            Notification batch size
             <input
               className="input"
               type="number"
@@ -334,7 +334,7 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              Maximum number of closure reminder emails DiscoveryOne sends during one scheduler pass.
+              Maximum number of case status notification emails DiscoveryOne sends during one scheduler pass.
             </span>
           </label>
         </div>

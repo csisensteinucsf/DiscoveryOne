@@ -9,7 +9,6 @@ from typing import Any, Dict
 from fastapi import HTTPException
 
 from . import models, preservation_provider, schemas, ticket_provider
-from .case_holds import ensure_default_hold
 from .hold_workflows import sync_legacy_custodian_to_default_hold
 from .audit import log_event
 from .cases import (
@@ -72,9 +71,19 @@ def auto_apply_case_request_holds(
         case_for_tickets = db.get(models.Case, int(record.case_id))
         if not case_for_tickets:
             return
-        default_hold = ensure_default_hold(db, case_for_tickets, assign_existing=True)
-        db.flush()
-        default_hold_id = int(default_hold.id)
+        explicit_hold = case_request_core._explicit_request_hold(
+            db,
+            int(record.case_id),
+            payload,
+        )
+        if explicit_hold is None:
+            logger.info(
+                "auto_case_request_preservation_skipped_no_hold request_id=%s case=%s",
+                record.id,
+                record.case_id,
+            )
+            return
+        default_hold_id = int(explicit_hold.id)
         actor = None
         try:
             actor = db.get(models.User, int(getattr(record, "reviewed_by_id", 0) or 0))
@@ -318,4 +327,3 @@ def auto_apply_case_request_holds(
             debug_suppressed("suppressed exception in case_requests.py:494", exc)
         with auto_hold_lock:
             auto_hold_threads.pop(int(request_id), None)
-

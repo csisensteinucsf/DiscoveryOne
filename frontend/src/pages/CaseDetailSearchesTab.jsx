@@ -32,7 +32,7 @@ export default function CaseDetailSearchesTab({
                     </button>
                     {canUseSearchAi && (
                       <button className="btn secondary" type="button" onClick={openSearchAiBuilder}>
-                        Versa Powered Search Builder
+                        AI Powered Search Builder
                       </button>
                     )}
                   </div>

@@ -93,7 +93,7 @@ export default function CaseRequestCards({ items, emptyLabel, apiBase, caseLooku
                             ))}
                             {holdsList.length ? (
                               <div style={{ fontSize: 12, color: '#475569', marginTop: 2 }}>
-                                Holds: {holdsList.join(', ')}
+                                Preservation: {holdsList.join(', ')}
                               </div>
                             ) : null}
                           </li>
@@ -130,7 +130,7 @@ export default function CaseRequestCards({ items, emptyLabel, apiBase, caseLooku
                 )}
                 {versaRequirements ? (
                   <div>
-                    <strong>Versa search requirements</strong>
+                    <strong>AI search requirements</strong>
                     <div style={{ whiteSpace: 'pre-wrap', marginTop: 6 }}>{versaRequirements}</div>
                   </div>
                 ) : null}

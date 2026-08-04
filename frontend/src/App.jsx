@@ -1,5 +1,6 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Routes, Route, Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
+import { LogOut, UserRound } from 'lucide-react'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import { useAuth, AuthProvider } from './auth.jsx'
@@ -25,6 +26,102 @@ const Setup = lazy(() => import('./pages/Setup.jsx'))
 
 const apiBase = import.meta.env.VITE_API_BASE || '/api'
 const ADMIN_USERNAME = 'admin'
+
+function userInitials(user) {
+  const first = String(user?.first_name || '').trim()
+  const last = String(user?.last_name || '').trim()
+  if (first || last) return `${first[0] || ''}${last[0] || ''}`.toUpperCase()
+  const fallback = String(user?.username || user?.email || 'U').trim()
+  const parts = fallback.split(/[\s._@-]+/).filter(Boolean)
+  return (parts.length > 1 ? `${parts[0][0]}${parts[1][0]}` : fallback.slice(0, 2)).toUpperCase()
+}
+
+function AccountMenu({ user, onLogout }) {
+  const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+  const buttonRef = useRef(null)
+  const menuRef = useRef(null)
+  const displayName = [user?.first_name, user?.last_name].filter(Boolean).join(' ').trim()
+    || user?.username
+    || user?.email
+    || 'Account'
+
+  useEffect(() => {
+    if (!open) return undefined
+    const focusFrame = window.requestAnimationFrame(() => {
+      menuRef.current?.querySelector('button')?.focus()
+    })
+    const onPointerDown = (event) => {
+      if (menuRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return
+      setOpen(false)
+    }
+    const onKeyDown = (event) => {
+      if (event.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      window.cancelAnimationFrame(focusFrame)
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const openProfile = () => {
+    setOpen(false)
+    navigate('/system?section=organization&view=preferences')
+  }
+
+  const logOut = async () => {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await onLogout()
+    } finally {
+      setLoggingOut(false)
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="account-menu">
+      <button
+        ref={buttonRef}
+        type="button"
+        className="account-menu__trigger"
+        aria-label={`Open account menu for ${displayName}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-controls="account-menu-popover"
+        onClick={() => setOpen(current => !current)}
+      >
+        {userInitials(user)}
+      </button>
+      {open && (
+        <div id="account-menu-popover" ref={menuRef} className="account-menu__popover" role="menu" aria-label="Account options">
+          <div className="account-menu__identity" role="presentation">
+            <strong>{displayName}</strong>
+            <span>{String(user?.role || 'user').replace(/_/g, ' ')}</span>
+          </div>
+          <button type="button" role="menuitem" onClick={openProfile}>
+            <UserRound size={17} aria-hidden="true" />
+            Profile
+          </button>
+          <button type="button" role="menuitem" onClick={logOut} disabled={loggingOut}>
+            <LogOut size={17} aria-hidden="true" />
+            {loggingOut ? 'Logging out...' : 'Logout'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Protected({ children }) {
   const { user, loading } = useAuth()
   const loc = useLocation()
@@ -40,7 +137,6 @@ function Shell() {
   const navigate = useNavigate()
   const isActive = (path) => loc.pathname === path
   const role = user?.role || (user?.is_admin ? 'sys_admin' : 'analyst')
-  const isSysAdmin = role === 'sys_admin'
   const isRequestor = role === 'requestor'
   const isTech = role === 'tech'
   const showSidebar = !loading && !!user
@@ -170,11 +266,8 @@ function Shell() {
           </div>
           <nav className="nav" style={{ display: 'grid', gap: 6, paddingTop: 10 }}>
             <Link to="/cases" className={isActive('/cases') ? 'active' : ''} aria-current={isActive('/cases') ? 'page' : undefined}>Cases</Link>
-            {!isTech && (
-              <Link to="/dashboards" className={isActive('/dashboards') ? 'active' : ''} aria-current={isActive('/dashboards') ? 'page' : undefined}>Dashboards</Link>
-            )}
-            {!isTech && (
-              <Link to="/reports" className={isActive('/reports') ? 'active' : ''} aria-current={isActive('/reports') ? 'page' : undefined}>Reports</Link>
+            {!isRequestor && !isTech && (
+              <Link to="/custodians" className={isActive('/custodians') ? 'active' : ''} aria-current={isActive('/custodians') ? 'page' : undefined}>Custodians</Link>
             )}
             {!isTech && (
               <Link to="/requests" className={isActive('/requests') ? 'active' : ''} aria-current={isActive('/requests') ? 'page' : undefined} style={{ position: 'relative' }}>
@@ -196,8 +289,11 @@ function Shell() {
                 )}
               </Link>
             )}
-            {!isRequestor && !isTech && (
-              <Link to="/custodians" className={isActive('/custodians') ? 'active' : ''} aria-current={isActive('/custodians') ? 'page' : undefined}>Custodians</Link>
+            {!isTech && (
+              <Link to="/reports" className={isActive('/reports') ? 'active' : ''} aria-current={isActive('/reports') ? 'page' : undefined}>Reports</Link>
+            )}
+            {!isTech && (
+              <Link to="/dashboards" className={isActive('/dashboards') ? 'active' : ''} aria-current={isActive('/dashboards') ? 'page' : undefined}>Dashboards</Link>
             )}
             <Link to="/system" className={isActive('/system') ? 'active' : ''} aria-current={isActive('/system') ? 'page' : undefined} style={{ position: 'relative' }}>
               System
@@ -217,13 +313,13 @@ function Shell() {
                 }}>{registrationPending}</span>
               )}
             </Link>
-            <button onClick={doLogout} className="nav-logout">Logout</button>
           </nav>
         </aside>
       )}
 
       <main id="main-content" style={{ flex: 1 }}>
         <HelpButton />
+        {showSidebar && <AccountMenu user={user} onLogout={doLogout} />}
         <div className="wrap">
           {needsEmployeeId && (
             <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid #f97316' }}>

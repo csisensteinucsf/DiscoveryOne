@@ -41,7 +41,6 @@ import CaseDetailTabNav from './CaseDetailTabNav.jsx'
 import CaseDetailHeader from './CaseDetailHeader.jsx'
 import CaseDetailSlaTab from './CaseDetailSlaTab.jsx'
 import CaseDetailNotesTab from './CaseDetailNotesTab.jsx'
-import CaseDetailActiveNotesTab from './CaseDetailActiveNotesTab.jsx'
 import CaseDetailDocumentationTab from './CaseDetailDocumentationTab.jsx'
 import CaseDetailSearchesTab from './CaseDetailSearchesTab.jsx'
 import CaseDetailNamedHoldsTab from './CaseDetailNamedHoldsTab.jsx'
@@ -159,7 +158,6 @@ export default function CaseDetail() {
     custodians,
     targetHoldIds,
   })
-  const [activeCaseBusy, setActiveCaseBusy] = useState(false)
   const documentationBadgeCount = useMemo(() => {
     const consentCount = Number(caseData?.consent_envelope_count || 0)
     const proofCount = Number(caseData?.consent_proof_count || 0)
@@ -217,8 +215,6 @@ export default function CaseDetail() {
     setNoteCount,
     requestorNoteCount,
     setRequestorNoteCount,
-    activeNoteCount,
-    setActiveNoteCount,
   } = useCaseDetailNoteCounts({
     apiBase,
     caseId,
@@ -227,7 +223,6 @@ export default function CaseDetail() {
     setCaseData,
     isTech,
     isRequestor,
-    isSysAdmin,
     setProofRows,
     updateProofCountsOnCase,
   })
@@ -303,6 +298,12 @@ export default function CaseDetail() {
     }
     initialTabSet.current = true
   }, [isTech])
+  useEffect(() => {
+    const allowedTabs = new Set(isTech
+      ? ['custodians', 'holds', 'requests']
+      : ['custodians', 'holds', 'searches', 'requests', 'documentation', 'sla', 'notes'])
+    if (!allowedTabs.has(activeTab)) setActiveTab(isTech ? 'requests' : 'custodians')
+  }, [activeTab, isTech])
   useEffect(() => {
     if (!isRequestor) return
     try {
@@ -452,11 +453,6 @@ export default function CaseDetail() {
     isTech,
     showToast,
   })
-  useEffect(() => {
-    if (!showCustodianModal || targetHoldIds.length || !ntpHolds.length) return
-    setTargetHoldIds([Number(ntpHolds[0].id)])
-  }, [ntpHolds, showCustodianModal, targetHoldIds.length])
-
   const { updateCase, updateCustodianLocal, patchCustodian } = useCaseDetailCaseActions({
     apiBase,
     caseId,
@@ -748,6 +744,32 @@ export default function CaseDetail() {
   const toggleClosed = useCallback(async () => {
     if (!caseData) return
     const nextClosed = !Boolean(caseData.closed)
+    if (nextClosed) {
+      const readinessResponse = await fetch(`${apiBase}/cases/${caseId}/closure-readiness`, { credentials: 'include' }).catch(() => null)
+      if (!readinessResponse?.ok) {
+        showToast('Unable to check whether this case can be closed.', { variant: 'error' })
+        return
+      }
+      const readiness = await readinessResponse.json()
+      if (!readiness.ready) {
+        const activeHolds = readiness.active_holds || []
+        const preservation = readiness.preservation_blockers || []
+        await confirmDialog({
+          title: 'Case cannot be closed',
+          description: 'Close every active Hold and release every active preservation item before making this case inactive.',
+          confirmLabel: 'Understood',
+          hideCancel: true,
+          width: 620,
+          extras: (
+            <div className="alert warning" style={{ marginTop: 12 }}>
+              {activeHolds.length > 0 && <><strong>Active Holds</strong><ul>{activeHolds.map(hold => <li key={hold.hold_id}>{hold.hold_name} ({hold.custodian_count} custodians)</li>)}</ul></>}
+              {preservation.length > 0 && <><strong>Preservation items to release</strong><ul>{preservation.map((item, index) => <li key={`${item.hold_id || 'matter'}-${item.custodian_id}-${item.source_key}-${index}`}>{item.hold_name ? `${item.hold_name}: ` : ''}{item.custodian_name} - {item.source_label} ({item.status})</li>)}</ul></>}
+            </div>
+          ),
+        })
+        return
+      }
+    }
     const accepted = await confirmDialog({
       title: nextClosed ? 'Close case?' : 'Reopen case?',
       description: nextClosed ? 'This will mark the case as closed.' : 'This will mark the case as open again.',
@@ -760,20 +782,7 @@ export default function CaseDetail() {
     } catch (err) {
       if (!err?.cancelled) showToast(err?.message || 'Unable to update case status.', { variant: 'error' })
     }
-  }, [caseData, confirmDialog, showToast, updateCase])
-
-  const toggleActiveCaseStatus = useCallback(async () => {
-    if (!caseData) return
-    const nextActive = !Boolean(caseData.is_active_case)
-    setActiveCaseBusy(true)
-    try {
-      await updateCase({ is_active_case: nextActive })
-    } catch (err) {
-      showToast(err?.message || 'Unable to update active case status.', { variant: 'error' })
-    } finally {
-      setActiveCaseBusy(false)
-    }
-  }, [caseData, showToast, updateCase])
+  }, [apiBase, caseData, caseId, confirmDialog, showToast, updateCase])
 
   const submitCloseCaseRequest = useCallback(async () => {
     if (!caseId) return
@@ -942,17 +951,12 @@ export default function CaseDetail() {
             formatDate={formatDate}
             navigate={navigate}
             setShowEdit={setShowEdit}
-            setCustodianModalMode={setCustodianModalMode}
-            setShowCustodianModal={setShowCustodianModal}
-            openSendNtp={openSendNtp}
-            sendingNtp={sendingNtp}
             onExportCustodians={onExportCustodians}
             openPreservationAutomation={() => setShowPurviewModal(true)}
             preservationAutomationEnabled={preservationAutomationEnabled}
             preservationProviderName={preservationProviderName}
             openCaseSummary={openCaseSummary}
             toggleClosed={toggleClosed}
-            ntpButtonDisabled={ntpButtonDisabled}
             setShowCloseCaseModal={setShowCloseCaseModal}
             useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
             internalCounselLabel={internalCounselLabel}
@@ -962,13 +966,11 @@ export default function CaseDetail() {
             setActiveTab={setActiveTab}
             isTech={isTech}
             isRequestor={isRequestor}
-            isSysAdmin={isSysAdmin}
             searchCount={searchCount}
             requestsFilledCount={requestsFilledCount}
             documentationBadgeCount={documentationBadgeCount}
             noteCount={noteCount}
             requestorNoteCount={requestorNoteCount}
-            activeNoteCount={activeNoteCount}
           />
           {activeTab === 'custodians' && (
             <CaseDetailCustodiansTab
@@ -1002,6 +1004,11 @@ export default function CaseDetail() {
               formatDate={formatDate}
               onEditCustodian={onEditCustodian}
               openRemoveCustodian={openRemoveCustodian}
+              setCustodianModalMode={setCustodianModalMode}
+              setShowCustodianModal={setShowCustodianModal}
+              openSendNtp={openSendNtp}
+              sendingNtp={sendingNtp}
+              ntpButtonDisabled={ntpButtonDisabled}
             />
           )}
           {activeTab === 'holds' && (
@@ -1126,16 +1133,6 @@ export default function CaseDetail() {
               showToast={showToast}
               setNoteCount={setNoteCount}
               setRequestorNoteCount={setRequestorNoteCount}
-            />
-          )}
-          {!isTech && !isRequestor && isSysAdmin && activeTab === 'active' && (
-            <CaseDetailActiveNotesTab
-              caseId={caseId}
-              isActiveCase={!!caseData?.is_active_case}
-              activeCaseBusy={activeCaseBusy}
-              toggleActiveCaseStatus={toggleActiveCaseStatus}
-              showToast={showToast}
-              setActiveNoteCount={setActiveNoteCount}
             />
           )}
         </>

@@ -1,4 +1,4 @@
-export function DrilldownTable({ kind, items, filter, loading, onOpenCase }) {
+export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpenCustodian }) {
   if (loading) return <div style={{ color: 'var(--muted,#64748b)' }}>Loading…</div>
   const q = (filter || '').trim().toLowerCase()
   const filtered = (items || []).filter((it) => {
@@ -91,8 +91,8 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase }) {
             <tr>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Custodian</th>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Active holds</th>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Pending holds</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Active preservation</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Pending preservation</th>
               <th style={{ textAlign: 'right', padding: '8px 6px' }}>Actions</th>
             </tr>
           </thead>
@@ -103,7 +103,21 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase }) {
                   <div style={{ fontWeight: 700, color: 'var(--text,#0f172a)' }}>{it.case_name || `Case #${it.case_id}`}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted,#64748b)' }}>ID: {it.case_id}</div>
                 </td>
-                <td style={{ padding: '10px 6px' }}>
+                <td
+                  className="dashboard-custodian-link"
+                  style={{ padding: '10px 6px' }}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open custodian ${it.custodian_name || it.custodian_email || ''}`}
+                  title="Open custodian"
+                  onClick={() => onOpenCustodian?.(it)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      onOpenCustodian?.(it)
+                    }
+                  }}
+                >
                   <div style={{ fontWeight: 600, color: 'var(--text,#0f172a)' }}>{it.custodian_name || '—'}</div>
                   <div style={{ fontSize: 12, color: 'var(--muted,#64748b)' }}>{it.custodian_email || ''}</div>
                 </td>

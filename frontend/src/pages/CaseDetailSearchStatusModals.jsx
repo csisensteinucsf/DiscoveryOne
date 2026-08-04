@@ -97,7 +97,7 @@ export default function CaseDetailSearchStatusModals({
         >
           <p style={{ color: '#475467' }}>
             Consent not received from some custodians for <strong>{blockedConsent.searchName}</strong>.
-            Collect consent from everyone assigned to this search, or mark consent as NA with a reason, before marking {blockedConsent.field} as performed.
+            Collect consent from everyone assigned to this search, mark consent as Implied with a reason, or upload an AWOC consent document before marking {blockedConsent.field} as performed.
           </p>
           <ul style={{ margin: 0, paddingLeft: 18, color: '#1f2937' }}>
             {blockedConsent.custodians.map(person => (

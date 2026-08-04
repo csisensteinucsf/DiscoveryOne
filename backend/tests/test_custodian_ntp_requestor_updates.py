@@ -43,12 +43,12 @@ def _create_user(db_session, **overrides):
 
 def test_apply_ntp_not_required_defaults_uses_manual_reason_for_manual_na():
     case = models.Case(name="Case A", claimant="")
-    custodian = models.Custodian(case_id=1, name="User", email="user@example.edu", ntp_status="na")
+    custodian = models.Custodian(case_id=1, name="User", email="user@example.edu", ntp_status="silent")
     custodian.ntp_not_required_reason = "Legal approved exception"
 
     cases._apply_ntp_not_required_defaults(case, custodian)
 
-    assert custodian.ntp_status == "na"
+    assert custodian.ntp_status == "silent"
     assert custodian.ntp_not_required_reason == "Legal approved exception"
 
 
@@ -76,9 +76,9 @@ def test_requestor_can_update_only_ntp_and_consent_status_fields(db_session, mon
         case.id,
         custodian.id,
         schemas.CustodianUpdate(
-            ntp_status="na",
+            ntp_status="silent",
             ntp_not_required_reason="Outside counsel only",
-            consent_status="na",
+            consent_status="implied",
             consent_not_required_reason="Third-party records only",
         ),
         db=db_session,
@@ -86,9 +86,9 @@ def test_requestor_can_update_only_ntp_and_consent_status_fields(db_session, mon
         _user=actor,
     )
 
-    assert updated.ntp_status == "na"
+    assert updated.ntp_status == "silent"
     assert updated.ntp_not_required_reason == "Outside counsel only"
-    assert updated.consent_status == "na"
+    assert updated.consent_status == "implied"
     assert updated.consent_not_required_reason == "Third-party records only"
 
 

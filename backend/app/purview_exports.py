@@ -339,7 +339,7 @@ def _search_missing_consent(search: models.Search, custodian_by_id: dict[int, mo
         if not cust:
             continue
         status = ((getattr(cust, "consent_status", None) or "not sent").strip().lower())
-        if status in {"received", "na"}:
+        if status in {"received", "implied", "awoc", "na"}:
             continue
         missing.append(
             {
@@ -877,7 +877,6 @@ def check_purview_exports(
         source="manual",
         send_notifications=True,
     )
-
 
 
 

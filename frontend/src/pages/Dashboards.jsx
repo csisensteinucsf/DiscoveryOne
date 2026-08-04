@@ -6,6 +6,11 @@ import { useAuth } from '../auth.jsx'
 import { useNavigate } from 'react-router-dom'
 import { WidgetCard } from './DashboardWidgets.jsx'
 import { DrilldownTable } from './DashboardDrilldownTable.jsx'
+import {
+  custodianDetailPath,
+  dashboardDrilldownWidth,
+  mergePreservationDrilldownItems,
+} from './dashboardUtils.js'
 
 function makeId(prefix = 'id') {
   try {
@@ -48,8 +53,8 @@ const WIDGET_CATALOG = [
   },
   {
     type: 'hold_status',
-    title: 'Holds',
-    description: 'Custodians with active and pending holds.',
+    title: 'Preservation',
+    description: 'Custodians with active and pending preservation sources.',
     defaultConfig: { open_only: true },
   },
   {
@@ -75,8 +80,6 @@ const DEFAULT_WIDGET_IDS = {
   requests_sla: 'requests',
   open_tickets: 'tickets',
 }
-
-const DASHBOARD_MODAL_WIDTH_MULTIPLIER = 1
 
 function defaultConfig() {
   const defaultWidgets = DEFAULT_WIDGET_ORDER.map((type, idx) => {
@@ -348,15 +351,31 @@ export default function Dashboards({ apiBase = '/api' }) {
       setDrillLoading(true)
       setDrillItems([])
       try {
-        const res = await fetch(`${apiBase}/dashboards/drilldown`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ kind: drillKind, config: drillConfig }),
-        })
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) setDrillItems(Array.isArray(data?.items) ? data.items : [])
+        const requestItems = async (config) => {
+          const res = await fetch(`${apiBase}/dashboards/drilldown`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ kind: drillKind, config }),
+          })
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          const data = await res.json()
+          return Array.isArray(data?.items) ? data.items : []
+        }
+
+        let items
+        if (drillKind === 'holds_list' && drillConfig?.mode === 'all') {
+          const baseConfig = { ...(drillConfig || {}) }
+          delete baseConfig.mode
+          const [activeItems, pendingItems] = await Promise.all([
+            requestItems({ ...baseConfig, mode: 'active' }),
+            requestItems({ ...baseConfig, mode: 'pending' }),
+          ])
+          items = mergePreservationDrilldownItems(activeItems, pendingItems)
+        } else {
+          items = await requestItems(drillConfig)
+        }
+        if (!cancelled) setDrillItems(items)
       } catch {
         if (!cancelled) setDrillItems([])
       } finally {
@@ -385,7 +404,7 @@ export default function Dashboards({ apiBase = '/api' }) {
         <div>
           <h2 style={{ margin: '4px 0 0', color: 'var(--sidebar-fg)' }}>Dashboards</h2>
           <div style={{ color: 'var(--muted,#64748b)', marginTop: 6, lineHeight: 1.4 }}>
-            Build a personal dashboard to track consent progress, search status, holds, requests, and other case health signals.
+            Build a personal dashboard to track consent progress, search status, preservation, requests, and other case health signals.
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -448,7 +467,7 @@ export default function Dashboards({ apiBase = '/api' }) {
         <Modal
           title="Add widget"
           onClose={() => setAddOpen(false)}
-          width={560 * DASHBOARD_MODAL_WIDTH_MULTIPLIER}
+          width={480}
           footer={(
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setAddOpen(false)}>Cancel</button>
@@ -478,7 +497,7 @@ export default function Dashboards({ apiBase = '/api' }) {
         <Modal
           title="Rename dashboard"
           onClose={() => setRenameOpen(false)}
-          width={520 * DASHBOARD_MODAL_WIDTH_MULTIPLIER}
+          width={420}
           footer={(
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setRenameOpen(false)}>Cancel</button>
@@ -497,7 +516,7 @@ export default function Dashboards({ apiBase = '/api' }) {
         <Modal
           title="New dashboard"
           onClose={() => setNewDashOpen(false)}
-          width={520 * DASHBOARD_MODAL_WIDTH_MULTIPLIER}
+          width={420}
           footer={(
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" className="btn ghost" onClick={() => setNewDashOpen(false)}>Cancel</button>
@@ -516,7 +535,7 @@ export default function Dashboards({ apiBase = '/api' }) {
         <Modal
           title={drillTitle || 'Details'}
           onClose={() => setDrillOpen(false)}
-          width={860 * DASHBOARD_MODAL_WIDTH_MULTIPLIER}
+          width={dashboardDrilldownWidth(drillKind, drillItems.length)}
           footer={(
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, width: '100%' }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -539,6 +558,12 @@ export default function Dashboards({ apiBase = '/api' }) {
               if (!caseId) return
               setDrillOpen(false)
               navigate(`/cases/${caseId}`)
+            }}
+            onOpenCustodian={(item) => {
+              const target = custodianDetailPath(item)
+              if (!target) return
+              setDrillOpen(false)
+              navigate(target)
             }}
           />
         </Modal>

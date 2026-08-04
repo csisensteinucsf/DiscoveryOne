@@ -420,6 +420,7 @@ def _serialize_user(user: models.User) -> dict:
         "requestor_group": getattr(user, "requestor_group", None),
         "user_theme": getattr(user, "user_theme", None) or "light",
         "case_sort_mode": getattr(user, "case_sort_mode", None) or "ediscovery",
+        "ui_preferences": getattr(user, "ui_preferences", {}) or {},
         "ntp_default_template_id": getattr(user, "ntp_default_template_id", None),
     }
 
@@ -1506,6 +1507,35 @@ def update_preferences(
         user.case_sort_mode = mode
         updated = True
         details["case_sort_mode"] = mode
+
+    if "cases_visible_columns" in data:
+        allowed_columns = {
+            "secondary_case_name",
+            "matter_number",
+            "internal_counsel",
+            "analyst",
+            "requestor",
+            "state",
+            "holds",
+            "notes",
+        }
+        requested = data.get("cases_visible_columns")
+        if not isinstance(requested, list):
+            raise HTTPException(status_code=422, detail="cases_visible_columns must be a list")
+        normalized_columns = []
+        for value in requested:
+            key = str(value or "").strip().lower()
+            if key not in allowed_columns:
+                raise HTTPException(status_code=422, detail=f"Unsupported Cases column: {key}")
+            if key not in normalized_columns:
+                normalized_columns.append(key)
+        preferences = dict(getattr(user, "ui_preferences", {}) or {})
+        cases_preferences = dict(preferences.get("cases") or {})
+        cases_preferences["visible_columns"] = normalized_columns
+        preferences["cases"] = cases_preferences
+        user.ui_preferences = preferences
+        updated = True
+        details["cases_visible_columns"] = normalized_columns
     if not updated:
         raise HTTPException(status_code=400, detail="No preferences provided")
     try:

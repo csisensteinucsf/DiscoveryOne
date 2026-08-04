@@ -184,8 +184,8 @@ async def create_case_request(
                 name=getattr(model, "name", None),
                 email=getattr(model, "email", None),
             ):
-                model.ntp_status = "na"
-                model.consent_status = "na"
+                model.ntp_status = "silent"
+                model.consent_status = "implied"
             if linked_case:
                 case_request_core._apply_consent_not_required_defaults(linked_case, model)
             built_models.append(model)
@@ -193,12 +193,6 @@ async def create_case_request(
         db.flush()
         for model in built_models:
             case_request_core._sync_custom_preservation(db, model, getattr(model, "_custom_preservation_payload", []) or [])
-        if linked_case:
-            from .case_holds import ensure_default_hold
-
-            ensure_default_hold(db, linked_case, assign_existing=True)
-            db.flush()
-            case_request_core._assign_request_proofs_to_default_hold(db, record)
         built_ids = [int(model.id) for model in built_models if getattr(model, "id", None) is not None]
         if built_ids:
             body["approved_custodian_ids"] = built_ids

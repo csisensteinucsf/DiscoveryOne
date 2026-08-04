@@ -3,6 +3,7 @@ import {
   NTP_VARIABLE_DEFAULTS,
   isMissingOrUnmatchedEmail,
 } from './caseDetailUtils.js'
+import { normalizeNtpStatus } from './custodianStatusCatalog.js'
 
 export function normalizePersonLabel(value) {
   return String(value || '')
@@ -30,8 +31,8 @@ export function rememberedNtpReason(payload) {
 
 export function isNtpBlockedCustodianRecord(custodian) {
   const status = String(custodian?.employment_status || '').trim().toLowerCase()
-  const ntpStatus = String(custodian?.ntp_status || '').trim().toLowerCase()
-  return status.startsWith('separated') || ntpStatus === 'na'
+  const ntpStatus = normalizeNtpStatus(custodian?.ntp_status)
+  return status.startsWith('separated') || ntpStatus === 'silent'
 }
 
 export function ntpAutoNaReasonForCustodian(claimant, custodian) {
@@ -56,9 +57,9 @@ export function ntpNaReasonForCustodian(custodian, autoReason = '') {
 
 export function ntpStatusLabelForCustodian(custodian, autoReason = '') {
   const raw = String(custodian?.ntp_status || 'not sent').trim().toLowerCase() || 'not sent'
-  if (raw !== 'na') return raw.toUpperCase()
+  if (normalizeNtpStatus(raw) !== 'silent') return raw.toUpperCase()
   const reason = ntpNaReasonForCustodian(custodian, autoReason)
-  return reason ? `NA (${reason})` : 'NA'
+  return reason ? `SILENT (${reason})` : 'SILENT'
 }
 
 export function isNtpEmailEligibleCustodian(custodian) {

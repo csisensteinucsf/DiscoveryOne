@@ -139,6 +139,8 @@ def _prepare_custodian_for_create(
 ) -> tuple[models.Custodian, Optional[str], str, Any]:
     data = _normalize_person_lookup_aliases(dict(data or {}))
     _extract_custom_preservation_payload(data)
+    if str(data.get("consent_status") or "").strip().lower() == "awoc":
+        raise HTTPException(status_code=422, detail="Upload an AWOC document from a named Hold to set AWOC consent")
     email_raw = data.get("email")
     email_norm = _normalize_email(email_raw)
     trimmed_email = (email_raw or None)
@@ -147,21 +149,21 @@ def _prepare_custodian_for_create(
         trimmed_email = UNMATCHED_EMAIL_PLACEHOLDER
     custodian = models.Custodian(case_id=case_id, added_at=datetime.now(timezone.utc), **{**data, "email": trimmed_email})
     if not _is_organization_email(trimmed_email):
-        custodian.ntp_status = "na"
-        custodian.consent_status = "na"
+        custodian.ntp_status = "silent"
+        custodian.consent_status = "implied"
     derived = _derive_employment_status_from_end_date(getattr(custodian, "employment_end_date", None))
     custodian.employment_status = derived
     emp_status = (getattr(custodian, "employment_status", None) or "").strip().lower()
     if emp_status.startswith("separated"):
-        custodian.ntp_status = "na"
-        custodian.consent_status = "na"
+        custodian.ntp_status = "silent"
+        custodian.consent_status = "implied"
     if _custodian_matches_claimant(
         claimant=getattr(case, "claimant", None),
         name=getattr(custodian, "name", None),
         email=getattr(custodian, "email", None),
     ):
-        custodian.ntp_status = "na"
-        custodian.consent_status = "na"
+        custodian.ntp_status = "silent"
+        custodian.consent_status = "implied"
     _apply_ntp_not_required_defaults(case, custodian)
     _apply_consent_not_required_defaults(case, custodian)
     try:
@@ -375,7 +377,25 @@ def add_custodian(
 ):
     case = _load_case_for_custodian_write(case_id, db, _user)
     data = payload.dict()
+    hold_ids = sorted({int(value) for value in data.pop("hold_ids", []) if int(value) > 0})
     custom_preservation = _extract_custom_preservation_payload(data)
+    if hold_ids:
+        active_holds = (
+            db.query(models.CaseHold.id)
+            .filter(
+                models.CaseHold.case_id == case_id,
+                models.CaseHold.id.in_(hold_ids),
+                models.CaseHold.status == "active",
+            )
+            .all()
+        )
+        found_hold_ids = {int(row[0]) for row in active_holds}
+        missing_hold_ids = sorted(set(hold_ids) - found_hold_ids)
+        if missing_hold_ids:
+            raise HTTPException(
+                status_code=422,
+                detail={"message": "Every selected hold must be an active hold for this case", "hold_ids": missing_hold_ids},
+            )
     email_raw = data.get("email")
     email_norm = _normalize_email(email_raw)
     trimmed_email = (email_raw or "").strip() or None
@@ -413,9 +433,16 @@ def add_custodian(
                 request=request,
                 source="custodian_create",
             )
-        from .hold_workflows import sync_legacy_custodian_to_default_hold
+        if hold_ids:
+            from .case_holds import assign_custodians_to_hold
 
-        sync_legacy_custodian_to_default_hold(db, c)
+            for hold_id in hold_ids:
+                assign_custodians_to_hold(
+                    db,
+                    case_id=case_id,
+                    hold_id=hold_id,
+                    custodian_ids=[int(c.id)],
+                )
         db.commit()
         db.refresh(c)
     except IntegrityError as exc:
@@ -613,6 +640,8 @@ def _apply_custodian_update_payload(
         "holds_rubrik_restore",
     )
     payload = _normalize_person_lookup_aliases(dict(data or {}))
+    if str(payload.get("consent_status") or "").strip().lower() == "awoc":
+        raise HTTPException(status_code=422, detail="Upload an AWOC document from a named Hold to set AWOC consent")
     custom_preservation = _extract_custom_preservation_payload(payload)
     _before_holds_slack = bool(getattr(custodian, "holds_slack", False))
     _before_email = (getattr(custodian, "email", None) or "").strip()
@@ -646,12 +675,12 @@ def _apply_custodian_update_payload(
     if not email_norm_after or email_norm_after in {NO_EMAIL_PLACEHOLDER.lower(), UNMATCHED_EMAIL_PLACEHOLDER.lower()}:
         custodian.email = UNMATCHED_EMAIL_PLACEHOLDER
     if not _is_organization_email(getattr(custodian, "email", None)):
-        custodian.ntp_status = "na"
-        custodian.consent_status = "na"
+        custodian.ntp_status = "silent"
+        custodian.consent_status = "implied"
     emp_status = (getattr(custodian, "employment_status", None) or "").strip().lower()
     if emp_status.startswith("separated"):
-        custodian.ntp_status = "na"
-        custodian.consent_status = "na"
+        custodian.ntp_status = "silent"
+        custodian.consent_status = "implied"
     _apply_ntp_not_required_defaults(case, custodian)
     _apply_consent_not_required_defaults(case, custodian)
     review_result = None

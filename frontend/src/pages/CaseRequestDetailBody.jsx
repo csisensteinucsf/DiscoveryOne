@@ -159,7 +159,7 @@ export default function CaseRequestDetailBody({ request: req, apiBase, caseLooku
 
       {versaRequirements ? (
         <div>
-          <h3 style={{ margin: '0 0 8px' }}>Versa Search Requirements</h3>
+          <h3 style={{ margin: '0 0 8px' }}>AI Search Requirements</h3>
           <div style={{ whiteSpace: 'pre-wrap' }}>{versaRequirements}</div>
         </div>
       ) : null}

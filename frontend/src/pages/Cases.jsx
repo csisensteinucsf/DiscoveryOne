@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Columns3 } from 'lucide-react'
 import { useAuth } from '../auth.jsx'
 import { useToast } from '../components/ToastProvider.jsx'
 import { useConfirm } from '../components/ConfirmProvider.jsx'
 import { fetchSystemSettings } from '../lib/systemSettingsClient.js'
 import { normalizeCaseNamingMode } from './setupCatalog.js'
 import { useBrandingSettings } from '../lib/useBrandingSettings.js'
-import { CaseDeleteModal, CaseEditorModal, RequestorGroupInviteModal } from './CaseModals.jsx'
+import { CaseClosureModal, CaseDeleteModal, CaseEditorModal, RequestorGroupInviteModal } from './CaseModals.jsx'
 import CasesGroupedTable from './CasesGroupedTable.jsx'
 import { CasesTableRow, tableStyles } from './CasesTableRow.jsx'
 import { useCasesGrouping } from './useCasesGrouping.js'
@@ -21,6 +22,48 @@ import {
   normalizeGroupValue,
   toSentenceCase,
 } from './casesUtils.js'
+
+const DEFAULT_CASE_COLUMNS = [
+  'secondary_case_name',
+  'matter_number',
+  'internal_counsel',
+  'analyst',
+  'requestor',
+  'state',
+  'holds',
+  'notes',
+]
+
+function formFromCaseTemplate(template, closureNagDays, current = {}) {
+  const next = defaultCaseForm(closureNagDays)
+  if (!template) {
+    return {
+      ...next,
+      name: current.name || '',
+      legal_case_name: current.legal_case_name || '',
+    }
+  }
+  const defaults = template.defaults || {}
+  for (const key of Object.keys(next)) {
+    if (Object.prototype.hasOwnProperty.call(defaults, key)) next[key] = defaults[key] ?? ''
+  }
+  if (defaults.start_date_mode === 'today' && !defaults.start_date) {
+    next.start_date = new Date().toISOString().slice(0, 10)
+  }
+  if (Array.isArray(defaults.requestors)) {
+    const primary = defaults.requestors.find(item => item?.is_primary)
+    const primaryEmail = primary?.email || defaults.requestor || defaults.requestors[0]?.email || ''
+    next.requestor = primaryEmail
+    next.additional_requestors = defaults.requestors
+      .filter(item => item?.email && item !== primary && item.email.toLowerCase() !== primaryEmail.toLowerCase())
+      .map(item => item.email)
+      .join(', ')
+  }
+  next.case_template_id = String(template.id)
+  next.name = current.name || next.name || ''
+  next.legal_case_name = current.legal_case_name || next.legal_case_name || ''
+  return next
+}
 
 
 export default function Cases({ apiBase }) {
@@ -44,11 +87,21 @@ export default function Cases({ apiBase }) {
   const primaryCaseNameLabel = useLegalCaseNameAsPrimary ? 'Case Name' : 'eDiscovery Name'
   const prefersLegalCaseLabel = requestorGroup === 'risk' || requestorGroup === 'legal'
   const secondaryCaseNameLabel = prefersLegalCaseLabel ? 'Legal Case Name' : 'Case Name'
-  const caseTableColumnCount = 9 + (showSecondaryCaseNameColumn ? 1 : 0)
+  const savedColumns = user?.ui_preferences?.cases?.visible_columns
+  const [visibleColumns, setVisibleColumns] = useState(
+    Array.isArray(savedColumns) ? savedColumns : DEFAULT_CASE_COLUMNS
+  )
+  const isColumnVisible = (key) => visibleColumns.includes(key)
+  const showSecondaryColumn = showSecondaryCaseNameColumn && isColumnVisible('secondary_case_name')
+  const caseTableColumnCount = 2 + DEFAULT_CASE_COLUMNS.reduce(
+    (count, key) => count + ((key === 'secondary_case_name' ? showSecondaryColumn : isColumnVisible(key)) ? 1 : 0),
+    0,
+  )
   const [cases, setCases] = useState([])
   const [analysts, setAnalysts] = useState([])
   const [users, setUsers] = useState([])
   const [ntpGroupOptions, setNtpGroupOptions] = useState([])
+  const [caseTemplates, setCaseTemplates] = useState([])
   const [showModal, setShowModal] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(defaultCaseForm)
@@ -60,6 +113,9 @@ export default function Cases({ apiBase }) {
   const [deleteWarning, setDeleteWarning] = useState(null)
   const [deleteOverrideReason, setDeleteOverrideReason] = useState('')
   const [deleteBusy, setDeleteBusy] = useState(false)
+  const [closureTarget, setClosureTarget] = useState(null)
+  const [closureReadiness, setClosureReadiness] = useState(null)
+  const [closureBusy, setClosureBusy] = useState(false)
   const navigate = useNavigate()
   const closeModal = () => {
     setShowModal(false)
@@ -128,6 +184,28 @@ export default function Cases({ apiBase }) {
   useEffect(() => { load() }, [isTech])
 
   useEffect(() => {
+    const next = user?.ui_preferences?.cases?.visible_columns
+    if (Array.isArray(next)) setVisibleColumns(next)
+  }, [user?.ui_preferences])
+
+  useEffect(() => {
+    if (isTech) {
+      setCaseTemplates([])
+      return
+    }
+    let alive = true
+    fetch(apiBase + '/case-templates', { credentials: 'include' })
+      .then(response => response.ok ? response.json() : [])
+      .then(rows => {
+        if (alive) setCaseTemplates(Array.isArray(rows) ? rows : [])
+      })
+      .catch(() => {
+        if (alive) setCaseTemplates([])
+      })
+    return () => { alive = false }
+  }, [apiBase, isTech])
+
+  useEffect(() => {
     let alive = true
     fetchSystemSettings(apiBase)
       .then(data => {
@@ -160,8 +238,34 @@ export default function Cases({ apiBase }) {
     if (isReadOnly) return
     setEditingId(null)
     const suggestion = caseNamingMode === 'legal_case_name' ? '' : await getSuggestedName()
-    setForm({ ...defaultCaseForm(defaultClosureNagDays), name: suggestion })
+    const defaultTemplate = caseTemplates.find(template => template.is_default) || null
+    setForm(formFromCaseTemplate(defaultTemplate, defaultClosureNagDays, { name: suggestion }))
     setShowModal(true)
+  }
+
+  const selectCaseTemplate = (templateId) => {
+    const template = caseTemplates.find(item => String(item.id) === String(templateId)) || null
+    setForm(current => formFromCaseTemplate(template, defaultClosureNagDays, current))
+  }
+
+  const toggleCaseColumn = async (key) => {
+    const previous = visibleColumns
+    const next = previous.includes(key)
+      ? previous.filter(item => item !== key)
+      : DEFAULT_CASE_COLUMNS.filter(item => item === key || previous.includes(item))
+    setVisibleColumns(next)
+    try {
+      const response = await fetch(apiBase + '/auth/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cases_visible_columns: next }),
+      })
+      if (!response.ok) throw new Error('Unable to save column preferences')
+    } catch {
+      setVisibleColumns(previous)
+      showToast('Unable to save Cases column preferences.', { variant: 'error' })
+    }
   }
 
   const updateLegalCaseName = (value) => {
@@ -198,6 +302,7 @@ export default function Cases({ apiBase }) {
       analyst_id: c.analyst_id ? String(c.analyst_id) : '',
       additional_requestors: extras,
       closure_nag_days: c.closure_nag_days ?? defaultClosureNagDays,
+      case_template_id: c.case_template_id ? String(c.case_template_id) : '',
       closed: !!c.closed,
       is_private: !!c.is_private,
     })
@@ -382,6 +487,7 @@ export default function Cases({ apiBase }) {
       description: form.description,
       start_date: form.start_date,
       closure_nag_days: Number.isFinite(closureDays) ? closureDays : undefined,
+      case_template_id: !editingId && form.case_template_id ? Number(form.case_template_id) : undefined,
     }
     const url = editingId ? `${apiBase}/cases/${editingId}` : `${apiBase}/cases`
     const method = editingId ? 'PUT' : 'POST'
@@ -411,28 +517,55 @@ export default function Cases({ apiBase }) {
   const toggleClosed = async (caseRecord) => {
     if (isReadOnly) return
     const closing = !caseRecord.closed
+    if (closing) {
+      const response = await fetch(`${apiBase}/cases/${caseRecord.id}/closure-readiness`, { credentials: 'include' })
+      if (!response.ok) {
+        showToast('Unable to check whether this case can be closed.', { variant: 'error' })
+        return
+      }
+      setClosureReadiness(await response.json())
+      setClosureTarget(caseRecord)
+      return
+    }
     const accepted = await confirmDialog({
-      title: closing ? 'Close case' : 'Reopen case',
-      description: closing
-        ? 'Close this case and move it to Inactive Cases? Its history will be retained.'
-        : 'Reopen this case and move it to Active Cases?',
-      confirmLabel: closing ? 'Close case' : 'Reopen case',
+      title: 'Reopen case',
+      description: 'Reopen this case and move it to Active Cases?',
+      confirmLabel: 'Reopen case',
     })
     if (!accepted) return
+    await updateClosedState(caseRecord, false)
+  }
 
+  const updateClosedState = async (caseRecord, closed) => {
     const response = await fetch(apiBase + '/cases/' + caseRecord.id, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ closed: closing }),
+      body: JSON.stringify({ closed }),
     })
     if (!response.ok) {
-      const message = await response.text().catch(() => '')
-      showToast((closing ? 'Close' : 'Reopen') + ' failed: ' + (message || 'Unknown error'), { variant: 'error' })
-      return
+      const detail = await response.json().catch(() => null)
+      const message = detail?.detail?.message || detail?.detail || 'Unknown error'
+      throw new Error(typeof message === 'string' ? message : 'Unable to update case status')
     }
-    showToast(closing ? 'Case closed.' : 'Case reopened.', { variant: 'success' })
+    showToast(closed ? 'Case closed.' : 'Case reopened.', { variant: 'success' })
     await load()
+  }
+
+  const confirmCloseCase = async () => {
+    if (!closureTarget || closureReadiness?.ready === false) return
+    setClosureBusy(true)
+    try {
+      await updateClosedState(closureTarget, true)
+      setClosureTarget(null)
+      setClosureReadiness(null)
+    } catch (error) {
+      showToast(`Close failed: ${error?.message || 'Unknown error'}`, { variant: 'error' })
+      const response = await fetch(`${apiBase}/cases/${closureTarget.id}/closure-readiness`, { credentials: 'include' }).catch(() => null)
+      if (response?.ok) setClosureReadiness(await response.json())
+    } finally {
+      setClosureBusy(false)
+    }
   }
 
   const remove = (caseRecord) => {
@@ -524,6 +657,7 @@ export default function Cases({ apiBase }) {
       c={c}
       stats={stats}
       showSecondaryCaseNameColumn={showSecondaryCaseNameColumn}
+      visibleColumns={visibleColumns}
       useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
       analystFirstName={analystFirstName}
       requestorDisplayName={(email) => displayNameFromEmail(email, usersByEmail)}
@@ -538,7 +672,39 @@ export default function Cases({ apiBase }) {
     <div>
       <div className="page-header">
         <h2>{casesPageTitle}</h2>
-        {!isReadOnly && <button className="btn" onClick={openNewCase}>New Case</button>}
+        <div className="cases-page-actions">
+          <details className="column-picker">
+            <summary className="btn secondary">
+              <Columns3 size={16} aria-hidden="true" />
+              Columns
+            </summary>
+            <div className="column-picker__menu">
+              <div className="column-picker__locked">Case Name and Actions are always shown.</div>
+              {DEFAULT_CASE_COLUMNS
+                .filter(key => key !== 'secondary_case_name' || showSecondaryCaseNameColumn)
+                .map(key => (
+                  <label key={key}>
+                    <input
+                      type="checkbox"
+                      checked={isColumnVisible(key)}
+                      onChange={() => toggleCaseColumn(key)}
+                    />
+                    <span>{({
+                      secondary_case_name: secondaryCaseNameLabel,
+                      matter_number: 'Matter Number',
+                      internal_counsel: internalCounselLabel,
+                      analyst: 'Analyst',
+                      requestor: 'Requestor',
+                      state: 'State',
+                      holds: 'Preservation',
+                      notes: 'Additional Notes / Comments',
+                    })[key]}</span>
+                  </label>
+                ))}
+            </div>
+          </details>
+          {!isReadOnly && <button className="btn" onClick={openNewCase}>New Case</button>}
+        </div>
       </div>
 
       {isRequestor && (
@@ -577,7 +743,8 @@ export default function Cases({ apiBase }) {
         resetCaseFilters={resetCaseFilters}
         caseFilters={caseFilters}
         setCaseFilters={setCaseFilters}
-        showSecondaryCaseNameColumn={showSecondaryCaseNameColumn}
+        showSecondaryCaseNameColumn={showSecondaryColumn}
+        visibleColumns={visibleColumns}
         primaryCaseNameLabel={primaryCaseNameLabel}
         secondaryCaseNameLabel={secondaryCaseNameLabel}
         internalCounselLabel={internalCounselLabel}
@@ -605,7 +772,8 @@ export default function Cases({ apiBase }) {
         resetCaseFilters={resetCaseFilters}
         caseFilters={caseFilters}
         setCaseFilters={setCaseFilters}
-        showSecondaryCaseNameColumn={showSecondaryCaseNameColumn}
+        showSecondaryCaseNameColumn={showSecondaryColumn}
+        visibleColumns={visibleColumns}
         primaryCaseNameLabel={primaryCaseNameLabel}
         secondaryCaseNameLabel={secondaryCaseNameLabel}
         internalCounselLabel={internalCounselLabel}
@@ -633,6 +801,9 @@ export default function Cases({ apiBase }) {
         onSubmit={submit}
         onLegalCaseNameChange={updateLegalCaseName}
         formatAnalystName={formatUserName}
+        caseTemplates={caseTemplates}
+        selectedTemplate={caseTemplates.find(item => String(item.id) === String(form.case_template_id)) || null}
+        onTemplateChange={selectCaseTemplate}
       />
 
       <CaseDeleteModal
@@ -643,6 +814,16 @@ export default function Cases({ apiBase }) {
         busy={deleteBusy}
         onClose={closeDeleteModal}
         onConfirm={confirmDelete}
+      />
+      <CaseClosureModal
+        target={closureTarget}
+        readiness={closureReadiness}
+        busy={closureBusy}
+        onClose={() => {
+          setClosureTarget(null)
+          setClosureReadiness(null)
+        }}
+        onConfirm={confirmCloseCase}
       />
       <RequestorGroupInviteModal
         inviteGroupModal={inviteGroupModal}

@@ -61,7 +61,7 @@ export function useCaseDetailNtpWorkflow({
       const data = await res.json()
       const holds = (Array.isArray(data?.holds) ? data.holds : []).filter(hold => hold?.status === 'active')
       setNtpHolds(holds)
-      setNtpHoldId(current => holds.some(hold => Number(hold.id) === Number(current)) ? current : (holds[0]?.id || null))
+      setNtpHoldId(current => holds.some(hold => Number(hold.id) === Number(current)) ? current : null)
       return holds
     } catch (err) {
       setNtpHolds([])
@@ -120,7 +120,7 @@ export function useCaseDetailNtpWorkflow({
     }
   }, [apiBase, caseId, isTech, ntpHoldId])
 
-  const ntpButtonDisabled = ntpTemplatesLoading || ntpHoldsLoading || !ntpTemplates.length || ntpCustodians.length === 0
+  const ntpButtonDisabled = ntpTemplatesLoading || ntpHoldsLoading || !ntpTemplates.length
 
   const isNtpBlockedCustodian = useCallback(isNtpBlockedCustodianRecord, [])
 
@@ -198,13 +198,8 @@ export function useCaseDetailNtpWorkflow({
       showToast(message, { variant: 'warn' })
       return
     }
-    if (!selectedNtpHold) {
-      showToast('Create an active hold and assign custodians before sending an NTP.', { variant: 'warn' })
-      return
-    }
-    const eligible = ntpCustodians.filter(c => isNtpEmailEligible(c))
-    if (!eligible.length) {
-      showToast('No eligible custodians with valid email addresses available for NTP.', { variant: 'warn' })
+    if (!ntpHolds.length) {
+      showToast('Create an active Hold and assign custodians before sending an NTP.', { variant: 'warn' })
       return
     }
     const defaultTemplateId = ntpTemplates.find(t => t.is_default)?.id || ntpTemplates[0]?.id || null
@@ -225,7 +220,7 @@ export function useCaseDetailNtpWorkflow({
     })
     setNtpPreview({ loading: false, error: null, data: null })
     setShowSendNtpModal(true)
-  }, [caseData, isNtpEmailEligible, isRequestor, lastNtpSend?.data, ntpCustodians, ntpTemplates, rememberedNtpReason, selectedNtpHold, showToast])
+  }, [caseData, isRequestor, lastNtpSend?.data, ntpHolds.length, ntpTemplates, rememberedNtpReason, showToast])
 
   const closeSendNtp = useCallback(() => {
     setShowSendNtpModal(false)
@@ -285,6 +280,10 @@ export function useCaseDetailNtpWorkflow({
   const buildNtpPayloadVariables = useCallback(() => buildNtpPayloadVariablesFromForm(ntpVariables), [ntpVariables])
 
   const previewNtpNotice = useCallback(async () => {
+    if (!ntpHoldId) {
+      showToast('Select the Hold for this NTP.', { variant: 'warn' })
+      return
+    }
     if (!selectedTemplateId) {
       showToast('Select a template.', { variant: 'warn' })
       return
@@ -358,7 +357,7 @@ export function useCaseDetailNtpWorkflow({
       closeSendNtp()
     } catch (err) {
       const msg = String(err?.message || 'Failed to send notices.')
-      if (msg.toLowerCase().includes('separated or listed as na for ntps')) {
+      if (msg.toLowerCase().includes('separated or listed as na for ntps') || msg.toLowerCase().includes('listed as silent for ntps')) {
         setNtpBlockedModal({ open: true, custodian: null })
       } else {
         showToast(msg, { variant: 'error' })

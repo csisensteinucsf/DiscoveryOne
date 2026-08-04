@@ -77,7 +77,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Read the case header first: case name, legal case, claimant, analyst, requestor list, and created date.',
       'Use Back to Cases to preserve your filter context while navigating.',
       'Requestor action buttons at top: NTPs opens notice send workflow, Case Summary opens summary view, Request Case Closure opens closure request modal.',
-      'Use Custodians tab to review per-custodian holds, NTP status, consent status, and search-derived progress badges.',
+      'Use Custodians tab to review per-custodian preservation, NTP status, consent status, and search-derived progress badges.',
       'If custodians are missing, use Request to add custodians button from Custodians tab to open the correct request modal.',
       'Use Searches tab to review search names, assigned custodians, and Search/Export/Delivery states. Requestor sees read-only search controls.',
       'Use Tickets tab to review ticket mapping. Requestor view hides sensitive ticket identifiers and blocks direct ticket edits.',
@@ -102,7 +102,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Open Requests.',
       'Use New Case Request to start a net-new intake.',
       'Review Pending first to monitor work still awaiting analyst review.',
-      'Open each card and read every section: case context, custodians, holds, searches, attachments, and decline reason if present.',
+      'Open each card and read every section: case context, custodians, preservation, searches, attachments, and decline reason if present.',
       'For Declined cards, copy valid data into a new request and correct only the rejected components.',
       'Use Approved cards for verification of what was accepted and executed.',
       'Download any attached custodian list or consent file from the card when auditing submitted inputs.',
@@ -118,7 +118,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     title: 'New Case Request (Step-by-Step, Extremely Detailed)',
     paragraphs: [
       'This workflow creates intake for a new matter. Accuracy here drives downstream preservation quality and approval speed.',
-      'The wizard collects case details, custodian identity and hold intent, optional NTP/consent indicators, and optional search requests.',
+      'The wizard collects case details, custodian identity and preservation intent, optional NTP/consent indicators, and optional search requests.',
     ],
     steps: [
       'Open Requests and click New Case Request.',
@@ -130,7 +130,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'If using upload mode, provide CSV/TSV/TXT/XLSX within file size limits and wait for parsing completion.',
       'Move to Step 2 and review lookup results carefully. Resolve multiple matches by selecting the correct person record.',
       'If lookup is incorrect or unavailable, use Override lookup and manually lock final name/email plus rationale.',
-      'For each custodian, open preservation options and explicitly select only required holds (Email, OneDrive, Box, Slack as available).',
+      'For each custodian, open preservation options and explicitly select only required sources (Email, OneDrive, Box, Slack as available).',
       'Mark NTP already sent only when notice has already gone out and status is known.',
       'Mark Consent already received only when valid proof exists; attach proof file per custodian when required.',
       'Use Apply to all controls only when custodians share identical scope. Recheck edge cases afterward.',
@@ -147,7 +147,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     id: 'custodian-update-request',
     title: 'Custodian Update Request',
     paragraphs: [
-      'Use this when an existing case needs person-level scope changes (additions, removals, or hold updates).',
+      'Use this when an existing case needs person-level scope changes (additions, removals, or preservation updates).',
       'Write the request as delta instructions: what changes, what stays unchanged, and why.',
     ],
     steps: [
@@ -155,7 +155,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Confirm target case before entering custodian rows.',
       'Add new custodians with complete name and email data.',
       'For removals, identify custodians precisely and include reason/context in notes.',
-      'Select hold changes per custodian. Do not assume prior hold state without checking current status.',
+      'Select preservation changes per custodian. Do not assume prior preservation state without checking current status.',
       'If NTP/consent indicators are part of update context, set them deliberately and include proof artifacts when relevant.',
       'Validate final roster and submit.',
       'Track the new card under Pending, then verify actual case changes after approval.',
@@ -379,7 +379,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     ],
     checks: [
       'Do not send until template and recipient set are verified.',
-      'Some custodians may be blocked from NTP selection (for example separated or marked NTP NA).',
+      'Some custodians may be blocked from NTP selection (for example separated or marked Silent).',
     ],
   },
   {
@@ -575,13 +575,13 @@ export const TECH_HELP_SECTIONS = [
   },
   {
     id: 'tech-custodians',
-    title: 'Tech Custodians Tab: Hold Update Controls',
+    title: 'Tech Custodians Tab: Preservation Update Controls',
     paragraphs: [
-      'In tech mode, custodians tab supports hold updates tied to your allowed category mapping.',
+      'In tech mode, custodians tab supports preservation updates tied to your allowed category mapping.',
     ],
     controls: [
-      'Set all to completed: bulk update for visible hold set.',
-      'Apply: save pending hold changes.',
+      'Set all to completed: bulk update for the visible preservation set.',
+      'Apply: save pending preservation changes.',
       'Sort/filter controls: isolate target custodians quickly.',
     ],
     steps: [

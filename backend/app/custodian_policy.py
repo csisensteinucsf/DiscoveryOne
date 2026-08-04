@@ -30,13 +30,13 @@ def _custodian_matches_claimant(*, claimant: str | None, name: str | None, email
         return True
     return False
 
-NTP_NOT_REQUIRED_REASON_DEFAULT = "ntp not required"
+NTP_NOT_REQUIRED_REASON_DEFAULT = "NTP marked silent"
 NTP_NOT_REQUIRED_REASON_SEPARATED = "separated"
 NTP_NOT_REQUIRED_REASON_CLAIMANT = "claimant"
 NTP_NOT_REQUIRED_REASON_NON_ORG = "non-organization email"
-CONSENT_NOT_REQUIRED_REASON_DEFAULT = "consent not required"
-CONSENT_NOT_REQUIRED_REASON_SEPARATED = "separated, consent not required"
-CONSENT_NOT_REQUIRED_REASON_CLAIMANT = "claimant, consent inherently provided"
+CONSENT_NOT_REQUIRED_REASON_DEFAULT = "consent is implied"
+CONSENT_NOT_REQUIRED_REASON_SEPARATED = "separated, consent is implied"
+CONSENT_NOT_REQUIRED_REASON_CLAIMANT = "claimant, consent is implied"
 
 
 def _normalize_optional_text(value: Any) -> Optional[str]:
@@ -64,7 +64,7 @@ def _apply_ntp_not_required_defaults(case: models.Case, custodian: models.Custod
     ntp_status = (getattr(custodian, "ntp_status", None) or "").strip().lower()
     manual_reason = _normalize_optional_text(getattr(custodian, "ntp_not_required_reason", None))
     auto_reason = _ntp_not_required_auto_reason(case, custodian)
-    if ntp_status == "na":
+    if ntp_status in {"silent", "na"}:
         custodian.ntp_not_required_reason = manual_reason or auto_reason or NTP_NOT_REQUIRED_REASON_DEFAULT
     else:
         custodian.ntp_not_required_reason = None
@@ -86,13 +86,13 @@ def _consent_not_required_auto_reason(case: models.Case, custodian: models.Custo
 def _apply_consent_not_required_defaults(case: models.Case, custodian: models.Custodian) -> None:
     auto_reason = _consent_not_required_auto_reason(case, custodian)
     if auto_reason:
-        custodian.consent_status = "na"
+        custodian.consent_status = "implied"
         custodian.consent_not_required_reason = auto_reason
         return
 
     consent_status = (getattr(custodian, "consent_status", None) or "").strip().lower()
     manual_reason = _normalize_optional_text(getattr(custodian, "consent_not_required_reason", None))
-    if consent_status == "na":
+    if consent_status in {"implied", "na"}:
         custodian.consent_not_required_reason = manual_reason or CONSENT_NOT_REQUIRED_REASON_DEFAULT
     else:
         custodian.consent_not_required_reason = None

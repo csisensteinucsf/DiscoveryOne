@@ -10,37 +10,31 @@ export function useCaseDetailNoteCounts({
   setCaseData,
   isTech,
   isRequestor,
-  isSysAdmin,
   setProofRows,
   updateProofCountsOnCase,
 }) {
   const [noteCount, setNoteCount] = useState(() => Number(cachedCase?.notes_internal_count || 0))
   const [requestorNoteCount, setRequestorNoteCount] = useState(() => Number(cachedCase?.notes_requestor_count || 0))
-  const [activeNoteCount, setActiveNoteCount] = useState(0)
 
   useEffect(() => {
     if (!caseId) return undefined
     if (isTech) {
       setNoteCount(0)
       setRequestorNoteCount(0)
-      setActiveNoteCount(0)
       return undefined
     }
     let cancelled = false
     ;(async () => {
       try {
-        const [internalRows, requestorRows, activeRows] = await Promise.all([
+        const [internalRows, requestorRows] = await Promise.all([
           isRequestor ? Promise.resolve([]) : tryFetchJSON(`${apiBase}/cases/${caseId}/notes`),
           tryFetchJSON(`${apiBase}/cases/${caseId}/requestor_notes`),
-          (!isRequestor && isSysAdmin) ? tryFetchJSON(`${apiBase}/cases/${caseId}/active_notes`) : Promise.resolve([]),
         ])
         if (cancelled) return
         const nextInternal = Array.isArray(internalRows) ? internalRows.length : 0
         const nextRequestor = Array.isArray(requestorRows) ? requestorRows.length : 0
-        const nextActive = Array.isArray(activeRows) ? activeRows.length : 0
         setNoteCount(Math.max(0, nextInternal))
         setRequestorNoteCount(Math.max(0, nextRequestor))
-        setActiveNoteCount(Math.max(0, nextActive))
         setCaseData(prev => {
           if (!prev) return prev
           const updated = {
@@ -60,7 +54,7 @@ export function useCaseDetailNoteCounts({
       }
     })()
     return () => { cancelled = true }
-  }, [apiBase, caseId, isTech, isRequestor, isSysAdmin, setCaseData])
+  }, [apiBase, caseId, isTech, isRequestor, setCaseData])
 
   useEffect(() => {
     if (isTech || !caseId) return undefined
@@ -92,7 +86,5 @@ export function useCaseDetailNoteCounts({
     setNoteCount,
     requestorNoteCount,
     setRequestorNoteCount,
-    activeNoteCount,
-    setActiveNoteCount,
   }
 }

@@ -493,7 +493,7 @@ export default function CaseRequestModal({
       try { created = await res.json() } catch { created = null }
       if (isRequestor && isCustodian && caseContext?.id && (created?.status || '').toLowerCase() === 'approved') {
         showToast(
-          'New custodian request is auto approved. Please allow 5-10 minutes for the system to place requested preservation holds. Case/custodian/hold status may change once complete.',
+          'New custodian request is auto approved. Please allow 5-10 minutes for the system to apply the requested preservation. Case and custodian preservation status may change once complete.',
           { variant: 'info', duration: 12000 }
         )
       }

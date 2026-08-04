@@ -15,8 +15,16 @@ export function CaseEditorModal({
   onSubmit,
   onLegalCaseNameChange,
   formatAnalystName,
+  caseTemplates = [],
+  selectedTemplate = null,
+  onTemplateChange,
 }) {
   if (!open) return null
+  const rules = selectedTemplate?.field_rules || {}
+  const fieldRule = (name) => rules[name] || { visible: true, required: false }
+  const showField = (name) => editingId || fieldRule(name).visible !== false
+  const fieldRequired = (name) => !editingId && !!fieldRule(name).required
+  const fieldSuffix = (name) => fieldRequired(name) ? ' (required)' : ' (optional)'
   return (
     <Modal
       open={open}
@@ -31,15 +39,33 @@ export function CaseEditorModal({
       )}
     >
       <form id="case-modal-form" onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {useLegalCaseNameAsPrimary ? (
+        {!editingId && (
           <label>
+            New Case Template
+            <select
+              className="input"
+              value={form.case_template_id || ''}
+              onChange={event => onTemplateChange?.(event.target.value)}
+            >
+              <option value="">Standard case</option>
+              {caseTemplates.map(template => (
+                <option key={template.id} value={template.id}>{template.name}</option>
+              ))}
+            </select>
+            <small style={{ color: 'var(--muted,#6b7280)' }}>
+              {selectedTemplate?.description || 'Templates apply organization-approved defaults and control which fields are shown or required.'}
+            </small>
+          </label>
+        )}
+        {useLegalCaseNameAsPrimary ? (
+          showField('legal_case_name') && <label>
             Case Name
             <input
               className="input"
               name="case_name"
               value={form.legal_case_name || form.name}
               onChange={e => onLegalCaseNameChange(e.target.value)}
-              required
+              required={fieldRequired('legal_case_name') || !selectedTemplate}
             />
           </label>
         ) : (
@@ -59,14 +85,14 @@ export function CaseEditorModal({
               )}
             </label>
 
-            <label>
+            {showField('legal_case_name') && <label>
               {secondaryCaseNameLabel}
-              <input className="input" value={form.legal_case_name} onChange={e => onLegalCaseNameChange(e.target.value)} />
-            </label>
+              <input className="input" value={form.legal_case_name} onChange={e => onLegalCaseNameChange(e.target.value)} required={fieldRequired('legal_case_name')} />
+            </label>}
           </>
         )}
 
-        <label
+        {showField('is_private') && <label
           style={{
             display: 'flex',
             gap: 10,
@@ -89,51 +115,55 @@ export function CaseEditorModal({
               Only requestors on this case, admins, and analysts can see it.
             </small>
           </span>
-        </label>
+        </label>}
 
         <div className="form-grid">
-          <label>
-            Matter or Claim Number (optional)
+          {showField('matter_number') && <label>
+            Matter or Claim Number{fieldSuffix('matter_number')}
             <input
               className="input"
               value={form.matter_number}
               onChange={e => setForm(f => ({ ...f, matter_number: e.target.value }))}
+              required={fieldRequired('matter_number')}
             />
-          </label>
-          <label>
-            Start Date (optional)
+          </label>}
+          {showField('start_date') && <label>
+            Start Date{fieldSuffix('start_date')}
             <input
               className="input"
               type="date"
               value={form.start_date || ''}
               onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
+              required={fieldRequired('start_date')}
             />
-          </label>
-          <label>
-            {internalCounselLabel} (optional)
+          </label>}
+          {showField('internal_counsel') && <label>
+            {internalCounselLabel}{fieldSuffix('internal_counsel')}
             <input
               className="input"
               value={form.internal_counsel}
               onChange={e => setForm(f => ({ ...f, internal_counsel: e.target.value }))}
+              required={fieldRequired('internal_counsel')}
             />
-          </label>
-          <label>
-            Outside Counsel (optional)
+          </label>}
+          {showField('outside_counsel') && <label>
+            Outside Counsel{fieldSuffix('outside_counsel')}
             <input
               className="input"
               value={form.outside_counsel}
               onChange={e => setForm(f => ({ ...f, outside_counsel: e.target.value }))}
+              required={fieldRequired('outside_counsel')}
             />
-          </label>
+          </label>}
         </div>
 
-        <label>
-          Claimant (optional)
-          <input className="input" value={form.claimant} onChange={e => setForm(f => ({ ...f, claimant: e.target.value }))} />
-        </label>
+        {showField('claimant') && <label>
+          Claimant{fieldSuffix('claimant')}
+          <input className="input" value={form.claimant} onChange={e => setForm(f => ({ ...f, claimant: e.target.value }))} required={fieldRequired('claimant')} />
+        </label>}
 
-        <label>
-          Requestor Email (optional)
+        {showField('requestor') && <label>
+          Requestor Email{fieldSuffix('requestor')}
           <input
             className="input"
             type="email"
@@ -142,47 +172,50 @@ export function CaseEditorModal({
             list="requestor-options"
             value={form.requestor}
             onChange={e => setForm(f => ({ ...f, requestor: e.target.value }))}
+            required={fieldRequired('requestor')}
           />
           <datalist id="requestor-options">
             {requestorOptions.map(r => <option key={r} value={r} />)}
           </datalist>
-        </label>
+        </label>}
 
-        <label>
-          Additional Requestors (comma separated)
+        {showField('requestors') && <label>
+          Additional Requestors (comma separated){fieldSuffix('requestors')}
           <input
             className="input"
             type="text"
             placeholder="secondary1@example.com, secondary2@example.com"
             value={form.additional_requestors}
             onChange={e => setForm(f => ({ ...f, additional_requestors: e.target.value }))}
+            required={fieldRequired('requestors')}
           />
           <small style={{ color: 'var(--muted,#6b7280)' }}>
             First requestor listed above is the primary (notifications).<br />
             Others get case access as secondary.
           </small>
-        </label>
+        </label>}
 
-        <label>
-          Analyst
-          <select className="input" value={form.analyst_id} onChange={e => setForm(f => ({ ...f, analyst_id: e.target.value }))}>
+        {showField('analyst_id') && <label>
+          Analyst{fieldSuffix('analyst_id')}
+          <select className="input" value={form.analyst_id} onChange={e => setForm(f => ({ ...f, analyst_id: e.target.value }))} required={fieldRequired('analyst_id')}>
             <option value="">-- Select analyst --</option>
             {analysts.map(a => <option key={a.id} value={a.id}>{formatAnalystName(a)}</option>)}
           </select>
-        </label>
-        <label>
-          Additional Notes / Comments
+        </label>}
+        {showField('description') && <label>
+          Additional Notes / Comments{fieldSuffix('description')}
           <textarea
             className="input"
             rows={4}
             value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
             placeholder="Context that should be visible from the Active Cases dashboard."
+            required={fieldRequired('description')}
           />
-        </label>
+        </label>}
 
-        <label>
-          When to send case closure reminders to requestor (days)
+        {showField('closure_nag_days') && <label>
+          Send case status notification to requestor every (days){fieldSuffix('closure_nag_days')}
           <input
             className="input"
             type="number"
@@ -190,14 +223,66 @@ export function CaseEditorModal({
             step={1}
             placeholder="180"
             value={form.closure_nag_days ?? ''}
+            required={fieldRequired('closure_nag_days')}
             onChange={e => {
               const val = e.target.value
               const num = Number(val)
               setForm(f => ({ ...f, closure_nag_days: val === '' ? '' : num }))
             }}
           />
-        </label>
+        </label>}
       </form>
+    </Modal>
+  )
+}
+
+export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm }) {
+  if (!target) return null
+  const activeHolds = readiness?.active_holds || []
+  const preservationBlockers = readiness?.preservation_blockers || []
+  const blocked = readiness && readiness.ready === false
+
+  return (
+    <Modal
+      open
+      title="Close Case"
+      onClose={busy ? undefined : onClose}
+      width={blocked ? 620 : 500}
+      footer={(
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>Cancel</button>
+          <button type="button" className="btn" onClick={onConfirm} disabled={busy || blocked}>
+            {busy ? 'Closing' : 'Close Case'}
+          </button>
+        </div>
+      )}
+    >
+      {blocked ? (
+        <div className="alert warning">
+          <strong>This case cannot be closed yet.</strong>
+          <p>Close every active Hold and release every active preservation item first. This gate preserves an accurate record and prevents sources from being left on hold after the case is inactive.</p>
+          {activeHolds.length > 0 && (
+            <>
+              <h4>Active Holds</h4>
+              <ul>{activeHolds.map(hold => <li key={hold.hold_id}>{hold.hold_name} ({hold.custodian_count} custodians)</li>)}</ul>
+            </>
+          )}
+          {preservationBlockers.length > 0 && (
+            <>
+              <h4>Preservation items to release</h4>
+              <ul>
+                {preservationBlockers.map((item, index) => (
+                  <li key={`${item.hold_id || 'matter'}-${item.custodian_id}-${item.source_key}-${index}`}>
+                    {item.hold_name ? `${item.hold_name}: ` : ''}{item.custodian_name} - {item.source_label} ({item.status})
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </div>
+      ) : (
+        <p>Close <strong>{target.legal_case_name || target.name}</strong> and move it to Inactive Cases? Its full history will be retained.</p>
+      )}
     </Modal>
   )
 }

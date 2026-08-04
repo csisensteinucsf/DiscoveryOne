@@ -55,6 +55,19 @@ export function CaseDetailAddDocModal({
             ))}
           </Select>
         </Field>
+        <Field
+          label="Consent document type"
+          hint="Choose AWOC only for an Access Without Consent form. Both document types satisfy the same required consent-document gate."
+        >
+          <Select
+            value={docForm.proofType || 'standard'}
+            onChange={(event) => handleDocFieldChange('proofType', event.target.value)}
+            disabled={docUploading}
+          >
+            <option value="standard">Standard consent</option>
+            <option value="awoc">AWOC (Access Without Consent)</option>
+          </Select>
+        </Field>
         <Field label="Custodian name">
           <TextInput
             value={docForm.custodianName}
@@ -72,7 +85,7 @@ export function CaseDetailAddDocModal({
             disabled
           />
         </Field>
-        <Field label="Consent document" hint="Accepted file types: PDF, MSG, or EML (5 MB max).">
+        <Field label="Consent document" hint="Accepted file types: PDF, MSG, or EML (5 MB max). Uploading an AWOC form records the consent status as AWOC.">
           <input
             type="file"
             accept=".pdf,.msg,.eml"

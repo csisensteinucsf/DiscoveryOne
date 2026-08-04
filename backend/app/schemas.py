@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 # ---------------- Users ----------------
 
 UserRole = Literal["sys_admin", "analyst", "requestor", "tech", "tester"]
+NTPStatus = Literal["not sent", "sent", "acknowledged", "silent"]
+ConsentStatus = Literal["not sent", "sent", "received", "implied", "awoc"]
 
 class UserBase(BaseModel):
     username: str
@@ -113,9 +115,9 @@ class CustodianBase(BaseModel):
     holds_rubrik_restore_released: bool = False
     custom_preservation: List[CustodianCustomPreservation] = Field(default_factory=list)
 
-    ntp_status: Literal["not sent", "sent", "acknowledged", "na"] = "not sent"
+    ntp_status: NTPStatus = "not sent"
     ntp_not_required_reason: Optional[str] = None
-    consent_status: Literal["not sent", "sent", "received", "na"] = "not sent"
+    consent_status: ConsentStatus = "not sent"
     consent_not_required_reason: Optional[str] = None
 
     search_done: bool = False
@@ -135,7 +137,7 @@ class CustodianBase(BaseModel):
     person_lookup_last_at: Optional[datetime] = None
 
 class CustodianCreate(CustodianBase):
-    pass
+    hold_ids: list[int] = Field(default_factory=list)
 
 class CustodianBulkCreateRequest(BaseModel):
     custodians: list[CustodianCreate]
@@ -188,9 +190,9 @@ class CustodianUpdate(BaseModel):
     holds_rubrik_restore_released: Optional[bool] = None
     custom_preservation: Optional[List[CustodianCustomPreservation]] = None
 
-    ntp_status: Optional[Literal["not sent", "sent", "acknowledged", "na"]] = None
+    ntp_status: Optional[NTPStatus] = None
     ntp_not_required_reason: Optional[str] = None
-    consent_status: Optional[Literal["not sent", "sent", "received", "na"]] = None
+    consent_status: Optional[ConsentStatus] = None
     consent_not_required_reason: Optional[str] = None
 
     search_done: Optional[bool] = None
@@ -404,16 +406,15 @@ class CaseBase(BaseModel):
     box_hold_ticket: Optional[str] = None
     request_ticket_entries: Optional[List[CaseRequestTicketEntry]] = None
     is_active_case: bool = False
-    # If your SQLAlchemy model uses String, keep this as Optional[str]
-    # If you switched the model to Date, change to Optional[date]
-    start_date: Optional[str] = None
+    start_date: Optional[date] = None
     closure_nag_days: Optional[int] = Field(default=None, ge=1, le=3650, description="Days between closure reminders")
 
 class CaseCreate(CaseBase):
-    pass
+    case_template_id: Optional[int] = Field(default=None, ge=1)
 
 class CaseRead(CaseBase):
     id: int
+    case_template_id: Optional[int] = None
     analyst_name: Optional[str] = None
     servicenow_inc_link: Optional[str] = None
     created_at: Optional[datetime] = None
@@ -426,6 +427,41 @@ class CaseRead(CaseBase):
     consent_envelope_count: int = 0
     consent_proof_count: int = 0
     model_config = ConfigDict(from_attributes=True)
+
+
+class CaseTemplateFieldRule(BaseModel):
+    visible: bool = True
+    required: bool = False
+
+
+class CaseTemplateBase(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    enabled: bool = True
+    is_default: bool = False
+    sort_order: int = Field(default=100, ge=0, le=100000)
+    defaults: Dict[str, Any] = Field(default_factory=dict)
+    field_rules: Dict[str, CaseTemplateFieldRule] = Field(default_factory=dict)
+
+
+class CaseTemplateCreate(CaseTemplateBase):
+    pass
+
+
+class CaseTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=1, max_length=255)
+    description: Optional[str] = Field(default=None, max_length=2000)
+    enabled: Optional[bool] = None
+    is_default: Optional[bool] = None
+    sort_order: Optional[int] = Field(default=None, ge=0, le=100000)
+    defaults: Optional[Dict[str, Any]] = None
+    field_rules: Optional[Dict[str, CaseTemplateFieldRule]] = None
+
+
+class CaseTemplateRead(CaseTemplateBase):
+    id: int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 class CaseUpdate(BaseModel):
     # All fields optional for partial updates (used by PUT)
@@ -442,7 +478,6 @@ class CaseUpdate(BaseModel):
     requestors: Optional[List[CaseRequestorEntry]] = None
     analyst_id: Optional[int] = None
     closed: Optional[bool] = None
-    close_active_holds: bool = False
     is_private: Optional[bool] = None
     color: Optional[str] = None
     description: Optional[str] = None
@@ -515,5 +550,3 @@ class LogoOut(BaseModel):
 class SuggestNameResponse(BaseModel):
     name: str
     model_config = ConfigDict(extra='ignore')
-
-

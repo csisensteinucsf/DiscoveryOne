@@ -110,10 +110,10 @@ function writeNtpOutsideCounselHistory(history) {
     // ignore storage errors
   }
 }
-const NTP_NOT_REQUIRED_DEFAULT_REASON = 'ntp not required'
+const NTP_NOT_REQUIRED_DEFAULT_REASON = 'silent NTP workflow'
 const NTP_NOT_REQUIRED_NON_ORG_REASON = 'non-organization email'
-const CONSENT_NOT_REQUIRED_DEFAULT_REASON = 'consent not required'
-const CONSENT_NOT_REQUIRED_SEPARATED_REASON = 'separated, consent not required'
+const CONSENT_NOT_REQUIRED_DEFAULT_REASON = 'implied consent'
+const CONSENT_NOT_REQUIRED_SEPARATED_REASON = 'separated, consent is implied'
 const CONSENT_NOT_REQUIRED_CLAIMANT_REASON = 'claimant, consent inherently provided'
 const blankAccessLogTimeWindow = () => ({ id: uuid(), date: '', start_time: '', end_time: '' })
 const isMissingOrUnmatchedEmail = (email) => {

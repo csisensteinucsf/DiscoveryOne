@@ -1,6 +1,7 @@
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i
 export const isValidEmail = (value) => EMAIL_REGEX.test((value || '').trim())
 export const defaultCaseForm = (closureNagDays = 180) => ({
+  case_template_id: '',
   name: '',
   legal_case_name: '',
   servicenow_inc_number: '',
@@ -79,5 +80,4 @@ export const displayNameFromEmail = (email, lookup) => {
   const derived = nameFromEmail(key)
   return derived || ''
 }
-
 

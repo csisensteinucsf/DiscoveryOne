@@ -344,11 +344,11 @@ def _knowledge_corpus() -> list[dict[str, str]]:
         },
         {
             "id": "playbook-consent",
-            "title": "Consent and N/A Rules",
+            "title": "Consent Completion Rules",
             "text": (
-                "Custodians marked consent N/A must remain excluded from consent send actions. "
-                "Consent statuses include not sent, sent, received, and not required. "
-                "If consent is not required, the reason should be shown and no send action should be taken."
+                "Custodians with Implied consent must remain excluded from consent send actions and must retain the recorded reason. "
+                "Consent statuses include not sent, sent, received, implied, and AWOC. "
+                "AWOC means Access Without Consent and requires an uploaded AWOC document; implied consent should show its reason."
             ),
         },
         {

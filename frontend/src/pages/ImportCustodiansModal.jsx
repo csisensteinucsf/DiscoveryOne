@@ -174,10 +174,9 @@ export function ImportCustodiansModal({
     }
     return { ok: issues.length === 0, issues }
   }, [nonEmptyRows, personLookupEnabled, rows, lookupResults, normalizeRows])
-  const holdSelectionValid = selectedHoldIds.length > 0
-  const canImport = holdSelectionValid && (personLookupEnabled
+  const canImport = personLookupEnabled
     ? !!rows.length && lookupHasRun && !lookupBusy && !progress?.working && validation.ok
-    : !!nonEmptyRows.length && !progress?.working && validation.ok)
+    : !!nonEmptyRows.length && !progress?.working && validation.ok
   return (
     <Modal
       open
@@ -196,7 +195,7 @@ export function ImportCustodiansModal({
               person_lookup_overridden: true,
               ...emptyPersonLookupFields(),
             }
-          }))} disabled={!canImport} title={!holdSelectionValid ? 'Select at least one active hold' : (!canImport ? (validation.issues[0] || (personLookupEnabled ? 'Run person lookup first' : 'Enter names and valid email addresses')) : '')}>
+          }))} disabled={!canImport} title={!canImport ? (validation.issues[0] || (personLookupEnabled ? 'Run person lookup first' : 'Enter names and valid email addresses')) : ''}>
             {progress?.working ? 'Importing...' : `Import ${rows.length ? `(${rows.length})` : ''}`}
           </Button>
         </div>
@@ -392,5 +391,4 @@ export function ImportCustodiansModal({
     </Modal>
   )
 }
-
 

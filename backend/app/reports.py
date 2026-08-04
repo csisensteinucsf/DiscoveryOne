@@ -268,7 +268,7 @@ def _custodian_gaps_items(db: Session, case_ids: Optional[set]):
         )
         consent_not_received = sum(
             1 for membership in memberships
-            if (membership.consent_status or "").lower() not in {"received", "na"}
+            if (membership.consent_status or "").lower() not in {"received", "implied", "awoc", "na"}
         )
         items.append({
             "case": c.name,
@@ -348,7 +348,8 @@ def _consents_by_case_items(db: Session, case_ids: Optional[set]):
             "not_sent": _status_count(statuses, "not sent"),
             "sent": _status_count(statuses, "sent"),
             "received": _status_count(statuses, "received"),
-            "not_required": _status_count(statuses, "na"),
+            "implied": _status_count(statuses, "implied") + _status_count(statuses, "na"),
+            "awoc": _status_count(statuses, "awoc"),
         })
     return items
 
@@ -366,7 +367,7 @@ def rpt_consents_export(
     actor = Depends(get_current_user),
 ):
     items = _consents_by_case_items(db, _visible_case_ids(db, actor))
-    return _csv_response(items, ["case_name", "holds", "custodian_hold_links", "not_sent", "sent", "received", "not_required"], "consents_by_case.csv")
+    return _csv_response(items, ["case_name", "holds", "custodian_hold_links", "not_sent", "sent", "received", "implied", "awoc"], "consents_by_case.csv")
 
 
 @router.get("/reports/case_timeline")
@@ -816,5 +817,4 @@ def rpt_custodian_export(
         *hold_headers,
     ]
     return _csv_response(flat, headers, "custodian_report.csv")
-
 

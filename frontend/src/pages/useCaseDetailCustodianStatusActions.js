@@ -5,6 +5,7 @@ import {
   customPreservationPatch,
   isCustomHoldKey,
 } from './caseDetailUtils.js'
+import { normalizeConsentStatus, normalizeNtpStatus } from './custodianStatusCatalog.js'
 
 export function useCaseDetailCustodianStatusActions({
   caseData,
@@ -26,13 +27,13 @@ export function useCaseDetailCustodianStatusActions({
   ntpAutoNaReason,
   showToast,
 }) {
-  const promptNaReason = (label, currentReason, fallbackReason) => {
+  const promptStatusReason = (prompt, currentReason, fallbackReason) => {
     const seeded = String(currentReason || fallbackReason || '').trim()
-    const answer = window.prompt(`What is the reason for the ${label} NA?`, seeded)
+    const answer = window.prompt(prompt, seeded)
     if (answer === null) return null
     const trimmed = answer.trim()
     if (!trimmed) {
-      showToast(`A reason is required when marking ${label} as NA.`, { variant: 'warn' })
+      showToast('A reason is required for this status.', { variant: 'warn' })
       return ''
     }
     return trimmed
@@ -62,24 +63,24 @@ export function useCaseDetailCustodianStatusActions({
       updateCustodianLocal(c.id, saved)
     } catch (e) {
       updateCustodianLocal(c.id, revertPatch)
-      showToast(e?.message || 'Failed to update hold.', { variant: 'error' })
+      showToast(e?.message || 'Failed to update preservation.', { variant: 'error' })
     }
   }
 
   async function onChangeNtp(c, value) {
     if (isTech) return
-    const v = value || 'not sent'
-    if (!isRequestor && bulk.ntp) return applyToAll('ntp_status', v)
+    const v = normalizeNtpStatus(value)
     const beforeStatus = c.ntp_status || 'not sent'
     const beforeReason = c.ntp_not_required_reason || null
     const patch = { ntp_status: v }
-    if (String(v).trim().toLowerCase() === 'na') {
-      const reason = promptNaReason('NTP', beforeReason, ntpAutoNaReason(c) || NTP_NOT_REQUIRED_DEFAULT_REASON)
+    if (v === 'silent') {
+      const reason = promptStatusReason('Why should this custodian be Silent for NTP?', beforeReason, ntpAutoNaReason(c) || NTP_NOT_REQUIRED_DEFAULT_REASON)
       if (reason === null || !reason) return
       patch.ntp_not_required_reason = reason
     } else {
       patch.ntp_not_required_reason = null
     }
+    if (!isRequestor && bulk.ntp) return applyToAll('ntp_status', v, { ntp_not_required_reason: patch.ntp_not_required_reason })
     updateCustodianLocal(c.id, patch)
     try {
       const saved = await patchCustodian(c.id, patch)
@@ -92,19 +93,23 @@ export function useCaseDetailCustodianStatusActions({
 
   async function onChangeConsent(c, value) {
     if (isTech) return
-    const v = value || 'not sent'
-    if (!isRequestor && bulk.consent) return applyToAll('consent_status', v)
+    const v = normalizeConsentStatus(value)
+    if (v === 'awoc') {
+      showToast('AWOC status is set only by uploading an AWOC consent document.', { variant: 'warn' })
+      return
+    }
     const beforeStatus = c.consent_status || 'not sent'
     const beforeReason = c.consent_not_required_reason || null
     const autoReason = consentNotRequiredAutoReason(caseData?.claimant, c)
     const patch = { consent_status: v }
-    if (String(v).trim().toLowerCase() === 'na') {
-      const reason = promptNaReason('consent', beforeReason, autoReason || CONSENT_NOT_REQUIRED_DEFAULT_REASON)
+    if (v === 'implied') {
+      const reason = promptStatusReason('Why is consent Implied for this custodian?', beforeReason, autoReason || CONSENT_NOT_REQUIRED_DEFAULT_REASON)
       if (reason === null || !reason) return
       patch.consent_not_required_reason = reason
     } else {
       patch.consent_not_required_reason = null
     }
+    if (!isRequestor && bulk.consent) return applyToAll('consent_status', v, { consent_not_required_reason: patch.consent_not_required_reason })
     updateCustodianLocal(c.id, patch)
     try {
       const saved = await patchCustodian(c.id, patch)
@@ -162,12 +167,13 @@ export function useCaseDetailCustodianStatusActions({
     }
   }
 
-  async function applyToAll(key, value) {
+  async function applyToAll(key, value, extraPatch = {}) {
     const ids = custodians.map(c => c.id)
     const snapshot = custodians.map(c => ({ ...c }))
-    setCustodians(prev => prev.map(c => ({ ...c, [key]: value })))
+    const patch = { [key]: value, ...extraPatch }
+    setCustodians(prev => prev.map(c => ({ ...c, ...patch })))
     try {
-      const updated = await submitCustodianBulkUpdate({ ids, patch: { [key]: value } })
+      const updated = await submitCustodianBulkUpdate({ ids, patch })
       if (updated.length) {
         const updatedMap = new Map(updated.map(item => [item.id, item]))
         setCustodians(prev => prev.map(c => {

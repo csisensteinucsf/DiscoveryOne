@@ -223,7 +223,7 @@ def extract_case_request_payload(template: Any, email: NormalizedEmail, *, reque
     case_name = str(values.get("case_name") or values.get("legal_case_name") or email.subject or "Email intake request").strip()
     legal_name = str(values.get("legal_case_name") or case_name).strip()
     description = str(values.get("description") or email.body_text or "").strip()[:20_000]
-    hold_name = str(values.get("hold_name") or getattr(template, "hold_name", None) or "Hold A").strip()[:255]
+    hold_name = str(values.get("hold_name") or getattr(template, "hold_name", None) or "").strip()[:255]
     payload: dict[str, Any] = {
         "name": case_name[:255],
         "legal_case_name": legal_name[:255],
@@ -234,7 +234,7 @@ def extract_case_request_payload(template: Any, email: NormalizedEmail, *, reque
         "description": description,
         "custodian_entry_mode": "manual",
         "custodians": _parse_custodians(values.get("custodians")),
-        "hold_name": hold_name or "Hold A",
+        "hold_name": hold_name or None,
         "email_intake": {
             "graph_message_id": email.graph_message_id,
             "internet_message_id": email.internet_message_id,

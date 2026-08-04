@@ -16,7 +16,7 @@ export default function CaseDetailHoldsTab({
 <section className="legacy-hold-timeline">
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <h3 style={{ margin: 0 }}>Holds Detail</h3>
+                  <h3 style={{ margin: 0 }}>Preservation Detail</h3>
                   <div style={{ color: '#6b7280', fontSize: 12, marginTop: 2 }}>
                     Custodians: {holdsDetailTotals.custodians || 0} | Timeline events: {holdsDetailTotals.events || 0}
                     {holdsDetail?.data?.generated_at ? ` | Updated: ${formatDateTime(holdsDetail.data.generated_at) || '-'}` : ''}
@@ -43,7 +43,7 @@ export default function CaseDetailHoldsTab({
               ) : null}
 
               {holdsDetail.loading && !holdsDetail.data ? (
-                <p style={{ color: '#6b7280', marginTop: 10 }}>Loading hold details...</p>
+                <p style={{ color: '#6b7280', marginTop: 10 }}>Loading preservation details...</p>
               ) : null}
 
               {!holdsDetail.loading && holdsDetailRows.length === 0 ? (
@@ -71,7 +71,7 @@ export default function CaseDetailHoldsTab({
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                           <thead style={{ background: 'rgba(15,23,42,0.04)' }}>
                             <tr>
-                              <th style={{ textAlign: 'left', padding: 6 }}>Hold</th>
+                              <th style={{ textAlign: 'left', padding: 6 }}>Source</th>
                               <th style={{ textAlign: 'left', padding: 6 }}>State</th>
                               <th style={{ textAlign: 'left', padding: 6 }}>Flags</th>
                               <th style={{ textAlign: 'left', padding: 6 }}>Last update</th>
@@ -98,7 +98,7 @@ export default function CaseDetailHoldsTab({
                             ))}
                             {!currentRows.length && (
                               <tr>
-                                <td style={{ padding: 6, color: '#6b7280' }} colSpan={6}>No hold categories available for this account.</td>
+                                <td style={{ padding: 6, color: '#6b7280' }} colSpan={6}>No preservation sources available for this account.</td>
                               </tr>
                             )}
                           </tbody>
@@ -106,14 +106,14 @@ export default function CaseDetailHoldsTab({
                       </div>
 
                       <div style={{ marginTop: 10 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>Hold event timeline</div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 6 }}>Preservation event timeline</div>
                         {timelineRows.length ? (
                           <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                               <thead style={{ background: 'rgba(15,23,42,0.04)' }}>
                                 <tr>
                                   <th style={{ textAlign: 'left', padding: 6 }}>Date</th>
-                                  <th style={{ textAlign: 'left', padding: 6 }}>Hold</th>
+                                  <th style={{ textAlign: 'left', padding: 6 }}>Source</th>
                                   <th style={{ textAlign: 'left', padding: 6 }}>State</th>
                                   <th style={{ textAlign: 'left', padding: 6 }}>Action</th>
                                   <th style={{ textAlign: 'left', padding: 6 }}>Actor</th>
@@ -150,7 +150,7 @@ export default function CaseDetailHoldsTab({
                             </table>
                           </div>
                         ) : (
-                          <p style={{ color: '#6b7280', margin: 0 }}>No hold timeline events found for this custodian.</p>
+                          <p style={{ color: '#6b7280', margin: 0 }}>No preservation timeline events found for this custodian.</p>
                         )}
                       </div>
                     </div>

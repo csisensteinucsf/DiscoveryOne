@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from fastapi import HTTPException, Request
-from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from . import case_requests as case_request_core
@@ -199,8 +198,8 @@ def apply_approval_request_mutation(
                 name=getattr(model, "name", None),
                 email=getattr(model, "email", None),
             ):
-                model.ntp_status = "na"
-                model.consent_status = "na"
+                model.ntp_status = "silent"
+                model.consent_status = "implied"
             case_request_core._apply_consent_not_required_defaults(case, model)
             db.add(model)
             db.flush()
@@ -261,22 +260,35 @@ def apply_approval_request_mutation(
             data.setdefault("name", f"{case.name}-Search {idx}")
             db.add(case_request_core._search_model(case.id, data))
 
-        from .case_holds import ensure_default_hold
-
-        default_hold = ensure_default_hold(db, case, assign_existing=True)
         requested_hold_name = str(payload.get("hold_name") or "").strip()
         if requested_hold_name:
-            duplicate_hold = (
-                db.query(models.CaseHold.id)
-                .filter(
-                    models.CaseHold.case_id == case.id,
-                    models.CaseHold.id != default_hold.id,
-                    models.CaseHold.name.ilike(requested_hold_name),
-                )
+            default_hold = (
+                db.query(models.CaseHold)
+                .filter(models.CaseHold.case_id == case.id, models.CaseHold.name.ilike(requested_hold_name))
                 .first()
             )
-            if duplicate_hold is None:
-                default_hold.name = requested_hold_name[:255]
+            if default_hold is None:
+                default_hold = models.CaseHold(
+                    case_id=case.id,
+                    name=requested_hold_name[:255],
+                    status="active",
+                    sort_order=0,
+                )
+                db.add(default_hold)
+                db.flush()
+            from .case_holds import assign_custodians_to_hold
+            from .hold_workflows import set_search_holds
+
+            built_ids = [int(item.id) for item in built_custodians if getattr(item, "id", None)]
+            if built_ids:
+                assign_custodians_to_hold(
+                    db,
+                    case_id=int(case.id),
+                    hold_id=int(default_hold.id),
+                    custodian_ids=built_ids,
+                )
+            for search in db.query(models.Search).filter(models.Search.case_id == case.id).all():
+                set_search_holds(db, search=search, hold_ids=[int(default_hold.id)])
         db.flush()
         case_for_tickets = case
         case_analyst_user = analyst
@@ -302,8 +314,8 @@ def apply_approval_request_mutation(
                 name=getattr(model, "name", None),
                 email=getattr(model, "email", None),
             ):
-                model.ntp_status = "na"
-                model.consent_status = "na"
+                model.ntp_status = "silent"
+                model.consent_status = "implied"
             if case_for_tickets:
                 case_request_core._apply_consent_not_required_defaults(case_for_tickets, model)
             db.add(model)
@@ -346,11 +358,6 @@ def apply_approval_request_mutation(
                         record.case_id,
                         getattr(model, "email", None),
                     )
-        if case_for_tickets:
-            from .case_holds import ensure_default_hold
-
-            ensure_default_hold(db, case_for_tickets, assign_existing=True)
-            db.flush()
         _debug_log_custodian_holds("custodian_update", built_custodians)
         hold_notification_ids = [int(c.id) for c in built_custodians if getattr(c, "id", None) is not None]
         hold_notification_should_send = _any_requested_holds(built_custodians)
@@ -388,78 +395,34 @@ def apply_approval_request_mutation(
         case = db.get(models.Case, record.case_id)
         if not case:
             raise HTTPException(status_code=404, detail="Case not found")
-        case.closed = True
-        custodians = db.query(models.Custodian).filter(models.Custodian.case_id == case.id).all()
-        for custodian in custodians:
-            if bool(getattr(custodian, "holds_slack", False)):
-                case_request_core._sync_slack_hold_for_custodian_or_raise(
-                    case,
-                    custodian,
-                    enable=False,
-                    email_override=getattr(custodian, "email", None),
-                    db=db,
-                    actor_id=getattr(actor, "id", None),
-                    request=request,
-                    source="case_request_close_case",
-                )
-        (
-            db.query(models.Custodian)
-            .filter(models.Custodian.case_id == case.id)
-            .update(
-                {
-                    models.Custodian.holds_email: False,
-                    models.Custodian.holds_onedrive: False,
-                    models.Custodian.holds_box: False,
-                    models.Custodian.holds_slack: False,
-                    models.Custodian.holds_rubrik_restore: False,
-                    models.Custodian.holds_email_pending: False,
-                    models.Custodian.holds_onedrive_pending: False,
-                    models.Custodian.holds_box_pending: False,
-                    models.Custodian.holds_slack_pending: False,
-                    models.Custodian.holds_rubrik_restore_pending: False,
-                    models.Custodian.holds_email_failed: False,
-                    models.Custodian.holds_onedrive_failed: False,
-                    models.Custodian.holds_box_failed: False,
-                    models.Custodian.holds_slack_failed: False,
-                    models.Custodian.holds_rubrik_restore_failed: False,
-                    models.Custodian.holds_email_released: or_(
-                        models.Custodian.holds_email,
-                        models.Custodian.holds_email_pending,
-                        models.Custodian.holds_email_failed,
-                        models.Custodian.holds_email_released,
-                    ),
-                    models.Custodian.holds_onedrive_released: or_(
-                        models.Custodian.holds_onedrive,
-                        models.Custodian.holds_onedrive_pending,
-                        models.Custodian.holds_onedrive_failed,
-                        models.Custodian.holds_onedrive_released,
-                    ),
-                    models.Custodian.holds_box_released: or_(
-                        models.Custodian.holds_box,
-                        models.Custodian.holds_box_pending,
-                        models.Custodian.holds_box_failed,
-                        models.Custodian.holds_box_released,
-                    ),
-                    models.Custodian.holds_slack_released: or_(
-                        models.Custodian.holds_slack,
-                        models.Custodian.holds_slack_pending,
-                        models.Custodian.holds_slack_failed,
-                        models.Custodian.holds_slack_released,
-                    ),
-                    models.Custodian.holds_rubrik_restore_released: or_(
-                        models.Custodian.holds_rubrik_restore,
-                        models.Custodian.holds_rubrik_restore_pending,
-                        models.Custodian.holds_rubrik_restore_failed,
-                        models.Custodian.holds_rubrik_restore_released,
-                    ),
+        from .case_closure_readiness import case_closure_readiness
+
+        readiness = case_closure_readiness(db, int(case.id))
+        if not readiness["ready"]:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "case_closure_blocked",
+                    "message": "This closure request cannot be approved until every active Hold is closed and every preservation item is released.",
+                    **readiness,
                 },
-                synchronize_session=False,
             )
-        )
+        case.closed = True
+        case.closed_at = datetime.now(timezone.utc)
     else:
         raise HTTPException(status_code=400, detail="Unsupported request type")
 
-    case_request_core._apply_consents(db, record.case_id, payload.get("consents"))
+    explicit_hold = (
+        case_request_core._explicit_request_hold(db, int(record.case_id), payload)
+        if record.case_id
+        else None
+    )
+    case_request_core._apply_consents(
+        db,
+        record.case_id,
+        payload.get("consents"),
+        case_hold_id=int(explicit_hold.id) if explicit_hold is not None else None,
+    )
     case_request_core._assign_request_proofs_to_default_hold(db, record)
 
 

@@ -16,7 +16,7 @@ export function useCaseDetailDocuments({
   const [docsLoading, setDocsLoading] = useState(false)
   const [docsError, setDocsError] = useState(null)
   const [showAddDocModal, setShowAddDocModal] = useState(false)
-  const [docForm, setDocForm] = useState({ caseHoldId: '', custodianId: '', custodianName: '', custodianEmail: '' })
+  const [docForm, setDocForm] = useState({ caseHoldId: '', custodianId: '', custodianName: '', custodianEmail: '', proofType: 'standard' })
   const [docFile, setDocFile] = useState(null)
   const [docUploading, setDocUploading] = useState(false)
   const [docUploadError, setDocUploadError] = useState(null)
@@ -48,7 +48,7 @@ export function useCaseDetailDocuments({
   }, [apiBase, caseId, setCaseData, setProofRows])
 
   const resetDocForm = useCallback(() => {
-    setDocForm({ caseHoldId: '', custodianId: '', custodianName: '', custodianEmail: '' })
+    setDocForm({ caseHoldId: '', custodianId: '', custodianName: '', custodianEmail: '', proofType: 'standard' })
     setDocFile(null)
     setDocUploadError(null)
   }, [])
@@ -65,12 +65,13 @@ export function useCaseDetailDocuments({
   }, [docUploading, resetDocForm])
 
   const handleDocHoldSelect = useCallback((value) => {
-    setDocForm({
+    setDocForm(prev => ({
+      ...prev,
       caseHoldId: value ? String(value) : '',
       custodianId: '',
       custodianName: '',
       custodianEmail: '',
-    })
+    }))
   }, [])
 
   const handleDocCustodianSelect = useCallback((value) => {
@@ -118,6 +119,7 @@ export function useCaseDetailDocuments({
     fd.append('custodian_email', email)
     fd.append('case_hold_id', docForm.caseHoldId)
     fd.append('custodian_id', docForm.custodianId)
+    fd.append('proof_type', docForm.proofType || 'standard')
     fd.append('file', docFile)
     setDocUploading(true)
     setDocUploadError(null)
@@ -131,7 +133,7 @@ export function useCaseDetailDocuments({
         const text = await res.text().catch(() => '')
         throw new Error(text || 'Unable to Upload proof')
       }
-      showToast('Documentation uploaded.', { variant: 'success' })
+      showToast(docForm.proofType === 'awoc' ? 'AWOC consent document uploaded.' : 'Consent documentation uploaded.', { variant: 'success' })
       setShowAddDocModal(false)
       resetDocForm()
       await loadProofs()

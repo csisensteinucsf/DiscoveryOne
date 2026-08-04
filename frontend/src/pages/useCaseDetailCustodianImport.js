@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { personLookupFieldsFromRecord } from './caseDetailPersonLookupFields.js'
+import { normalizeOptionalHoldIds } from './holdAssignmentUtils.js'
 
 const normalizeEmail = (value) => (value || '').trim().toLowerCase()
 
@@ -16,14 +17,7 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians, targ
   )
 
   const submitCustodianBatch = useCallback(async (rows) => {
-    const normalizedHoldIds = [...new Set(
-      (Array.isArray(targetHoldIds) ? targetHoldIds : [])
-        .map(Number)
-        .filter(value => Number.isFinite(value) && value > 0)
-    )]
-    if (!normalizedHoldIds.length) {
-      throw new Error('Select at least one active hold for these custodians.')
-    }
+    const normalizedHoldIds = normalizeOptionalHoldIds(targetHoldIds)
     const seen = new Set()
     const toCreate = []
     for (const row of rows) {

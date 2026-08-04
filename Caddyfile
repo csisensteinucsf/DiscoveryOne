@@ -1,5 +1,10 @@
 {
     default_sni localhost
+    servers :443 {
+        # The host publishes container port 443 on a configurable TCP port.
+        # Disable HTTP/3 so Caddy does not advertise an unreachable UDP/443 endpoint.
+        protocols h1 h2
+    }
 }
 
 :443 {
@@ -13,6 +18,7 @@
     header {
         Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
         Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Alt-Svc "clear"
         X-Content-Type-Options "nosniff"
         Referrer-Policy "strict-origin-when-cross-origin"
         X-Frame-Options "DENY"

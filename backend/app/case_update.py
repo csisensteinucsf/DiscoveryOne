@@ -93,18 +93,17 @@ def update_case_record(
     _before["request_ticket_entries"] = getattr(case, "request_ticket_entries", []) or []
     was_closed = bool(case.closed)
     closing_case = "closed" in payload_fields and bool(payload.closed) and not was_closed
-    active_holds_to_close: list[dict[str, object]] = []
     if closing_case:
-        from .hold_workflows import active_hold_summary
+        from .case_closure_readiness import case_closure_readiness
 
-        active_holds_to_close = active_hold_summary(db, case_id)
-        if active_holds_to_close and not bool(payload.close_active_holds):
+        readiness = case_closure_readiness(db, case_id)
+        if not readiness["ready"]:
             raise HTTPException(
                 status_code=409,
                 detail={
-                    "code": "active_holds_require_confirmation",
-                    "message": "This case still has active holds. Confirm that they should be closed with the case.",
-                    "active_holds": active_holds_to_close,
+                    "code": "case_closure_blocked",
+                    "message": "This case cannot be closed until every active Hold is closed and every preservation item is released.",
+                    **readiness,
                 },
             )
     old_claimant = getattr(case, "claimant", None)
@@ -177,7 +176,7 @@ def update_case_record(
     case.servicenow_inc_number = None
     case.ler_representative = None
 
-    # If claimant is set/changed, default that matching custodian to NTP/Consent NA.
+    # If claimant is set or changed, apply the configured Silent/Implied policy defaults.
     try:
         new_claimant = getattr(case, "claimant", None)
         if getattr(payload, "claimant", None) is not None and (new_claimant or "") != (old_claimant or ""):
@@ -191,8 +190,8 @@ def update_case_record(
                     continue
                 ntp_status = (getattr(cust, "ntp_status", "") or "").strip().lower()
                 if ntp_status != "acknowledged":
-                    cust.ntp_status = "na"
-                cust.consent_status = "na"
+                    cust.ntp_status = "silent"
+                cust.consent_status = "implied"
                 case_core._apply_consent_not_required_defaults(case, cust)
                 db.add(cust)
                 db.flush()
@@ -207,12 +206,6 @@ def update_case_record(
         case.request_ticket_entries = normalized_entries
         case_core._sync_legacy_request_tickets(case, normalized_entries)
         case_core._apply_request_holds(case, normalized_entries)
-
-    closed_hold_ids: list[int] = []
-    if closing_case and active_holds_to_close:
-        from .hold_workflows import close_active_holds
-
-        closed_hold_ids = close_active_holds(db, case_id)
 
     # compute changes for audit
     _after = {k: getattr(case, k, None) for k in tracked_fields}
@@ -251,7 +244,7 @@ def update_case_record(
                 details={
                     "case_id": case.id,
                     "case_name": case_name,
-                    "closed_hold_ids": closed_hold_ids,
+                    "closed_hold_ids": [],
                 },
                 request=request,
             )
@@ -286,6 +279,4 @@ def update_case_record(
     db.commit()
     db.refresh(case)
     return case_core._case_read(case, status=case_core._compute_case_status(db, case.id), user=user)
-
-
 

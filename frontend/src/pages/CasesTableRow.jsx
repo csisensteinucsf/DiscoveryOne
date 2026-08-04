@@ -1,18 +1,16 @@
 import { Link } from 'react-router-dom'
 
-function HoldCountBadge({ activeCount, totalCount }) {
-  const total = Number(totalCount || 0)
-  const active = Number(activeCount ?? total)
-  const display = active === total ? String(total) : `${active} / ${total}`
-  const title = active === total
-    ? (total === 1 ? '1 active hold' : `${total} active holds`)
-    : `${active} active of ${total} total holds`
+function PreservationCountBadge({ count }) {
+  const total = Number(count || 0)
+  const title = total === 1
+    ? '1 custodian with active preservation'
+    : `${total} custodians with active preservation`
   return (
     <span
-      className={active > 0 ? 'case-hold-count is-active' : 'case-hold-count'}
+      className={total > 0 ? 'case-hold-count is-active' : 'case-hold-count'}
       title={title}
     >
-      {display}
+      {total}
     </span>
   )
 }
@@ -64,6 +62,7 @@ export function CasesTableRow({
   c,
   stats,
   showSecondaryCaseNameColumn,
+  visibleColumns = [],
   useLegalCaseNameAsPrimary,
   analystFirstName,
   requestorDisplayName,
@@ -73,9 +72,9 @@ export function CasesTableRow({
   onToggleClosed,
   onDelete,
 }) {
+  const columnVisible = key => visibleColumns.includes(key)
   const caseStats = stats[c.id] || stats[String(c.id)] || {}
-  const holdTotal = caseStats.namedHoldCount ?? caseStats.holdCount ?? caseStats.hold ?? 0
-  const holdActive = caseStats.namedHoldActiveCount ?? holdTotal
+  const preservationCount = caseStats.hold ?? 0
   const primaryCaseName = useLegalCaseNameAsPrimary
     ? (c.legal_case_name || c.name || '')
     : (c.name || c.legal_case_name || '')
@@ -95,26 +94,26 @@ export function CasesTableRow({
       {showSecondaryCaseNameColumn && (
         <td style={{ ...tableStyles.cell, ...tableStyles.legalCaseCell }}>{c.legal_case_name || ''}</td>
       )}
-      <td style={{ ...tableStyles.cell, ...tableStyles.matterCell }}>{c.matter_number || c.servicenow_inc_number || '-'}</td>
-      <td style={{ ...tableStyles.cell, ...tableStyles.counselCell }}>{c.internal_counsel || '-'}</td>
-      <td style={{ ...tableStyles.cell, ...tableStyles.analystCell }}>{analystFirstName(c.analyst_id)}</td>
-      <td style={{ ...tableStyles.cell, ...tableStyles.requestorCell }}>
+      {columnVisible('matter_number') && <td style={{ ...tableStyles.cell, ...tableStyles.matterCell }}>{c.matter_number || c.servicenow_inc_number || '-'}</td>}
+      {columnVisible('internal_counsel') && <td style={{ ...tableStyles.cell, ...tableStyles.counselCell }}>{c.internal_counsel || '-'}</td>}
+      {columnVisible('analyst') && <td style={{ ...tableStyles.cell, ...tableStyles.analystCell }}>{analystFirstName(c.analyst_id)}</td>}
+      {columnVisible('requestor') && <td style={{ ...tableStyles.cell, ...tableStyles.requestorCell }}>
         {requestorDisplayName(c.requestor)}
         {extraRequestorCount > 0 && (
           <span style={{ color: 'var(--muted,#6b7280)', marginLeft: 6 }}>+{extraRequestorCount} more</span>
         )}
-      </td>
-      <td style={{ ...tableStyles.cell, ...tableStyles.stateCell }}>
+      </td>}
+      {columnVisible('state') && <td style={{ ...tableStyles.cell, ...tableStyles.stateCell }}>
         <span className={'hold-status-badge ' + (c.closed ? 'is-closed' : 'is-active')}>
           {c.closed ? 'Inactive' : 'Active'}
         </span>
-      </td>
-      <td style={{ ...tableStyles.cell, ...tableStyles.statusCell }}>
-        <HoldCountBadge activeCount={holdActive} totalCount={holdTotal} />
-      </td>
-      <td style={{ ...tableStyles.cell, ...tableStyles.notesCell }}>
+      </td>}
+      {columnVisible('holds') && <td style={{ ...tableStyles.cell, ...tableStyles.statusCell }}>
+        <PreservationCountBadge count={preservationCount} />
+      </td>}
+      {columnVisible('notes') && <td style={{ ...tableStyles.cell, ...tableStyles.notesCell }}>
         <span className="case-notes-preview" title={notes}>{notes || '-'}</span>
-      </td>
+      </td>}
       <td style={tableStyles.actionsCell}>
         <div style={tableStyles.actionsInner}>
           {isReadOnly ? (

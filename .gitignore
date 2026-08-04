@@ -1,29 +1,72 @@
-# keep secrets out of VCS
+# Environment files and deployment secrets
 .env
 .env.*
+*.env
 !.env.example
-secrets/*.env
-secrets/*.env.dec
-secrets/*.env.plain
+!**/.env.example
 .env.gpg
-deploy/certs/*
-backend/logs/*
+secrets/
+
+# Private certificates and keys
+deploy/certs/
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.jks
+*.keystore
+
+# Docker bind-mounted runtime data
+logs/
+backend/logs/
+backups/
+case_request_uploads/
+
+# Frontend and package build output
 frontend/dist/
 node_modules/
+.npm/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Python caches and test output
 __pycache__/
-case_request_uploads/
-logs/
-backups/
-tmp-test/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.py[cod]
+*.cpython-*.py
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Temporary and local analysis output
 instructions/
+tmp-test/
+tmp/
 output.txt
+*.tmp
+*.swp
+*.swo
+*~
 bandit-*
 pip-audit-*
-# Local security scans can contain sensitive findings and very long generated paths.
+# Security scans can contain sensitive findings and very long generated paths.
 security-review-*/
-# Temporary document/PDF rendering workspace.
-tmp/
+
+# Editor and operating-system files
+.vscode/
+.idea/
 Thumbs.db
 .DS_Store
 **/.DS_Store
-*.cpython-*.py

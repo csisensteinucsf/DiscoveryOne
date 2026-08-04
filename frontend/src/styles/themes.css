@@ -343,17 +343,6 @@ body.theme-dark .brand-sub {
   color: #c7d1dc !important;
 }
 
-body.theme-dark .nav-logout {
-  border-color: #36414f;
-  color: var(--sidebar-fg);
-}
-
-body.theme-dark .nav-logout:hover,
-body.theme-dark .nav-logout:focus {
-  background: rgba(122, 167, 231, 0.15);
-  color: #f3f7fc;
-}
-
 body.theme-dark .help-badge {
   background: linear-gradient(135deg, #5078a8 0%, #42638a 100%);
   border-color: rgba(255,255,255,0.16);
@@ -363,6 +352,60 @@ body.theme-dark .help-badge {
 body.theme-dark .help-badge:hover,
 body.theme-dark .help-badge:focus-visible {
   background: #547ead;
+}
+
+body.theme-dark .account-menu__trigger,
+body.theme-dark .account-menu__popover {
+  background: #20262e;
+  border-color: #425061;
+  color: var(--text);
+}
+
+body.theme-dark .account-menu__identity {
+  border-color: #36414f;
+  color: var(--text);
+}
+
+body.theme-dark .account-menu__identity span {
+  color: var(--muted);
+}
+
+body.theme-dark .account-menu__popover button {
+  color: var(--text);
+}
+
+body.theme-dark .account-menu__popover button:hover,
+body.theme-dark .account-menu__popover button:focus-visible,
+body.theme-dark .dashboard-icon-button:hover,
+body.theme-dark .dashboard-icon-button:focus-visible,
+body.theme-dark .dashboard-custodian-link:hover,
+body.theme-dark .dashboard-custodian-link:focus-visible {
+  background: #293746;
+  color: #dbeafe;
+}
+
+body.theme-dark .dashboard-stat--success {
+  border-color: #367a50;
+  background: #20382a;
+}
+
+body.theme-dark .dashboard-stat--warning {
+  border-color: #8d6a2e;
+  background: #3b321f;
+}
+
+body.theme-dark .dashboard-stat--danger {
+  border-color: #8f4a46;
+  background: #3c2728;
+}
+
+body.theme-dark .dashboard-stat--info {
+  border-color: #3d718d;
+  background: #203541;
+}
+
+body.theme-dark .dashboard-stat--neutral {
+  background: #252c34;
 }
 
 body.theme-dark .help-popover {

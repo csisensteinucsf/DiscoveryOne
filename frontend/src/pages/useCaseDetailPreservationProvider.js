@@ -42,7 +42,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
         setPreservationHoldId(current => (
           next.some(hold => String(hold.id) === String(current))
             ? current
-            : (next.length ? String(next[0].id) : '')
+            : ''
         ))
       } catch (error) {
         if (!cancelled) showToast(error?.message || 'Unable to load holds for preservation.', { variant: 'error' })
@@ -372,7 +372,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
       }
       if (!res.ok) {
         const detail = (data?.detail || data?.message || rawText || '').trim()
-        throw new Error(detail || 'Unable to apply provider holds')
+        throw new Error(detail || 'Unable to apply provider preservation')
       }
       const results = Array.isArray(data?.results) ? data.results : []
       setPurviewHoldResults(results)
@@ -405,11 +405,11 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
           return next
         })
       }
-      showToast('Provider holds applied.', { variant: 'success' })
+      showToast('Provider preservation applied.', { variant: 'success' })
       loadPurviewStatus()
       schedulePurviewStatusChecks([5_000, 15_000, 30_000, 60_000])
     } catch (err) {
-      showToast(err?.message || 'Unable to apply provider holds', { variant: 'error' })
+      showToast(err?.message || 'Unable to apply provider preservation', { variant: 'error' })
     } finally {
       setPurviewHoldBusy(false)
     }

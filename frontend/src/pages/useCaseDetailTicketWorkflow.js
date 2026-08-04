@@ -263,7 +263,7 @@ export function useCaseDetailTicketWorkflow({
       {
         id: uuid(),
         category,
-        case_hold_id: activeTicketHolds[0]?.id ?? null,
+        case_hold_id: null,
         ticket: '',
         custodian_id: null,
         custodian_name: '',
@@ -282,7 +282,7 @@ export function useCaseDetailTicketWorkflow({
     if (isRequestor) return
     if (isTech && !techTicketCategorySet.has(categoryKey)) return
     setBulkCategory(categoryKey)
-    setBulkHoldId(activeTicketHolds[0] ? String(activeTicketHolds[0].id) : '')
+    setBulkHoldId('')
     setBulkSelection(new Set())
     setShowBulkRequestModal(true)
   }

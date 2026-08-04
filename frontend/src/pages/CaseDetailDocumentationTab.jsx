@@ -130,7 +130,7 @@ export default function CaseDetailDocumentationTab({
                 <h3 style={{ marginTop: 0, marginBottom: 4 }}>Consent Proof</h3>
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <p style={{ color: '#475467', fontSize: 14, margin: 0, flex: '1 1 auto' }}>
-                    Upload or review consent proof files submitted by custodians. Download files that were submitted through requests or uploaded directly here.
+                    Upload or review standard consent and AWOC (Access Without Consent) files. Both document types use the same consent gate; AWOC is recorded separately so the form used is clear.
                   </p>
                   {canManageDocs && (
                     <Button onClick={openDocModal}>
@@ -152,6 +152,7 @@ export default function CaseDetailDocumentationTab({
                         if (proof.original_filename) metadata.push(proof.original_filename)
                         if (proof.size) metadata.push(formatFileSize(proof.size))
                         if (proof.hold_name) metadata.push(`Hold: ${proof.hold_name}`)
+                        metadata.push(String(proof.proof_type || 'standard').toLowerCase() === 'awoc' ? 'AWOC consent' : 'Standard consent')
                         const uploader = proof?.uploaded_by?.email || proof?.uploaded_by?.username || ''
                         const timeline = []
                         if (proof.uploaded_at) timeline.push(`Uploaded ${formatDateTime(proof.uploaded_at)}`)

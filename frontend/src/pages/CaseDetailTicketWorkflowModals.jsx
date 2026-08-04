@@ -64,18 +64,18 @@ export default function CaseDetailTicketWorkflowModals({
                 : `Select custodians to add to ${requestTicketCategoryLookup?.[bulkCategory]?.label || 'this request'}. Custodians already added for this category are greyed out.`}
             </p>
             <label style={{ display:'grid', gap:4 }}>
-              <span style={{ fontSize:12, color:'#475467', fontWeight:600 }}>Named hold</span>
+              <span style={{ fontSize:12, color:'#475467', fontWeight:600 }}>Named Hold</span>
               <select
                 className="input"
                 value={bulkHoldId}
                 onChange={event => { setBulkHoldId(event.target.value); setBulkSelection(new Set()) }}
               >
-                <option value="">Select an active hold</option>
+                <option value="">Select an active Hold</option>
                 {activeHolds.map(hold => <option key={hold.id} value={hold.id}>{hold.name}</option>)}
               </select>
             </label>
             {!activeHolds.length && (
-              <div style={{ color:'#b45309', fontSize:12 }}>Create an active hold before adding ticket work.</div>
+              <div style={{ color:'#b45309', fontSize:12 }}>Create an active Hold before adding ticket work.</div>
             )}
             <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
               <input
@@ -270,7 +270,7 @@ export default function CaseDetailTicketWorkflowModals({
         >
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             <p style={{ margin:0, color:'#475467' }}>
-              Are you sure you want to delete {removeCustodianModal.custodian?.name || removeCustodianModal.custodian?.email || 'this custodian'} from the case? This will release any email/onedrive hold currently in place.
+              Are you sure you want to delete {removeCustodianModal.custodian?.name || removeCustodianModal.custodian?.email || 'this custodian'} from the case? This will release any Email or OneDrive preservation currently in place.
             </p>
             <label style={{ display:'flex', alignItems:'center', gap:8 }}>
               <input
@@ -279,7 +279,7 @@ export default function CaseDetailTicketWorkflowModals({
                 onChange={e => setRemoveCustodianModal(m => ({ ...m, releaseHolds: e.target.checked }))}
                 disabled={removeCustodianModal.busy}
               />
-              <span>Release holds/NTPs</span>
+              <span>Release preservation and NTPs</span>
             </label>
             <label style={{ display:'flex', alignItems:'center', gap:8 }}>
               <input

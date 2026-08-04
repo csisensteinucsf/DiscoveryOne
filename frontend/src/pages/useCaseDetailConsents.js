@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { consentCache } from './caseDetailUtils.js'
+import { isConsentUnavailableForRequest, normalizeConsentStatus } from './custodianStatusCatalog.js'
 
 const emptyConsentForm = { recordType: '', dateFrom: '', dateTo: '', message: '' }
 const consentRequestId = consent => String(consent?.request_id || consent?.envelope_id || '').trim()
@@ -43,7 +44,7 @@ export function useCaseDetailConsents({
         setConsentHolds(next)
         setConsentHoldId(current => {
           if (next.some(hold => String(hold.id) === String(current))) return current
-          return next.length ? String(next[0].id) : ''
+          return ''
         })
       } catch (error) {
         if (!cancelled) showToast(error?.message || 'Unable to load holds for consent.', { variant: 'error' })
@@ -102,7 +103,7 @@ export function useCaseDetailConsents({
     ;(consentCustodians || []).forEach(c => {
       const id = Number(c?.id)
       const status = String(c?.consent_status || '').trim().toLowerCase()
-      if (Number.isFinite(id) && status === 'received') ids.add(id)
+      if (Number.isFinite(id) && isConsentUnavailableForRequest(status)) ids.add(id)
     })
     return ids
   }, [consentCustodians, consentHoldId, consents])
@@ -119,7 +120,7 @@ export function useCaseDetailConsents({
     ;(consentCustodians || []).forEach(c => {
       const status = String(c?.consent_status || '').trim().toLowerCase()
       const email = (c?.email || '').trim().toLowerCase()
-      if (status === 'received' && email) emails.add(email)
+      if (isConsentUnavailableForRequest(status) && email) emails.add(email)
     })
     return emails
   }, [consentCustodians, consentHoldId, consents])
@@ -169,10 +170,10 @@ export function useCaseDetailConsents({
   const isConsentUnavailable = useCallback((custodian) => {
     if (!custodian) return true
     const id = Number(custodian?.id)
-    const status = String(custodian?.consent_status || '').trim().toLowerCase()
+    const status = normalizeConsentStatus(custodian?.consent_status)
     const email = (custodian?.email || '').trim().toLowerCase()
     if (!Number.isFinite(id)) return true
-    if (status === 'na' || status === 'received') return true
+    if (isConsentUnavailableForRequest(status)) return true
     if (consentReceivedIds.has(id)) return true
     if (email && consentReceivedEmails.has(email)) return true
     return false

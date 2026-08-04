@@ -46,10 +46,6 @@ export default function HoldAssignmentPicker({
         const detail = body?.detail?.message || body?.detail || 'Unable to create hold'
         throw new Error(String(detail))
       }
-      const createdId = Number(body?.id)
-      if (Number.isFinite(createdId) && createdId > 0) {
-        onSelectedHoldIdsChange?.([...new Set([...selected, createdId])])
-      }
       setNewHoldName('')
       await onHoldCreated?.(body)
     } catch (err) {
@@ -62,10 +58,10 @@ export default function HoldAssignmentPicker({
   return (
     <fieldset disabled={disabled || creating} style={{ border: 0, padding: 0, margin: '0 0 14px' }}>
       <legend style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
-        Assign to Holds
+        Assign to Holds (optional)
       </legend>
       <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 8px' }}>
-        Select every active hold these custodians belong to. Each hold keeps its own notices, consent, preservation, and search status.
+        Leave every Hold unselected to add these custodians to the matter only. Select a named Hold only when they should join that Hold's notices, consent, preservation, and search workflow.
       </p>
       {activeHolds.length ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 8, marginBottom: 10 }}>
@@ -81,8 +77,8 @@ export default function HoldAssignmentPicker({
           ))}
         </div>
       ) : (
-        <div style={{ fontSize: 12, color: '#b45309', marginBottom: 8 }}>
-          This case has no active hold. Create one before adding custodians.
+        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>
+          This case has no active Holds. Custodians can still be added at the matter level and assigned to a Hold later.
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -90,7 +86,7 @@ export default function HoldAssignmentPicker({
           className="input"
           value={newHoldName}
           onChange={event => setNewHoldName(event.target.value)}
-          placeholder={activeHolds.length ? 'Create another hold (optional)' : 'Hold name (blank creates Hold A, Hold B, etc.)'}
+          placeholder={activeHolds.length ? 'Create another Hold (optional)' : 'Create a named Hold (optional)'}
           style={{ flex: '1 1 260px' }}
         />
         <button type="button" className="btn secondary" onClick={createHold} disabled={disabled || creating || !caseId}>
@@ -99,7 +95,7 @@ export default function HoldAssignmentPicker({
       </div>
       {error ? <div style={{ color: '#b91c1c', fontSize: 12, marginTop: 6 }}>{error}</div> : null}
       {!selected.size ? (
-        <div style={{ color: '#b91c1c', fontSize: 12, marginTop: 6 }}>Select at least one active hold.</div>
+        <div style={{ color: '#64748b', fontSize: 12, marginTop: 6 }}>No Hold selected: custodians will be added to the matter only.</div>
       ) : null}
     </fieldset>
   )

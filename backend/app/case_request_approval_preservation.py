@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from . import case_requests as case_request_core
 from . import models, preservation_provider, schemas
-from .case_holds import ensure_default_hold
 from .hold_workflows import sync_legacy_custodian_to_default_hold
 
 
@@ -28,9 +27,20 @@ def run_approval_preservation_holds(
     if automation_ready and preservation_hold_groups and record.case_id:
         case = db.get(models.Case, int(record.case_id))
         if case is not None:
-            default_hold = ensure_default_hold(db, case, assign_existing=True)
-            db.flush()
-            default_hold_id = int(default_hold.id)
+            explicit_hold = case_request_core._explicit_request_hold(
+                db,
+                int(record.case_id),
+                case_request_core._payload_dict(record),
+            )
+            if explicit_hold is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "code": "hold_required",
+                        "message": "Select or create a Hold before applying automated preservation.",
+                    },
+                )
+            default_hold_id = int(explicit_hold.id)
     if record.request_type in {"new_case", "custodian"} and preservation_hold_groups and automation_ready:
         log_progress("preservation_case", f"Setting up {provider_label} case...")
     else:

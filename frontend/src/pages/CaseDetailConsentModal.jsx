@@ -1,6 +1,7 @@
 import Modal from '../components/Modal.jsx'
 import { Badge, Button, Field, Select, TextInput } from './caseDetailControls.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
+import { consentStatusLabel, isConsentUnavailableForRequest, normalizeConsentStatus } from './custodianStatusCatalog.js'
 
 export default function CaseDetailConsentModal({
   open,
@@ -39,7 +40,7 @@ export default function CaseDetailConsentModal({
         >
           <Field label="Hold" hint="Consent status and completion are tracked independently for the selected hold.">
             <Select value={consentHoldId} onChange={event => setConsentHoldId(event.target.value)}>
-              {!consentHolds.length && <option value="">No active holds</option>}
+              <option value="">{consentHolds.length ? 'Select a Hold' : 'No active Holds'}</option>
               {consentHolds.map(hold => (
                 <option key={hold.id} value={String(hold.id)}>
                   {hold.name} ({hold.custodian_count || 0} custodians)
@@ -55,18 +56,18 @@ export default function CaseDetailConsentModal({
                 placeholder="e.g., Email, Box data"
               />
             </Field>
-            <Field label="Date from" hint="Beginning date range; defaults to NA if blank.">
+            <Field label="Date from" hint="Beginning date range; defaults to not specified if blank.">
               <TextInput
                 value={consentFormInline.dateFrom}
                 onChange={(e) => setConsentFormInline(prev => ({ ...prev, dateFrom: e.target.value }))}
-                placeholder="NA"
+                placeholder="Not specified"
               />
             </Field>
-            <Field label="Date to" hint="End date range; defaults to NA if blank.">
+            <Field label="Date to" hint="End date range; defaults to not specified if blank.">
               <TextInput
                 value={consentFormInline.dateTo}
                 onChange={(e) => setConsentFormInline(prev => ({ ...prev, dateTo: e.target.value }))}
-                placeholder="NA"
+                placeholder="Not specified"
               />
             </Field>
           </div>
@@ -124,10 +125,10 @@ export default function CaseDetailConsentModal({
                     {filteredConsentCustodians.map(c => {
                       const idNum = Number(c.id)
                       const normalizedEmail = (c.email || '').trim().toLowerCase()
-                      const consentStatus = String(c.consent_status || '').trim().toLowerCase()
-                      const isNa = consentStatus === 'na'
-                      const alreadyReceived = consentStatus === 'received' || consentReceivedIds.has(idNum) || (normalizedEmail && consentReceivedEmails.has(normalizedEmail))
-                      const unavailable = isNa || alreadyReceived || !Number.isFinite(idNum)
+                      const consentStatus = normalizeConsentStatus(c.consent_status)
+                      const completedByStatus = isConsentUnavailableForRequest(consentStatus)
+                      const alreadyReceived = completedByStatus || consentReceivedIds.has(idNum) || (normalizedEmail && consentReceivedEmails.has(normalizedEmail))
+                      const unavailable = alreadyReceived || !Number.isFinite(idNum)
                       const checked = Number.isFinite(idNum) && consentSelection.has(idNum)
                       return (
                         <label
@@ -159,8 +160,8 @@ export default function CaseDetailConsentModal({
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <Badge variant="orange" compact>{c.email || 'No email'}</Badge>
                             <span style={{ fontSize: 12, color: '#475467' }}>{formatNameRaw(c.name) || 'Unnamed custodian'}</span>
-                            {isNa ? <span style={{ fontSize: 11, color: '#9ca3af' }}>NA - consent not required</span> : null}
-                            {!isNa && alreadyReceived ? <span style={{ fontSize: 11, color: '#9ca3af' }}>Consent already received</span> : null}
+                            {completedByStatus ? <span style={{ fontSize: 11, color: '#9ca3af' }}>{consentStatusLabel(consentStatus)} - consent complete</span> : null}
+                            {!completedByStatus && alreadyReceived ? <span style={{ fontSize: 11, color: '#9ca3af' }}>Consent already received</span> : null}
                           </div>
                         </label>
                       )

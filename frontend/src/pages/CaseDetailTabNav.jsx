@@ -3,13 +3,11 @@ export default function CaseDetailTabNav({
   setActiveTab,
   isTech,
   isRequestor,
-  isSysAdmin,
   searchCount,
   requestsFilledCount,
   documentationBadgeCount,
   noteCount,
   requestorNoteCount,
-  activeNoteCount,
 }) {
   return (
 <div className="row" style={{ gap: 8, margin: '12px 0' }}>
@@ -142,33 +140,6 @@ export default function CaseDetailTabNav({
                     }}
                   >
                     {isRequestor ? requestorNoteCount : (noteCount + requestorNoteCount)}
-                  </span>
-                )}
-              </button>
-            )}
-            {!isTech && !isRequestor && isSysAdmin && (
-              <button
-                className={activeTab === 'active' ? 'btn' : 'btn secondary'}
-                onClick={() => setActiveTab('active')}
-                style={{ position:'relative' }}
-                aria-label={`Active (${activeNoteCount})`}
-              >
-                Active
-                {activeNoteCount > 0 && (
-                  <span
-                    style={{
-                      position:'absolute',
-                      top:-6, right:-8,
-                      minWidth:16, height:16, padding:'0 5px',
-                      borderRadius:9999,
-                      background:'var(--accent,#ef4444)',
-                      color:'#fff',
-                      fontSize:11, lineHeight:'16px',
-                      fontWeight:600,
-                      boxShadow:'0 0 0 2px var(--card,#fff)'
-                    }}
-                  >
-                    {activeNoteCount}
                   </span>
                 )}
               </button>

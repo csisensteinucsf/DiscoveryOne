@@ -18,7 +18,7 @@ export default function CaseRequestSearchSection({
   return (
     <div className="form-section">
       <div className="form-section__title">
-        {(isNewCase || isSearch) ? 'Versa Powered Search Builder' : 'Search details'}
+        {(isNewCase || isSearch) ? 'AI-Powered Search Builder' : 'Search details'}
       </div>
       <div className="form-section__body">
         {(isNewCase || isSearch) ? (

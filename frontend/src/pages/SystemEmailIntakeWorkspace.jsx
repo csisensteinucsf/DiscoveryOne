@@ -22,7 +22,7 @@ const emptyTemplate = () => ({
     custodians: 'Custodians:',
   },
   default_values: {},
-  hold_name: 'Hold A',
+  hold_name: '',
 })
 
 const emptySample = () => ({
@@ -43,7 +43,7 @@ const statusColor = status => ({
 
 const labelStatus = status => String(status || 'unknown').replaceAll('_', ' ')
 
-export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast }) {
+export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast, mode = 'all' }) {
   const [status, setStatus] = useState(null)
   const [templates, setTemplates] = useState([])
   const [messages, setMessages] = useState([])
@@ -209,11 +209,14 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
     ]
   }, [status])
 
-  if (!enabled) return null
+  const showOperations = mode === 'all' || mode === 'operations'
+  const showTemplates = mode === 'all' || mode === 'templates'
+
+  if (!enabled) return <div className="card">Enable and configure Email Intake under System Integrations before managing its templates or mailbox operations.</div>
 
   return (
     <section style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--border,#d1d5db)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+      {showOperations && <><div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <h3 style={{ margin: '0 0 4px' }}>Email Intake Operations</h3>
           <div style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>
@@ -241,9 +244,9 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
           <div style={{ fontSize: 12, color: 'var(--muted,#6b7280)' }}>Last successful poll</div>
           <strong style={{ fontSize: 13 }}>{status?.last_success_at ? new Date(status.last_success_at).toLocaleString() : 'Not yet'}</strong>
         </div>
-      </div>
+      </div></>}
 
-      <div style={{ marginTop: 24 }}>
+      {showTemplates && <div style={{ marginTop: mode === 'templates' ? 0 : 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
           <h4 style={{ margin: 0 }}>Templates</h4>
           <button className="btn secondary" onClick={() => setEditor(emptyTemplate())}><Plus size={16} /> New Template</button>
@@ -265,9 +268,9 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
-      <div style={{ marginTop: 24 }}>
+      {showOperations && <div style={{ marginTop: 24 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
           <h4 style={{ margin: 0 }}>Message Review ({messageTotal})</h4>
           <select className="input" style={{ width: 190 }} value={messageFilter} onChange={e => setMessageFilter(e.target.value)}>
@@ -289,15 +292,15 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
             </tbody>
           </table>
         </div>
-      </div>
+      </div>}
 
-      {editor && (
+      {showTemplates && editor && (
         <Modal open title={editor.id ? 'Edit Email Intake Template' : 'New Email Intake Template'} onClose={() => setEditor(null)} width={820} bodyStyle={{ maxHeight: '68vh', overflowY: 'auto' }} footer={<><button className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button className="btn" onClick={saveTemplate} disabled={busy === 'template-save'}><Save size={16} /> Save</button></>}>
           <div className="form-grid">
             <label>Name<input className="input" value={editor.name || ''} onChange={e => setEditor(prev => ({ ...prev, name: e.target.value }))} /></label>
             <label>Priority<input className="input" type="number" min="1" max="10000" value={editor.priority ?? 100} onChange={e => setEditor(prev => ({ ...prev, priority: Number(e.target.value) }))} /></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={editor.enabled !== false} onChange={e => setEditor(prev => ({ ...prev, enabled: e.target.checked }))} />Enabled</label>
-            <label>Named hold<input className="input" value={editor.hold_name || 'Hold A'} onChange={e => setEditor(prev => ({ ...prev, hold_name: e.target.value }))} /></label>
+            <label>Named Hold (optional)<input className="input" value={editor.hold_name || ''} onChange={e => setEditor(prev => ({ ...prev, hold_name: e.target.value }))} /><span className="form-help">Leave blank to create the case request and custodians without assigning them to a Hold.</span></label>
             <label style={{ gridColumn: '1 / -1' }}>Description<textarea className="input" rows={2} value={editor.description || ''} onChange={e => setEditor(prev => ({ ...prev, description: e.target.value }))} /></label>
             <label>Sender match<input className="input" value={editor.sender_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, sender_pattern: e.target.value }))} placeholder="*@outside-counsel.com" /></label>
             <label>Recipient match<input className="input" value={editor.recipient_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, recipient_pattern: e.target.value }))} placeholder="ediscovery-intake@example.edu" /></label>
@@ -316,14 +319,14 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
         </Modal>
       )}
 
-      {testTemplate && (
+      {showTemplates && testTemplate && (
         <Modal open title={`Test Template: ${testTemplate.name || 'Unsaved template'}`} onClose={() => setTestTemplate(null)} width={760} bodyStyle={{ maxHeight: '68vh', overflowY: 'auto' }} footer={<><button className="btn secondary" onClick={() => setTestTemplate(null)}>Close</button><button className="btn" onClick={runTemplateTest} disabled={busy === 'template-test'}><TestTube2 size={16} /> Run Test</button></>}>
           <div className="form-grid"><label>Sender<input className="input" value={sample.sender} onChange={e => setSample(prev => ({ ...prev, sender: e.target.value }))} /></label><label>Recipients<input className="input" value={sample.recipients} onChange={e => setSample(prev => ({ ...prev, recipients: e.target.value }))} /></label><label style={{ gridColumn: '1 / -1' }}>Subject<input className="input" value={sample.subject} onChange={e => setSample(prev => ({ ...prev, subject: e.target.value }))} /></label><label style={{ gridColumn: '1 / -1' }}>Body<textarea className="input" rows={9} value={sample.body} onChange={e => setSample(prev => ({ ...prev, body: e.target.value }))} /></label></div>
           {testResult && <div style={{ marginTop: 14 }}><strong style={{ color: testResult.matched ? '#166534' : '#b91c1c' }}>{testResult.matched ? 'Template matched' : `No match: ${(testResult.failures || []).join(', ')}`}</strong><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', background: 'var(--muted-bg,#f8fafc)', padding: 10, maxHeight: 260, overflow: 'auto' }}>{JSON.stringify(testResult.extracted, null, 2)}</pre></div>}
         </Modal>
       )}
 
-      {detail && (
+      {showOperations && detail && (
         <Modal open title={detail.subject || 'Email Intake Message'} onClose={() => setDetail(null)} width={760} bodyStyle={{ maxHeight: '68vh', overflowY: 'auto' }} footer={<button className="btn secondary" onClick={() => setDetail(null)}>Close</button>}>
           <div style={{ display: 'grid', gap: 6, fontSize: 13 }}><div><strong>From:</strong> {detail.sender || '-'}</div><div><strong>To:</strong> {(detail.recipients || []).join(', ') || '-'}</div><div><strong>Status:</strong> {labelStatus(detail.status)}</div><div><strong>Template:</strong> {detail.template_name || '-'}</div><div><strong>Case Request:</strong> {detail.case_request_id || '-'}</div><div><strong>Attachments:</strong> {detail.attachment_count || 0}</div>{detail.last_error && <div style={{ color: '#b91c1c' }}><strong>Error:</strong> {detail.last_error}</div>}</div><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', background: 'var(--muted-bg,#f8fafc)', padding: 10, marginTop: 14 }}>{detail.body_text || '(empty body)'}</pre>
         </Modal>

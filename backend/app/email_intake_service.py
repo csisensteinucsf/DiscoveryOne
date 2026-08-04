@@ -445,7 +445,7 @@ def serialize_template(template: models.EmailIntakeTemplate) -> dict[str, Any]:
         "body_markers": parsed(template.body_markers, []),
         "field_markers": parsed(template.field_markers, {}),
         "default_values": parsed(template.default_values, {}),
-        "hold_name": template.hold_name or "Hold A",
+        "hold_name": template.hold_name or None,
         "created_at": template.created_at.isoformat() if template.created_at else None,
         "updated_at": template.updated_at.isoformat() if template.updated_at else None,
     }

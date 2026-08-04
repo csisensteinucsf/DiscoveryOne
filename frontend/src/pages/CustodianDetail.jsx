@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
 import { personLookupCurrentEmployee, personLookupDepartment, personLookupDepartmentId, personLookupExternalId, personLookupTitle } from "./caseDetailPersonLookupFields.js";
+import { consentStatusLabel, normalizeConsentStatus } from "./custodianStatusCatalog.js";
 
 const Chip = ({ kind = "default", children, title }) => {
   const base = {
@@ -50,11 +51,11 @@ const Chip = ({ kind = "default", children, title }) => {
 };
 
 function consentChipKind(status) {
-  const value = String(status || "").trim().toLowerCase();
+  const value = normalizeConsentStatus(status);
   if (["completed", "received", "signed"].includes(value)) return "green";
   if (["sent", "delivered"].includes(value)) return "blue";
   if (["declined", "voided"].includes(value)) return "red";
-  if (value === "na") return "yellow";
+  if (["implied", "awoc"].includes(value)) return "yellow";
   return "default";
 }
 
@@ -66,7 +67,7 @@ function ConsentStatusChip({ consent }) {
   if (consent.completed_at) titleParts.push(`Completed: ${new Date(consent.completed_at).toLocaleString()}`);
   return (
     <Chip kind={consentChipKind(consent.status)} title={titleParts.join("\n") || "Consent status"}>
-      {consent.status}
+      {consentStatusLabel(consent.status)}
     </Chip>
   );
 }
@@ -114,7 +115,7 @@ function HeaderCard({ data }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <Chip kind={data?.active_holds ? "red" : "green"}>{data?.active_holds ? "Active holds" : "No holds"}</Chip>
+          <Chip kind={data?.active_holds ? "red" : "green"}>{data?.active_holds ? "Active preservation" : "No preservation"}</Chip>
           {data?.is_separated ? <Chip kind="yellow-letter">S</Chip> : null}
           <Chip kind="blue">{openCount} open</Chip>
           <Chip>{closedCount} closed</Chip>
@@ -194,7 +195,7 @@ function HoldsCard({ holds = {} }) {
 
   return (
     <div className="card" style={{ padding: 16 }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>Holds</div>
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>Preservation</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 8 }}>
         {matrix.map(m => {
           const on = !!holds?.[m.key];
@@ -294,4 +295,3 @@ export default function CustodianDetail({ apiBase = "/api" }) {
     </div>
   );
 }
-

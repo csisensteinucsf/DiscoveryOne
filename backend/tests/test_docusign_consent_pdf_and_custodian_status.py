@@ -145,7 +145,15 @@ def test_consent_send_and_completion_are_isolated_to_selected_hold(tmp_path, mon
         )
         db.add(custodian)
         db.commit()
-        first_hold = case_holds.ensure_default_hold(db, case, assign_existing=True)
+        first_hold = models.CaseHold(case_id=case.id, name="Hold A", status="active", sort_order=0)
+        db.add(first_hold)
+        db.flush()
+        case_holds.assign_custodians_to_hold(
+            db,
+            case_id=case.id,
+            hold_id=first_hold.id,
+            custodian_ids=[custodian.id],
+        )
         second_hold = models.CaseHold(case_id=case.id, name="Hold B", sort_order=1)
         db.add(second_hold)
         db.flush()

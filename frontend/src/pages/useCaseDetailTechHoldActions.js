@@ -51,16 +51,16 @@ export function useCaseDetailTechHoldActions({
   const applyTechHoldChanges = async () => {
     if (!isTech || techHoldsApplying) return
     if (!holdKeysForTech.length) {
-      showToast('No hold categories available to update.', { variant: 'info' })
+      showToast('No preservation sources are available to update.', { variant: 'info' })
       return
     }
     if (!holdsDirty) {
-      showToast('No hold changes to apply.', { variant: 'info' })
+      showToast('No preservation changes to apply.', { variant: 'info' })
       return
     }
     const ok = await confirmDialog({
-      title: 'Apply hold changes',
-      description: 'Apply these hold updates so everyone can see them?',
+      title: 'Apply preservation changes',
+      description: 'Apply these preservation updates so everyone can see them?',
       confirmLabel: 'Apply',
     })
     if (!ok) return
@@ -104,7 +104,7 @@ export function useCaseDetailTechHoldActions({
       }
       if (!updates.length) {
         setHoldBaseline(custodians)
-        showToast('No hold changes to apply.', { variant: 'info' })
+        showToast('No preservation changes to apply.', { variant: 'info' })
         return
       }
       const succeeded = await submitCustodianBulkUpdate({ updates })
@@ -121,7 +121,7 @@ export function useCaseDetailTechHoldActions({
           return updated ? { ...c, ...updated } : c
         }))
       }
-      showToast('Hold changes applied.', { variant: 'success' })
+      showToast('Preservation changes applied.', { variant: 'success' })
       const containsReleaseUpdate = updates.some(({ patch }) => Object.entries(patch || {}).some(([k, v]) => k.endsWith('_released') && v === true))
       if (techHoldKeySet.has('holds_box') && !containsReleaseUpdate) {
         try {
@@ -132,14 +132,14 @@ export function useCaseDetailTechHoldActions({
           const data = await res.json().catch(() => null)
           if (!res.ok) {
             const detail = data?.detail || data?.message
-            throw new Error(detail || 'Unable to send requestor hold status email')
+            throw new Error(detail || 'Unable to send requestor preservation status email')
           }
         } catch (err) {
-          showToast(err?.message || 'Failed to send requestor hold status email.', { variant: 'error' })
+          showToast(err?.message || 'Failed to send requestor preservation status email.', { variant: 'error' })
         }
       }
     } catch (err) {
-      showToast(err?.message || 'Failed to apply hold updates.', { variant: 'error' })
+      showToast(err?.message || 'Failed to apply preservation updates.', { variant: 'error' })
     } finally {
       setTechHoldsApplying(false)
     }
@@ -149,13 +149,13 @@ export function useCaseDetailTechHoldActions({
     if (isReadOnly || !custodians.length) return false
     if (!skipConfirm) {
       const ok = await confirmDialog({
-        title: 'Release all holds',
+        title: 'Release all preservation',
         description: preservationProvider === 'purview'
-          ? 'Release all holds for every custodian in this case? This will also delete the Purview hold policy.' 
+          ? 'Release all preservation for every custodian in this case? This will also delete the Purview preservation policy.'
           : preservationAutomationEnabled
-            ? 'Release all holds through the configured preservation provider?'
-            : 'Release all manually tracked holds for every custodian in this case?',
-        confirmLabel: 'Release holds',
+            ? 'Release all preservation through the configured preservation provider?'
+            : 'Release all manually tracked preservation for every custodian in this case?',
+        confirmLabel: 'Release preservation',
         destructive: true,
       })
       if (!ok) return false
@@ -268,13 +268,13 @@ export function useCaseDetailTechHoldActions({
         }))
       }
       if (skippedFailedAny.length) {
-        showToast('Released all eligible holds. Failed (red X) holds were left unchanged.', { variant: 'info' })
+        showToast('Released all eligible preservation. Failed (red X) items were left unchanged.', { variant: 'info' })
       } else {
-        showToast('All holds released', { variant: 'info' })
+        showToast('All preservation released', { variant: 'info' })
       }
       return true
     } catch (err) {
-      showToast(`Failed to release holds: ${err.message}`, { variant: 'error', duration: 12000 })
+      showToast(`Failed to release preservation: ${err.message}`, { variant: 'error', duration: 12000 })
       setCustodians(snapshot)
       return false
     } finally {

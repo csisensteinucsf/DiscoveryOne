@@ -3,6 +3,14 @@ import { Pencil, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
 import CaseDetailHoldsTab from './CaseDetailHoldsTab.jsx'
 import { useCaseDetailNamedHolds } from './useCaseDetailNamedHolds.js'
+import {
+  CONSENT_STATUS_OPTIONS,
+  NTP_STATUS_OPTIONS,
+  consentStatusLabel,
+  normalizeConsentStatus,
+  normalizeNtpStatus,
+  ntpStatusLabel,
+} from './custodianStatusCatalog.js'
 
 const emptyForm = () => ({
   name: '',
@@ -43,8 +51,8 @@ function aggregateWorkflowState(counts = {}, completeStatuses = []) {
 }
 
 function HoldWorkflowSummary({ hold }) {
-  const ntp = aggregateWorkflowState(hold.ntp_counts, ['acknowledged', 'na'])
-  const consent = aggregateWorkflowState(hold.consent_counts, ['received', 'na'])
+  const ntp = aggregateWorkflowState(hold.ntp_counts, ['acknowledged', 'silent', 'na'])
+  const consent = aggregateWorkflowState(hold.consent_counts, ['received', 'implied', 'awoc', 'na'])
   const search = aggregateWorkflowState(hold.search_counts?.search, ['performed', 'complete', 'completed'])
   const exportState = aggregateWorkflowState(hold.search_counts?.export, ['performed', 'complete', 'completed'])
   const delivery = aggregateWorkflowState(hold.search_counts?.delivery, ['performed', 'complete', 'completed'])
@@ -227,6 +235,40 @@ export default function CaseDetailNamedHoldsTab({
     if (success) setSearchHold(null)
   }
 
+  const updateNtpStatus = async (hold, member, value) => {
+    const status = normalizeNtpStatus(value)
+    const payload = { ntp_status: status, ntp_not_required_reason: null }
+    if (status === 'silent') {
+      const reason = window.prompt('Why should this custodian be Silent for NTP?', member.ntp_not_required_reason || '')
+      if (reason === null) return
+      if (!reason.trim()) {
+        showToast('A reason is required for Silent NTP status.', { variant: 'warn' })
+        return
+      }
+      payload.ntp_not_required_reason = reason.trim()
+    }
+    await holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, payload)
+  }
+
+  const updateConsentStatus = async (hold, member, value) => {
+    const status = normalizeConsentStatus(value)
+    if (status === 'awoc') {
+      showToast('AWOC status is set only by uploading an AWOC consent document.', { variant: 'warn' })
+      return
+    }
+    const payload = { consent_status: status, consent_not_required_reason: null }
+    if (status === 'implied') {
+      const reason = window.prompt('Why is consent Implied for this custodian?', member.consent_not_required_reason || '')
+      if (reason === null) return
+      if (!reason.trim()) {
+        showToast('A reason is required for Implied consent.', { variant: 'warn' })
+        return
+      }
+      payload.consent_not_required_reason = reason.trim()
+    }
+    await holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, payload)
+  }
+
   return (
     <section className="card named-holds-shell">
       <div className="named-holds-heading">
@@ -321,24 +363,26 @@ export default function CaseDetailNamedHoldsTab({
                         <div className="muted">{member.email || '-'}</div>
                       </td>
                       <td>
-                        {isReadOnly ? member.ntp_status : (
+                        {isReadOnly ? ntpStatusLabel(member.ntp_status) : (
                           <select
-                            value={member.ntp_status || 'not sent'}
-                            onChange={event => holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, { ntp_status: event.target.value })}
+                            value={normalizeNtpStatus(member.ntp_status)}
+                            onChange={event => updateNtpStatus(hold, member, event.target.value)}
                             disabled={holds.namedHoldBusy}
                           >
-                            {['not sent', 'sent', 'acknowledged', 'na'].map(value => <option key={value} value={value}>{value}</option>)}
+                            {NTP_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                           </select>
                         )}
                       </td>
                       <td>
-                        {isReadOnly ? member.consent_status : (
+                        {isReadOnly ? consentStatusLabel(member.consent_status) : (
                           <select
-                            value={member.consent_status || 'not sent'}
-                            onChange={event => holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, { consent_status: event.target.value })}
-                            disabled={holds.namedHoldBusy}
+                            value={normalizeConsentStatus(member.consent_status)}
+                            onChange={event => updateConsentStatus(hold, member, event.target.value)}
+                            disabled={holds.namedHoldBusy || normalizeConsentStatus(member.consent_status) === 'awoc'}
+                            title={normalizeConsentStatus(member.consent_status) === 'awoc' ? 'AWOC is managed by the uploaded AWOC consent document.' : undefined}
                           >
-                            {['not sent', 'sent', 'received', 'na'].map(value => <option key={value} value={value}>{value}</option>)}
+                            {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                            {normalizeConsentStatus(member.consent_status) === 'awoc' ? <option value="awoc">AWOC (document uploaded)</option> : null}
                           </select>
                         )}
                       </td>

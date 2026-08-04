@@ -77,7 +77,7 @@ def _compute_case_status_map(db: Session, case_ids: list[int]) -> dict[int, sche
             func.max(sql_case((func.lower(func.coalesce(models.Custodian.ntp_status, "")) == "sent", 1), else_=0)).label("ntp_partial"),
             func.max(sql_case((func.lower(func.coalesce(models.Custodian.ntp_status, "")) == "acknowledged", 1), else_=0)).label("ntp_full"),
             func.max(sql_case((func.lower(func.coalesce(models.Custodian.consent_status, "")) == "sent", 1), else_=0)).label("consent_partial"),
-            func.max(sql_case((func.lower(func.coalesce(models.Custodian.consent_status, "")) == "received", 1), else_=0)).label("consent_full"),
+            func.max(sql_case((func.lower(func.coalesce(models.Custodian.consent_status, "")).in_(("received", "implied", "awoc")), 1), else_=0)).label("consent_full"),
             func.max(sql_case((models.Custodian.search_done.is_(True), 1), else_=0)).label("search"),
             func.max(sql_case((models.Custodian.export_done.is_(True), 1), else_=0)).label("export"),
             func.max(sql_case((models.Custodian.delivered_done.is_(True), 1), else_=0)).label("delivered"),
@@ -132,7 +132,7 @@ def _sla_overview(db: Session, case_id: int) -> dict:
     for cust in custodians:
         sent_at = getattr(cust, "ntp_sent_at", None)
         status = (getattr(cust, "ntp_status", "") or "").lower()
-        if sent_at and status not in {"acknowledged", "na"}:
+        if sent_at and status not in {"acknowledged", "silent", "na", "n/a", "not applicable", "not required"}:
             due_at = sent_at + timedelta(days=ntp_ack_days)
             if due_at < now:
                 ntp_overdue.append({
@@ -320,13 +320,13 @@ def _build_case_summary_payload(db: Session, case: models.Case) -> dict[str, Any
     ntp_statuses = [(getattr(c, "ntp_status", None) or "not sent") for c in custodians]
     ntp_counts = _counter_for_status(
         ntp_statuses,
-        expected=["not sent", "sent", "acknowledged", "na"],
+        expected=["not sent", "sent", "acknowledged", "silent"],
     )
 
     consent_statuses = [(getattr(c, "consent_status", None) or "not sent") for c in custodians]
     consent_counts = _counter_for_status(
         consent_statuses,
-        expected=["not sent", "sent", "received", "na"],
+        expected=["not sent", "sent", "received", "implied", "awoc"],
     )
 
     search_counts = _counter_for_status(
@@ -374,12 +374,12 @@ def _build_case_summary_payload(db: Session, case: models.Case) -> dict[str, Any
     ntp_needing_action = sum(
         1
         for c in custodians
-        if str(getattr(c, "ntp_status", "") or "not sent").strip().lower() not in {"acknowledged", "na"}
+        if str(getattr(c, "ntp_status", "") or "not sent").strip().lower() not in {"acknowledged", "silent", "na", "n/a", "not applicable", "not required"}
     )
     consent_needing_action = sum(
         1
         for c in custodians
-        if str(getattr(c, "consent_status", "") or "not sent").strip().lower() not in {"received", "na"}
+        if str(getattr(c, "consent_status", "") or "not sent").strip().lower() not in {"received", "implied", "awoc", "na", "n/a", "not applicable", "not required"}
     )
     total_hold_failed = sum(int(v.get("failed", 0)) for v in holds_summary.values())
     total_hold_pending = sum(int(v.get("pending", 0)) for v in holds_summary.values())
@@ -513,11 +513,11 @@ def _build_case_summary_payload(db: Session, case: models.Case) -> dict[str, Any
     lines.append("")
     lines.append(
         "NTP status: "
-        + ", ".join(f"{k}={ntp_counts.get(k, 0)}" for k in ("not sent", "sent", "acknowledged", "na"))
+        + ", ".join(f"{k}={ntp_counts.get(k, 0)}" for k in ("not sent", "sent", "acknowledged", "silent"))
     )
     lines.append(
         "Consent status: "
-        + ", ".join(f"{k}={consent_counts.get(k, 0)}" for k in ("not sent", "sent", "received", "na"))
+        + ", ".join(f"{k}={consent_counts.get(k, 0)}" for k in ("not sent", "sent", "received", "implied", "awoc"))
     )
     lines.append("")
     lines.append(f"Searches: total={len(searches)}, without custodians={searches_without_custodians}")

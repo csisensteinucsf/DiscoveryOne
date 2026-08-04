@@ -428,7 +428,7 @@ export default function CaseDetailNtpModals({
           )}
         >
           <p style={{ margin: 0, color: 'var(--text,#0f172a)', lineHeight: 1.5 }}>
-            that custodian is separated or listed as NA for NTPs
+            That custodian is separated or marked Silent for NTPs.
           </p>
           {ntpBlockedModal?.custodian ? (
             <div style={{ marginTop: 10, fontSize: 13, color: 'var(--muted,#64748b)' }}>

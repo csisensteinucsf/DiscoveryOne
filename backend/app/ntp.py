@@ -655,11 +655,11 @@ def send_ntp_notices(
         status = (getattr(cust, "employment_status", "") or "").strip().lower()
         membership = membership_by_custodian[int(cust.id)]
         ntp_status = (getattr(membership, "ntp_status", "") or "").strip().lower()
-        if status.startswith("separated") or ntp_status == "na":
+        if status.startswith("separated") or ntp_status in {"silent", "na"}:
             blocked.append(cust)
     if blocked:
         names = ", ".join([(cust.name or cust.email or "Unknown") for cust in blocked])
-        raise HTTPException(status_code=400, detail=f"that custodian is separated or listed as NA for NTPs: {names}")
+        raise HTTPException(status_code=400, detail=f"that custodian is separated or marked Silent for NTPs: {names}")
     for custodian in custodians:
         if not (custodian.email or "").strip():
             raise HTTPException(status_code=400, detail=f"Custodian '{custodian.name}' is missing an email address")
@@ -1210,5 +1210,4 @@ def _process_ntp_ack(token: str) -> Dict[str, str]:
         }
     finally:
         db.close()
-
 

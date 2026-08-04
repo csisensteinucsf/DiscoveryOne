@@ -120,7 +120,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
           </div>
         </Field>
       </div>
-      <Field label="When to send case closure reminders to requestor (days)">
+      <Field label="Send case status notification to requestor every (days)">
         <TextInput
           type="number"
           min={1}

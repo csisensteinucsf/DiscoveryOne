@@ -48,7 +48,7 @@ class EmailIntakeTemplatePayload(BaseModel):
     body_markers: list[str] = Field(default_factory=list, max_length=25)
     field_markers: dict[str, str] = Field(default_factory=dict)
     default_values: dict[str, Any] = Field(default_factory=dict)
-    hold_name: str = Field(default="Hold A", min_length=1, max_length=255)
+    hold_name: str | None = Field(default=None, max_length=255)
 
     @field_validator("body_markers")
     @classmethod
@@ -121,7 +121,7 @@ def _apply_template_payload(model: models.EmailIntakeTemplate, payload: EmailInt
     model.body_markers = json.dumps(payload.body_markers, ensure_ascii=False)
     model.field_markers = json.dumps(payload.field_markers, ensure_ascii=False)
     model.default_values = json.dumps(payload.default_values, ensure_ascii=False)
-    model.hold_name = payload.hold_name.strip()
+    model.hold_name = (payload.hold_name or "").strip() or None
 
 
 def _template_namespace(payload: EmailIntakeTemplatePayload) -> SimpleNamespace:
@@ -135,7 +135,7 @@ def _template_namespace(payload: EmailIntakeTemplatePayload) -> SimpleNamespace:
         body_markers=json.dumps(payload.body_markers),
         field_markers=json.dumps(payload.field_markers),
         default_values=json.dumps(payload.default_values),
-        hold_name=payload.hold_name,
+        hold_name=(payload.hold_name or "").strip() or None,
     )
 
 

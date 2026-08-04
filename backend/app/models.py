@@ -33,6 +33,7 @@ class User(Base):
     mfa_enabled = Column(Boolean, nullable=False, default=False)
     ntp_default_template_id = Column(Integer, ForeignKey("ntp_templates.id", ondelete="SET NULL"), nullable=True)
     dashboards_raw = Column("dashboards", Text, nullable=True)
+    ui_preferences_raw = Column("ui_preferences", Text, nullable=True)
     trusted_devices = relationship("TrustedDevice", back_populates="user", cascade="all, delete-orphan")
 
     @property
@@ -58,6 +59,28 @@ class User(Base):
             self.dashboards_raw = json.dumps(value)
         except Exception:
             self.dashboards_raw = None
+
+    @property
+    def ui_preferences(self):
+        raw = getattr(self, "ui_preferences_raw", None)
+        if not raw:
+            return {}
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, (bytes, str)):
+            try:
+                value = json.loads(raw)
+                return value if isinstance(value, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    @ui_preferences.setter
+    def ui_preferences(self, value):
+        try:
+            self.ui_preferences_raw = json.dumps(value or {})
+        except Exception:
+            self.ui_preferences_raw = "{}"
 
 
 class Case(Base):
@@ -96,6 +119,7 @@ class Case(Base):
     last_closure_nag_at = Column(DateTime(timezone=True), nullable=True)
     last_search_delivery_reminder_at = Column(DateTime(timezone=True), nullable=True)
     closure_nag_days = Column(Integer, nullable=False, default=180)
+    case_template_id = Column(Integer, ForeignKey("case_templates.id", ondelete="SET NULL"), nullable=True, index=True)
 
 
 
@@ -104,6 +128,7 @@ class Case(Base):
     consents = relationship("CaseConsent", back_populates="case", cascade="all, delete-orphan")
     requestors = relationship("CaseRequestor", back_populates="case", cascade="all, delete-orphan")
     holds = relationship("CaseHold", back_populates="case", cascade="all, delete-orphan", order_by="CaseHold.sort_order")
+    case_template = relationship("CaseTemplate", back_populates="cases")
 
     @property
     def request_ticket_entries(self):
@@ -151,6 +176,55 @@ class Case(Base):
         except Exception:
             serialized = "[]"
         self.request_ticket_entries_raw = serialized
+
+
+class CaseTemplate(Base):
+    __tablename__ = "case_templates"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False, unique=True, index=True)
+    description = Column(Text, nullable=True)
+    enabled = Column(Boolean, nullable=False, default=True)
+    is_default = Column(Boolean, nullable=False, default=False)
+    sort_order = Column(Integer, nullable=False, default=100)
+    defaults_raw = Column("defaults", Text, nullable=False, default="{}")
+    field_rules_raw = Column("field_rules", Text, nullable=False, default="{}")
+    created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    cases = relationship("Case", back_populates="case_template")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    updated_by = relationship("User", foreign_keys=[updated_by_id])
+
+    @staticmethod
+    def _load_object(raw):
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, (bytes, str)) and raw:
+            try:
+                value = json.loads(raw)
+                return value if isinstance(value, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    @property
+    def defaults(self):
+        return self._load_object(self.defaults_raw)
+
+    @defaults.setter
+    def defaults(self, value):
+        self.defaults_raw = json.dumps(value or {})
+
+    @property
+    def field_rules(self):
+        return self._load_object(self.field_rules_raw)
+
+    @field_rules.setter
+    def field_rules(self, value):
+        self.field_rules_raw = json.dumps(value or {})
 
 class Custodian(Base):
     __tablename__ = "custodians"
@@ -595,6 +669,7 @@ class CaseRequestConsentProof(Base):
     original_filename = Column(String(255), nullable=False)
     content_type = Column(String(128), nullable=True)
     size = Column(Integer, nullable=False, default=0)
+    proof_type = Column(String(32), nullable=False, default="standard", server_default="standard")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     uploaded_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
@@ -727,8 +802,6 @@ class AccountRegistrationRequest(Base):
     role = Column(String(32), nullable=True)
 
     approved_by = relationship("User")
-
-
 
 
 

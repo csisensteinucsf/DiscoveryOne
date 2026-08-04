@@ -675,7 +675,7 @@ def case_stats(
             func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.ntp_status, "")) == "sent", 1), else_=0)),
             func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.ntp_status, "")) == "acknowledged", 1), else_=0)),
             func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.consent_status, "")) == "sent", 1), else_=0)),
-            func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.consent_status, "")) == "received", 1), else_=0)),
+            func.sum(sql_case((func.lower(func.coalesce(models.HoldCustodian.consent_status, "")).in_(("received", "implied", "awoc")), 1), else_=0)),
         )
         .join(models.HoldCustodian, models.HoldCustodian.hold_id == models.CaseHold.id)
         .filter(models.CaseHold.case_id.in_(visible_ids), models.CaseHold.status == "active")
@@ -816,9 +816,27 @@ def get_case(
     return _case_read(obj, status=status, user=_user)
 
 
+@router.get("/{case_id}/closure-readiness")
+def get_case_closure_readiness(
+    case_id: int,
+    db: Session = Depends(get_db),
+    _user: models.User = Depends(get_current_user),
+):
+    case = db.get(models.Case, case_id)
+    if case is None:
+        raise HTTPException(status_code=404, detail="Case not found")
+    ensure_case_visible(case, _user, db)
+    from .case_closure_readiness import case_closure_readiness
+
+    return case_closure_readiness(db, case_id)
+
+
 @router.post("", response_model=schemas.CaseRead, status_code=201)
 def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), request: Request = None, _user: models.User = Depends(get_current_user)):
     ensure_case_editable(_user)
+    from .case_templates import apply_case_template
+
+    payload, case_template = apply_case_template(db, payload)
     analyst_user = None
     if payload.analyst_id is not None:
         analyst_user = db.get(models.User, payload.analyst_id)
@@ -867,6 +885,7 @@ def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), requ
             is_active_case=bool(getattr(payload, "is_active_case", False)),
             closure_nag_days=payload.closure_nag_days or case_closure_default_nag_days(),
             start_date=sd,
+            case_template_id=case_template.id if case_template else None,
         )
         entries_payload = getattr(payload, "request_ticket_entries", None)
         if entries_payload is not None:
@@ -884,8 +903,6 @@ def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), requ
 
         db.add(case)
         db.flush()
-        from .case_holds import ensure_default_hold
-        ensure_default_hold(db, case, assign_existing=False)
         db.commit()
         db.refresh(case)
         try:
@@ -900,6 +917,7 @@ def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), requ
                     "case_name": getattr(case, "name", None),
                     "requestor": case.requestor,
                     "analyst_id": case.analyst_id,
+                    "case_template_id": case.case_template_id,
                 },
                 request=request,
             )
@@ -1160,9 +1178,6 @@ def delete_custodian(*args, **kwargs):
 def list_case_consents(*args, **kwargs):
     from .case_consents import list_case_consents as _impl
     return _impl(*args, **kwargs)
-
-
-
 
 
 

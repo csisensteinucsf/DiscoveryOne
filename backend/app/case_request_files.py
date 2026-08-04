@@ -244,6 +244,9 @@ async def upload_case_consent_proof(
     upload = form.get("file")
     if not upload or not hasattr(upload, "filename"):
         raise HTTPException(status_code=400, detail="Consent document is required")
+    proof_type = str(form.get("proof_type") or "standard").strip().lower()
+    if proof_type not in {"standard", "awoc"}:
+        raise HTTPException(status_code=422, detail="proof_type must be standard or awoc")
     custodian_id = None
     custodian = None
     raw_custodian_id = form.get("custodian_id")
@@ -281,7 +284,7 @@ async def upload_case_consent_proof(
         case_id=case_id,
         custodian_ids=[int(target_custodian.id)],
         case_hold_id=case_hold_id,
-        create_default=True,
+        create_default=False,
     )
     hold_membership = memberships[int(target_custodian.id)]
     blob = await _read_consent_proof_blob(upload, actor=actor, request=request)
@@ -298,10 +301,11 @@ async def upload_case_consent_proof(
             original_filename=blob["filename"],
             content_type=blob["content_type"],
             size=blob["size"],
+            proof_type=proof_type,
             uploaded_by_id=actor.id,
         )
         db.add(proof)
-        set_membership_consent_status(db, hold_membership, "received")
+        set_membership_consent_status(db, hold_membership, "awoc" if proof_type == "awoc" else "received")
         db.commit()
         _sync_case_documentation_counters(db, case_id)
         db.refresh(proof)
@@ -325,6 +329,7 @@ async def upload_case_consent_proof(
                 "custodian_name": getattr(proof, "custodian_name", None),
                 "custodian_email": proof.custodian_email,
                 "original_filename": proof.original_filename,
+                "proof_type": proof.proof_type,
                 "case_id": case_id,
                 "case_name": case_name,
             },
@@ -445,6 +450,7 @@ def delete_case_consent_proof(
                 "custodian_name": custodian_name,
                 "custodian_email": custodian_email,
                 "original_filename": getattr(proof, "original_filename", None),
+                "proof_type": getattr(proof, "proof_type", None) or "standard",
                 "case_id": case_id,
                 "case_name": case_name,
             },

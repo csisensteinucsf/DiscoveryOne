@@ -1,5 +1,12 @@
 import { Badge, Button, InlineSpinner, Select } from './caseDetailControls.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
+import {
+  CONSENT_STATUS_OPTIONS,
+  NTP_STATUS_OPTIONS,
+  isConsentComplete,
+  normalizeConsentStatus,
+  normalizeNtpStatus,
+} from './custodianStatusCatalog.js'
 
 function SortLabel({ label, col, custSort, onSort }) {
   const isActive = custSort.key === col
@@ -58,6 +65,11 @@ export default function CaseDetailCustodiansTab({
   formatDate,
   onEditCustodian,
   openRemoveCustodian,
+  setCustodianModalMode,
+  setShowCustodianModal,
+  openSendNtp,
+  sendingNtp,
+  ntpButtonDisabled,
 }) {
   const {
     custodianCount,
@@ -102,6 +114,20 @@ export default function CaseDetailCustodiansTab({
                         </button>
                       </>
                     )}
+                    {!isReadOnly && !isTech && (
+                      <button
+                        className="btn secondary"
+                        type="button"
+                        onClick={() => { setCustodianModalMode('add'); setShowCustodianModal(true) }}
+                      >
+                        Add / Import Custodians
+                      </button>
+                    )}
+                    {!isTech && (
+                      <button className="btn secondary" type="button" onClick={openSendNtp} disabled={sendingNtp || ntpButtonDisabled}>
+                        {sendingNtp ? 'Sending...' : 'NTPs'}
+                      </button>
+                    )}
                     {!isReadOnly && (
                       <button
                         className="btn"
@@ -123,9 +149,9 @@ export default function CaseDetailCustodiansTab({
                         {releasingHolds ? (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                             <InlineSpinner size={12} color="rgba(255,255,255,0.95)" />
-                            Releasing Holds...
+                            Releasing Preservation...
                           </span>
-                        ) : 'Release All Holds'}
+                        ) : 'Release All Preservation'}
                       </button>
                     )}
                     {isRequestor && (
@@ -146,7 +172,7 @@ export default function CaseDetailCustodiansTab({
                   {!isReadOnly && (
                     <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, color: 'var(--muted,#6b7280)' }}>Apply to all:</span>
-                      <Button variant={bulk.holds ? 'primary' : 'subtle'} onClick={() => setBulk(b => ({ ...b, holds: !b.holds }))}>Holds</Button>
+                      <Button variant={bulk.holds ? 'primary' : 'subtle'} onClick={() => setBulk(b => ({ ...b, holds: !b.holds }))}>Preservation</Button>
                       {!isTech && (
                         <Button variant={bulk.ntp ? 'primary' : 'subtle'} onClick={() => setBulk(b => ({ ...b, ntp: !b.ntp }))}>NTP</Button>
                       )}
@@ -170,7 +196,7 @@ export default function CaseDetailCustodiansTab({
                   <tr>
                     <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Name" col="name" custSort={custSort} onSort={toggleSort} /></th>
                     <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Email" col="email" custSort={custSort} onSort={toggleSort} /></th>
-                    <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Holds" col="holds" custSort={custSort} onSort={toggleSort} /></th>
+                    <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Preservation" col="holds" custSort={custSort} onSort={toggleSort} /></th>
                     {!isTech && (
                       <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="NTP" col="ntp" custSort={custSort} onSort={toggleSort} /></th>
                     )}
@@ -206,7 +232,7 @@ export default function CaseDetailCustodiansTab({
                           style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8 }}
                         />
                       </th>
-                      {/* Holds filter */}
+                      {/* Preservation filter */}
                       <th style={{ padding: 6 }}>
                         <select
                           value={custFilters.holds}
@@ -214,8 +240,8 @@ export default function CaseDetailCustodiansTab({
                           style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8, background:'white' }}
                         >
                           <option value="all">All</option>
-                          <option value="has">Has any hold</option>
-                          <option value="none">No holds</option>
+                          <option value="has">Has preservation</option>
+                          <option value="none">No preservation</option>
                         </select>
                       </th>
                       {!isTech && (
@@ -228,10 +254,7 @@ export default function CaseDetailCustodiansTab({
                               style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8, background:'white' }}
                             >
                               <option value="all">All</option>
-                              <option value="not sent">Not sent</option>
-                              <option value="na">NA</option>
-                              <option value="sent">Sent</option>
-                              <option value="acknowledged">ACK</option>
+                              {NTP_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                             </select>
                           </th>
                           {/* Consent filter */}
@@ -242,10 +265,8 @@ export default function CaseDetailCustodiansTab({
                               style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8, background:'white' }}
                             >
                               <option value="all">All</option>
-                              <option value="not sent">Not sent</option>
-                              <option value="na">NA</option>
-                              <option value="sent">Sent</option>
-                              <option value="received">Received</option>
+                              {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                              <option value="awoc">AWOC</option>
                             </select>
                           </th>
                           {/* keep column alignment */}
@@ -264,12 +285,12 @@ export default function CaseDetailCustodiansTab({
                         const state = holdState(c, key)
                         return !!(state.pending || state.failed)
                       })
-                      const ntpStatus = (c.ntp_status || 'not sent')
+                      const ntpStatus = normalizeNtpStatus(c.ntp_status)
                       const ntpHalf = ntpStatus === 'sent'
                       const ntpFull = ntpStatus === 'acknowledged'
-                      const consent = (c.consent_status || 'not sent')
+                      const consent = normalizeConsentStatus(c.consent_status)
                       const consentHalf = consent === 'sent'
-                      const consentFull = consent === 'received'
+                      const consentFull = isConsentComplete(consent)
                       const emailKey = normalizeEmail(c.email)
                       const isUnmatched = !!c.person_lookup_overridden || !emailKey || emailKey === 'noemail' || emailKey === 'unmatched'
                       const needsNameEmailReview = !!c.name_email_review_required
@@ -293,14 +314,14 @@ export default function CaseDetailCustodiansTab({
                                 <Badge variant="info" compact title="Claimant">C</Badge>
                               ) : null}
                               {needsNameEmailReview ? (
-                                <Badge variant="warn" compact title={c.name_email_review_reason || 'Name/email mismatch suspected. Review this custodian before placing holds.'}>NAME/EMAIL REVIEW</Badge>
+                                <Badge variant="warn" compact title={c.name_email_review_reason || 'Name/email mismatch suspected. Review this custodian before applying preservation.'}>NAME/EMAIL REVIEW</Badge>
                               ) : null}
                               {isUnmatched ? (
                                 <Badge variant="danger" compact title="Person lookup was not matched for this custodian.">UNMATCHED</Badge>
                               ) : null}
                             </div>
                           </td>
-                          {/* Holds */}
+                          {/* Preservation */}
                           <td style={{ padding: '5px', verticalAlign: 'top' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, max-content)', gap: 2 }}>
                               {holdMetaForView.map(({ key, label }) => {
@@ -325,7 +346,7 @@ export default function CaseDetailCustodiansTab({
                                     onClick={() => onToggleHold(c, key, nextState)}
                                     disabled={!isHoldEditable}
                                     aria-pressed={state.active || state.pending || state.failed || state.released}
-                                    aria-label={`${label} hold ${title}`}
+                                    aria-label={`${label} preservation ${title}`}
                                     style={{
                                       display: 'flex',
                                       alignItems: 'center',
@@ -368,11 +389,8 @@ export default function CaseDetailCustodiansTab({
                           {/* NTP */}
                           {!isTech && (
                             <td style={{ padding: '5px', verticalAlign: 'top' }}>
-                              <Select value={c.ntp_status || 'not sent'} onChange={e => onChangeNtp(c, e.target.value)} disabled={isTech}>
-                                <option value="na">NA</option>
-                                <option value="not sent">Not sent</option>
-                                <option value="sent">Sent</option>
-                                <option value="acknowledged">ACK</option>
+                              <Select value={normalizeNtpStatus(c.ntp_status)} onChange={e => onChangeNtp(c, e.target.value)} disabled={isTech}>
+                                {NTP_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
                               </Select>
                               {c.ntp_sent_at && ['sent', 'acknowledged'].includes(String(c.ntp_status || '').toLowerCase()) && (
                                 <div style={{ fontSize: 11, color: 'var(--muted,#6b7280)', marginTop: 4 }}>
@@ -394,11 +412,14 @@ export default function CaseDetailCustodiansTab({
                           {/* Consent */}
                           {!isTech && (
                             <td style={{ padding: '5px', verticalAlign: 'top' }}>
-                              <Select value={c.consent_status || 'not sent'} onChange={e => onChangeConsent(c, e.target.value)} disabled={isTech}>
-                                <option value="na">NA</option>
-                                <option value="not sent">Not sent</option>
-                                <option value="sent">Sent</option>
-                                <option value="received">Received</option>
+                              <Select
+                                value={normalizeConsentStatus(c.consent_status)}
+                                onChange={e => onChangeConsent(c, e.target.value)}
+                                disabled={isTech || normalizeConsentStatus(c.consent_status) === 'awoc'}
+                                title={normalizeConsentStatus(c.consent_status) === 'awoc' ? 'AWOC is managed by the uploaded AWOC consent document.' : undefined}
+                              >
+                                {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                                {normalizeConsentStatus(c.consent_status) === 'awoc' ? <option value="awoc">AWOC (document uploaded)</option> : null}
                               </Select>
                             </td>
                           )}
@@ -408,8 +429,8 @@ export default function CaseDetailCustodiansTab({
                               <div style={{ display:'grid', gridTemplateColumns:'repeat(2, max-content)', gap:2 }}>
                                 {hasHold ? (
                                   hasHoldPending
-                                    ? <Badge variant="warn" onClick={() => onBadgeClick("HOLD")}>HOLD</Badge>
-                                    : <Badge variant="success" onClick={() => onBadgeClick("HOLD")}>HOLD</Badge>
+                                    ? <Badge variant="warn" onClick={() => onBadgeClick("HOLD")}>PRESERVATION</Badge>
+                                    : <Badge variant="success" onClick={() => onBadgeClick("HOLD")}>PRESERVATION</Badge>
                                 ) : null}
                                 {ntpHalf ? <Badge variant="warn" half onClick={() => onBadgeClick("NTP")}>NTP</Badge> : null}
                                 {ntpFull ? <Badge variant="success" onClick={() => onBadgeClick("NTP")}>NTP ACK</Badge> : null}

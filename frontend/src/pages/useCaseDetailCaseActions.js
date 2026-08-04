@@ -67,30 +67,7 @@ export function useCaseDetailCaseActions({
       return { response, responseBody }
     }
 
-    let { response, responseBody } = await sendUpdate(payload)
-    const detail = responseBody?.detail
-    if (
-      response.status === 409
-      && detail?.code === 'active_holds_require_confirmation'
-      && typeof confirmDialog === 'function'
-    ) {
-      const holdNames = (detail.active_holds || []).map(hold => hold.name).filter(Boolean)
-      const accepted = await confirmDialog({
-        title: 'Close active holds?',
-        description: detail.message + (holdNames.length ? ' Active holds: ' + holdNames.join(', ') + '.' : ''),
-        confirmLabel: 'Close holds and case',
-        cancelLabel: 'Keep case active',
-        destructive: true,
-        width: 500,
-      })
-      if (!accepted) {
-        const cancelled = new Error('Case closure cancelled.')
-        cancelled.cancelled = true
-        throw cancelled
-      }
-      payload.close_active_holds = true
-      ;({ response, responseBody } = await sendUpdate(payload))
-    }
+    const { response, responseBody } = await sendUpdate(payload)
     if (!response.ok) {
       const message = responseBody?.detail?.message || responseBody?.detail || responseBody?.message
       throw new Error(String(message || `HTTP ${response.status}`))
@@ -115,7 +92,7 @@ export function useCaseDetailCaseActions({
     }
     showToast('Case updated.', { variant: 'success' })
     return fresh
-  }, [apiBase, caseData, caseId, confirmDialog, setCaseData, showToast])
+  }, [apiBase, caseData, caseId, setCaseData, showToast])
 
   return { updateCase, updateCustodianLocal, patchCustodian }
 }

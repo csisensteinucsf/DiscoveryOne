@@ -217,6 +217,7 @@ def ensure_default_hold(
     *,
     assign_existing: bool = True,
 ) -> models.CaseHold:
+    """Return the first existing hold without creating holds or memberships."""
     hold = (
         db.query(models.CaseHold)
         .filter(models.CaseHold.case_id == case.id)
@@ -224,30 +225,13 @@ def ensure_default_hold(
         .first()
     )
     if hold is None:
-        hold = models.CaseHold(
-            case_id=case.id,
-            name="Hold A",
-            description="Default hold",
-            status="closed" if bool(getattr(case, "closed", False)) else "active",
-            sort_order=0,
-            closed_at=datetime.now(timezone.utc) if bool(getattr(case, "closed", False)) else None,
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "hold_required",
+                "message": "Create a Hold and assign the applicable custodians before starting this workflow.",
+            },
         )
-        db.add(hold)
-        db.flush()
-
-    if assign_existing:
-        custodians = db.query(models.Custodian).filter(models.Custodian.case_id == case.id).all()
-        for custodian in custodians:
-            _create_membership(db, hold, custodian)
-        searches = db.query(models.Search).filter(models.Search.case_id == case.id).all()
-        for search in searches:
-            exists = (
-                db.query(models.HoldSearch)
-                .filter(models.HoldSearch.hold_id == hold.id, models.HoldSearch.search_id == search.id)
-                .first()
-            )
-            if not exists:
-                db.add(models.HoldSearch(hold_id=hold.id, search_id=search.id))
     return hold
 
 
@@ -398,9 +382,7 @@ def list_case_holds(
     db: Session = Depends(get_db),
     user: models.User = Depends(get_current_user),
 ):
-    case = _case_for_user(db, case_id, user)
-    ensure_default_hold(db, case, assign_existing=True)
-    db.commit()
+    _case_for_user(db, case_id, user)
     holds = (
         db.query(models.CaseHold)
         .options(

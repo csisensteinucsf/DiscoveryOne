@@ -35,9 +35,9 @@ export function ConfirmProvider({ children }) {
           width={dialog.width || 420}
           footer={(
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-              <button type="button" className="btn ghost" onClick={close}>
+              {!dialog.hideCancel && <button type="button" className="btn ghost" onClick={close}>
                 {dialog.cancelLabel || 'Cancel'}
-              </button>
+              </button>}
               <button
                 type="button"
                 className={`btn ${dialog.destructive ? 'danger' : ''}`}

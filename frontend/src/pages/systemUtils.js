@@ -27,6 +27,7 @@ const formatDateTime = (value) => {
 const secretInputValue = (value) => (value === MASKED_SECRET_VALUE ? '' : (value || ''))
 
 const ADMIN_USERNAME = 'admin'
+const normalizeGroupValue = (value) => String(value || '').trim().toLowerCase()
 
 const makeEmptyForm = () => ({ first_name:'', last_name:'', email:'', password:'', confirm:'', role:'analyst', requestor_group:'', employee_id:'', local_auth_only:false, is_active:true })
 
@@ -41,6 +42,7 @@ export {
   formatDateTime,
   secretInputValue,
   ADMIN_USERNAME,
+  normalizeGroupValue,
   makeEmptyForm
 }
 

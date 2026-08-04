@@ -4,11 +4,12 @@ import Modal from '../components/Modal.jsx'
 import { Field, TextInput, Button, Badge } from './caseDetailControls.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
 import { normalizeSearchDraftFields, serverSuggestSearches } from './caseDetailPersistence.js'
-export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, onUseSuggestion, onCreateSuggestions, searchQueryLabel = 'Provider query' }) {
+export function SearchAiBuilderModal({ caseId, caseData, custodians, holds = [], onClose, onUseSuggestion, onCreateSuggestions, searchQueryLabel = 'Provider query' }) {
   const { showToast } = useToast()
   const [objective, setObjective] = useState('')
   const [filter, setFilter] = useState('')
   const [selectedIds, setSelectedIds] = useState(() => (custodians || []).map(c => Number(c.id)).filter(Number.isFinite))
+  const [selectedHoldIds, setSelectedHoldIds] = useState([])
   const [loading, setLoading] = useState(false)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
@@ -18,6 +19,7 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
     setSelectedIds((custodians || []).map(c => Number(c.id)).filter(Number.isFinite))
     setResult(null)
     setError('')
+    setSelectedHoldIds([])
   }, [caseId])
 
   useEffect(() => {
@@ -77,6 +79,14 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
     setSelectedIds(Array.from(next))
   }
 
+  function toggleHold(id) {
+    const holdId = Number(id)
+    const next = new Set(selectedHoldIds.map(Number))
+    if (next.has(holdId)) next.delete(holdId)
+    else next.add(holdId)
+    setSelectedHoldIds([...next])
+  }
+
   async function handleGenerate() {
     if (!caseId) return
     setLoading(true)
@@ -98,9 +108,9 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
         suggestions,
       })
       if (!suggestions.length) {
-        showToast('Versa returned no search suggestions.', { variant: 'warn' })
+        showToast('AI returned no search suggestions.', { variant: 'warn' })
       } else {
-        showToast(`Versa generated ${suggestions.length} search suggestion${suggestions.length === 1 ? '' : 's'}.`, { variant: 'success' })
+        showToast(`AI generated ${suggestions.length} search suggestion${suggestions.length === 1 ? '' : 's'}.`, { variant: 'success' })
       }
     } catch (err) {
       const message = err?.message || 'Unable to generate AI search suggestions.'
@@ -113,9 +123,13 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
 
   async function handleCreateAll() {
     if (!result?.suggestions?.length || creating) return
+    if (!selectedHoldIds.length) {
+      showToast('Select at least one Hold before creating searches.', { variant: 'warn' })
+      return
+    }
     setCreating(true)
     try {
-      await Promise.resolve(onCreateSuggestions(result.suggestions))
+      await Promise.resolve(onCreateSuggestions(result.suggestions, selectedHoldIds))
     } finally {
       setCreating(false)
     }
@@ -123,9 +137,13 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
 
   async function handleCreateOne(suggestion) {
     if (!suggestion || creating) return
+    if (!selectedHoldIds.length) {
+      showToast('Select at least one Hold before creating this search.', { variant: 'warn' })
+      return
+    }
     setCreating(true)
     try {
-      await Promise.resolve(onCreateSuggestions([suggestion]))
+      await Promise.resolve(onCreateSuggestions([suggestion], selectedHoldIds))
     } finally {
       setCreating(false)
     }
@@ -162,7 +180,7 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
   return (
     <Modal
       open
-      title="Versa Powered Search Builder"
+      title="AI Powered Search Builder"
       onClose={onClose}
       width={980}
       footer={(
@@ -188,9 +206,21 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
           />
         </Field>
         <div style={{ fontSize: 12, color: '#475467' }}>
-          Versa returns one search by default. It only splits into multiple suggestions when your objective contains clearly distinct requirements.
+          AI returns one search by default. It only splits into multiple suggestions when your objective contains clearly distinct requirements.
         </div>
       </div>
+
+      <Field label="Holds" hint="Required only when creating suggestions directly. Use In Search Form lets you choose Holds in the next step.">
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: '9px 10px', border: '1px solid #dce0e5', borderRadius: 8 }}>
+          {(holds || []).filter(hold => hold?.status === 'active').map(hold => (
+            <label key={hold.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <input type="checkbox" checked={selectedHoldIds.includes(Number(hold.id))} onChange={() => toggleHold(hold.id)} />
+              <span>{hold.name}</span>
+            </label>
+          ))}
+          {!(holds || []).some(hold => hold?.status === 'active') ? <span style={{ color: '#b45309', fontSize: 12 }}>Create an active Hold before creating a search.</span> : null}
+        </div>
+      </Field>
 
       <div style={{ marginTop: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div className="row" style={{ gap: 8 }}>
@@ -232,9 +262,9 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
       {result && (
         <div style={{ marginTop: 14, borderTop: '1px solid #e5e7eb', paddingTop: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <h4 style={{ margin: 0 }}>Versa Suggestions</h4>
+            <h4 style={{ margin: 0 }}>AI Suggestions</h4>
             {result.suggestions?.length > 1 ? (
-              <Button variant="primary" onClick={handleCreateAll} disabled={creating}>{creating ? 'Creating...' : 'Create All Versa Suggestions'}</Button>
+              <Button variant="primary" onClick={handleCreateAll} disabled={creating}>{creating ? 'Creating...' : 'Create All AI Suggestions'}</Button>
             ) : null}
           </div>
           {result.summary ? <div style={{ marginTop: 6, color: '#475467', fontSize: 13 }}>{result.summary}</div> : null}
@@ -246,7 +276,7 @@ export function SearchAiBuilderModal({ caseId, caseData, custodians, onClose, on
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                     <Button variant="subtle" onClick={() => onUseSuggestion(s)}>Use In Search Form</Button>
                     <Button variant="subtle" onClick={() => copyQuery(s.kql)} disabled={!String(s?.kql || '').trim()}>Copy Query</Button>
-                    <Button variant="primary" onClick={() => handleCreateOne(s)} disabled={creating}>{creating ? 'Creating...' : 'Create This Versa Search'}</Button>
+                    <Button variant="primary" onClick={() => handleCreateOne(s)} disabled={creating}>{creating ? 'Creating...' : 'Create This AI Search'}</Button>
                   </div>
                 </div>
                 {s.rationale ? <div style={{ marginTop: 6, fontSize: 12, color: '#475467' }}>{s.rationale}</div> : null}
@@ -398,7 +428,7 @@ export function SearchModal({ mode, draft, suggestedName, readOnly = false, cust
               <span>{hold.name}</span>
             </label>
           ))}
-          {!(holds || []).length ? <span style={{ color: '#b45309', fontSize: 12 }}>Create an active hold before saving this search.</span> : null}
+          {!(holds || []).length ? <span style={{ color: '#b45309', fontSize: 12 }}>Create an active Hold before saving this search.</span> : null}
         </div>
         <div style={{ fontSize: 12, color: '#6b7280', marginTop: 4 }}>
           Assign this search to one or more holds. Search, export, and delivery status will appear on each selected hold.

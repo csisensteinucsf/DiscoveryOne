@@ -22,7 +22,7 @@ def bulk_import_custodians_for_case(
     if not requested:
         return schemas.CustodianBulkCreateResponse()
 
-    from .case_holds import assign_custodians_to_hold, ensure_default_hold
+    from .case_holds import assign_custodians_to_hold
 
     requested_hold_ids = sorted({int(value) for value in (payload.hold_ids or []) if int(value) > 0})
     if requested_hold_ids:
@@ -47,7 +47,7 @@ def bulk_import_custodians_for_case(
             )
         hold_ids = requested_hold_ids
     else:
-        hold_ids = [int(ensure_default_hold(db, case, assign_existing=False).id)]
+        hold_ids = []
 
     existing_emails = custodian_core._case_custodian_email_set(db, case_id)
     batch_seen: set[str] = set()
@@ -74,6 +74,7 @@ def bulk_import_custodians_for_case(
             for data in candidate_payloads:
                 data_for_create = dict(data)
                 custom_preservation = data_for_create.pop("custom_preservation", [])
+                data_for_create.pop("hold_ids", None)
                 custodian, _email_norm, _trimmed_email, name_email_review = custodian_core._prepare_custodian_for_create(
                     case_id=case_id,
                     case=case,
@@ -127,6 +128,7 @@ def bulk_import_custodians_for_case(
             for data in candidate_payloads:
                 data_for_create = dict(data)
                 custom_preservation = data_for_create.pop("custom_preservation", [])
+                data_for_create.pop("hold_ids", None)
                 email_norm = custodian_core._normalize_email(data.get("email"))
                 if email_norm and email_norm in existing_emails:
                     duplicate_count += 1
@@ -239,6 +241,4 @@ def bulk_import_custodians_for_case(
         failed_count=len(errors),
         errors=errors,
     )
-
-
 

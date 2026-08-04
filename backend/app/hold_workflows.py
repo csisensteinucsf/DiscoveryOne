@@ -50,12 +50,14 @@ def resolve_hold_memberships(
         raise HTTPException(status_code=404, detail="Case not found")
 
     if case_hold_id is None:
-        from .case_holds import ensure_default_hold
-
-        hold = ensure_default_hold(db, case, assign_existing=create_default)
-        db.flush()
-    else:
-        hold = case_hold_or_404(db, case_id, int(case_hold_id))
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "code": "hold_required",
+                "message": "Select a Hold before starting this workflow.",
+            },
+        )
+    hold = case_hold_or_404(db, case_id, int(case_hold_id))
 
     custodians = (
         db.query(models.Custodian)
@@ -80,27 +82,6 @@ def resolve_hold_memberships(
     )
     by_custodian = {int(item.custodian_id): item for item in memberships}
     missing_memberships = sorted(set(normalized_ids) - set(by_custodian))
-    if missing_memberships and case_hold_id is None and create_default:
-        from .case_holds import assign_custodians_to_hold
-
-        assign_custodians_to_hold(
-            db,
-            case_id=case_id,
-            hold_id=int(hold.id),
-            custodian_ids=missing_memberships,
-        )
-        db.flush()
-        memberships = (
-            db.query(models.HoldCustodian)
-            .filter(
-                models.HoldCustodian.hold_id == hold.id,
-                models.HoldCustodian.custodian_id.in_(normalized_ids),
-            )
-            .all()
-        )
-        by_custodian = {int(item.custodian_id): item for item in memberships}
-        missing_memberships = sorted(set(normalized_ids) - set(by_custodian))
-
     if missing_memberships:
         raise HTTPException(
             status_code=422,
@@ -157,7 +138,7 @@ def _refresh_legacy_ntp(db: Session, custodian_id: int) -> None:
     elif "not sent" in statuses or not statuses:
         custodian.ntp_status = "not sent"
     else:
-        custodian.ntp_status = "na"
+        custodian.ntp_status = "silent"
     sent_values = [item.ntp_sent_at for item in memberships if item.ntp_sent_at is not None]
     acknowledged_values = [item.ntp_acknowledged_at for item in memberships if item.ntp_acknowledged_at is not None]
     custodian.ntp_sent_at = max(sent_values) if sent_values else None
@@ -175,8 +156,17 @@ def set_membership_ntp_status(
     at: datetime | None = None,
 ) -> None:
     normalized = str(status or "").strip().lower()
-    if normalized not in {"not sent", "sent", "acknowledged", "na"}:
+    if normalized in {"na", "n/a", "not applicable", "not required"}:
+        normalized = "silent"
+    if normalized not in {"not sent", "sent", "acknowledged", "silent"}:
         raise HTTPException(status_code=422, detail="Invalid hold NTP status")
+    effective_reason = (
+        str(not_required_reason).strip()
+        if not_required_reason is not None
+        else str(getattr(membership, "ntp_not_required_reason", None) or "").strip()
+    )
+    if normalized == "silent" and not effective_reason:
+        raise HTTPException(status_code=422, detail="A reason is required when NTP is Silent")
     timestamp = at or datetime.now(timezone.utc)
     membership.ntp_status = normalized
     if template_name is not None:
@@ -189,7 +179,7 @@ def set_membership_ntp_status(
     elif normalized == "acknowledged":
         membership.ntp_sent_at = membership.ntp_sent_at or timestamp
         membership.ntp_acknowledged_at = timestamp
-    elif normalized in {"not sent", "na"}:
+    elif normalized in {"not sent", "silent"}:
         membership.ntp_sent_at = None
         membership.ntp_acknowledged_at = None
     db.add(membership)
@@ -203,14 +193,16 @@ def _refresh_legacy_consent(db: Session, custodian_id: int) -> None:
         return
     memberships = db.query(models.HoldCustodian).filter(models.HoldCustodian.custodian_id == custodian_id).all()
     statuses = {str(item.consent_status or "not sent").strip().lower() for item in memberships}
-    if "received" in statuses:
+    if "awoc" in statuses:
+        custodian.consent_status = "awoc"
+    elif "received" in statuses:
         custodian.consent_status = "received"
     elif "sent" in statuses:
         custodian.consent_status = "sent"
     elif "not sent" in statuses or not statuses:
         custodian.consent_status = "not sent"
     else:
-        custodian.consent_status = "na"
+        custodian.consent_status = "implied"
     db.add(custodian)
 
 
@@ -222,8 +214,28 @@ def set_membership_consent_status(
     not_required_reason: str | None = None,
 ) -> None:
     normalized = str(status or "").strip().lower()
-    if normalized not in {"not sent", "sent", "received", "na"}:
+    if normalized in {"na", "n/a", "not applicable", "not required"}:
+        normalized = "implied"
+    if normalized not in {"not sent", "sent", "received", "implied", "awoc"}:
         raise HTTPException(status_code=422, detail="Invalid hold consent status")
+    effective_reason = (
+        str(not_required_reason).strip()
+        if not_required_reason is not None
+        else str(getattr(membership, "consent_not_required_reason", None) or "").strip()
+    )
+    if normalized == "implied" and not effective_reason:
+        raise HTTPException(status_code=422, detail="A reason is required when consent is Implied")
+    if normalized == "awoc":
+        awoc_proof = (
+            db.query(models.CaseRequestConsentProof.id)
+            .filter(
+                models.CaseRequestConsentProof.hold_custodian_id == membership.id,
+                models.CaseRequestConsentProof.proof_type == "awoc",
+            )
+            .first()
+        )
+        if awoc_proof is None:
+            raise HTTPException(status_code=422, detail="Upload an AWOC document before setting consent to AWOC")
     membership.consent_status = normalized
     if not_required_reason is not None:
         membership.consent_not_required_reason = str(not_required_reason).strip() or None
@@ -391,57 +403,48 @@ def sync_legacy_custodian_to_default_hold(
     *,
     changed_fields: Iterable[str] | None = None,
 ) -> models.HoldCustodian | None:
-    """Bridge older custodian writes into the case's default named hold."""
-    case = db.get(models.Case, int(custodian.case_id))
-    if case is None:
-        return None
-    from .case_holds import ensure_default_hold
-
-    hold = ensure_default_hold(db, case, assign_existing=True)
-    db.flush()
-    membership = (
+    """Bridge older custodian writes into existing named-hold memberships only."""
+    memberships = (
         db.query(models.HoldCustodian)
-        .filter(
-            models.HoldCustodian.hold_id == hold.id,
-            models.HoldCustodian.custodian_id == custodian.id,
-        )
-        .first()
+        .filter(models.HoldCustodian.custodian_id == custodian.id)
+        .all()
     )
-    if membership is None:
+    if not memberships:
         return None
     changed = set(changed_fields or [])
     sync_all = not changed
-    if sync_all or changed.intersection({"ntp_status", "ntp_not_required_reason"}):
-        set_membership_ntp_status(
-            db,
-            membership,
-            getattr(custodian, "ntp_status", None) or "not sent",
-            template_name=getattr(custodian, "ntp_template_name", None),
-            not_required_reason=getattr(custodian, "ntp_not_required_reason", None),
-            at=getattr(custodian, "ntp_acknowledged_at", None) or getattr(custodian, "ntp_sent_at", None),
-        )
-    if sync_all or changed.intersection({"consent_status", "consent_not_required_reason"}):
-        set_membership_consent_status(
-            db,
-            membership,
-            getattr(custodian, "consent_status", None) or "not sent",
-            not_required_reason=getattr(custodian, "consent_not_required_reason", None),
-        )
-    for key, field, _label in configured_hold_catalog(enabled_only=False):
-        related_fields = {"custom_preservation"} if not field else {
-            field,
-            field + "_pending",
-            field + "_failed",
-            field + "_released",
-        }
-        if sync_all or changed.intersection(related_fields):
-            set_membership_preservation_status(
+    for membership in memberships:
+        if sync_all or changed.intersection({"ntp_status", "ntp_not_required_reason"}):
+            set_membership_ntp_status(
                 db,
                 membership,
-                key,
-                _legacy_source_status(custodian, field, key),
+                getattr(custodian, "ntp_status", None) or "not sent",
+                template_name=getattr(custodian, "ntp_template_name", None),
+                not_required_reason=getattr(custodian, "ntp_not_required_reason", None),
+                at=getattr(custodian, "ntp_acknowledged_at", None) or getattr(custodian, "ntp_sent_at", None),
             )
-    return membership
+        if sync_all or changed.intersection({"consent_status", "consent_not_required_reason"}):
+            set_membership_consent_status(
+                db,
+                membership,
+                getattr(custodian, "consent_status", None) or "not sent",
+                not_required_reason=getattr(custodian, "consent_not_required_reason", None),
+            )
+        for key, field, _label in configured_hold_catalog(enabled_only=False):
+            related_fields = {"custom_preservation"} if not field else {
+                field,
+                field + "_pending",
+                field + "_failed",
+                field + "_released",
+            }
+            if sync_all or changed.intersection(related_fields):
+                set_membership_preservation_status(
+                    db,
+                    membership,
+                    key,
+                    _legacy_source_status(custodian, field, key),
+                )
+    return memberships[0]
 
 
 def sync_custodian_not_required_policy_to_memberships(db: Session, custodian: models.Custodian) -> None:
@@ -450,18 +453,18 @@ def sync_custodian_not_required_policy_to_memberships(db: Session, custodian: mo
     ntp_status = str(getattr(custodian, "ntp_status", None) or "").strip().lower()
     consent_status = str(getattr(custodian, "consent_status", None) or "").strip().lower()
     for membership in memberships:
-        if ntp_status == "na" and str(membership.ntp_status or "").strip().lower() != "acknowledged":
+        if ntp_status in {"silent", "na", "n/a", "not applicable", "not required"} and str(membership.ntp_status or "").strip().lower() != "acknowledged":
             set_membership_ntp_status(
                 db,
                 membership,
-                "na",
+                "silent",
                 not_required_reason=getattr(custodian, "ntp_not_required_reason", None),
             )
-        if consent_status == "na":
+        if consent_status in {"implied", "na", "n/a", "not applicable", "not required"}:
             set_membership_consent_status(
                 db,
                 membership,
-                "na",
+                "implied",
                 not_required_reason=getattr(custodian, "consent_not_required_reason", None),
             )
 
@@ -473,13 +476,10 @@ def set_search_holds(
 ) -> list[int]:
     requested = _ids(hold_ids)
     if not requested:
-        case = db.get(models.Case, int(search.case_id))
-        if case is None:
-            raise HTTPException(status_code=404, detail="Case not found")
-        from .case_holds import ensure_default_hold
-
-        requested = [int(ensure_default_hold(db, case, assign_existing=True).id)]
+        for membership in list(search.hold_memberships or []):
+            db.delete(membership)
         db.flush()
+        return []
     holds = (
         db.query(models.CaseHold)
         .filter(models.CaseHold.case_id == search.case_id, models.CaseHold.id.in_(requested))

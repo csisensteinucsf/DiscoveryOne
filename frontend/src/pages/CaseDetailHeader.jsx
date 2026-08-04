@@ -9,17 +9,12 @@ export default function CaseDetailHeader({
   formatDate,
   navigate,
   setShowEdit,
-  setCustodianModalMode,
-  setShowCustodianModal,
-  openSendNtp,
-  sendingNtp,
   onExportCustodians,
   openPreservationAutomation,
   preservationAutomationEnabled,
   preservationProviderName,
   openCaseSummary,
   toggleClosed,
-  ntpButtonDisabled,
   setShowCloseCaseModal,
   useLegalCaseNameAsPrimary = false,
   internalCounselLabel = 'Internal Counsel',
@@ -59,15 +54,6 @@ export default function CaseDetailHeader({
             {!isReadOnly && (
               <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
                 <button className="btn secondary" onClick={() => setShowEdit(true)}>Edit Case</button>
-                <button
-                  className="btn secondary"
-                  onClick={() => { setCustodianModalMode('add'); setShowCustodianModal(true) }}
-                >
-                  Add / Import Custodians
-                </button>
-                <button className="btn secondary" onClick={openSendNtp} disabled={sendingNtp}>
-                  {sendingNtp ? 'Sending...' : 'NTPs'}
-                </button>
                 <button className="btn secondary" onClick={onExportCustodians}>Export Case to CSV</button>
                 {preservationAutomationEnabled && (
                   <button className="btn secondary" onClick={openPreservationAutomation}>
@@ -155,15 +141,6 @@ export default function CaseDetailHeader({
                 Read-only view: requestor accounts cannot modify case data directly.
               </p>
               <div style={{ display:'flex', flexWrap:'wrap', gap:12 }}>
-                <button
-                  className="btn secondary"
-                  type="button"
-                  onClick={openSendNtp}
-                  disabled={ntpButtonDisabled}
-                  style={{ opacity: ntpButtonDisabled ? 0.6 : 1 }}
-                >
-                  NTPs
-                </button>
                 <button
                   className="btn secondary"
                   type="button"

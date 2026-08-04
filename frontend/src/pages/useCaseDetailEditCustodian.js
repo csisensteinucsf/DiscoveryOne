@@ -8,6 +8,7 @@ import {
   personLookupFieldsFromRecord,
   personLookupExternalId,
 } from './caseDetailPersonLookupFields.js'
+import { normalizeConsentStatus } from './custodianStatusCatalog.js'
 
 function normalizePersonLabel(value) {
   const text = String(value || '').trim().toLowerCase()
@@ -54,8 +55,9 @@ export function useCaseDetailEditCustodian({
 
   const editingConsentNotRequired = useMemo(() => {
     if (!editing) return false
+    if (normalizeConsentStatus(editing?.consent_status) === 'awoc') return false
     if (editingConsentAutoReason) return true
-    return String(editing?.consent_status || '').trim().toLowerCase() === 'na'
+    return normalizeConsentStatus(editing?.consent_status) === 'implied'
   }, [editing, editingConsentAutoReason])
 
   const onEditCustodian = useCallback((custodian) => {
@@ -92,31 +94,34 @@ export function useCaseDetailEditCustodian({
       })
       return
     }
+    const priorConsentStatus = normalizeConsentStatus(form?.consent_status)
     const autoConsentReason = consentNotRequiredAutoReason(caseData?.claimant, form, { forceClaimant: !!form?.is_claimant })
-    const consentNotRequired = !!autoConsentReason || String(form?.consent_status || '').trim().toLowerCase() === 'na'
+    const consentNotRequired = priorConsentStatus !== 'awoc' && (!!autoConsentReason || priorConsentStatus === 'implied')
     const manualConsentReason = String(form?.consent_not_required_reason || '').trim()
     const consentReason = autoConsentReason || (consentNotRequired ? manualConsentReason : '')
     if (consentNotRequired && !consentReason) {
-      showToast('Enter why consent is not required.', { variant: 'warn' })
+      showToast('Enter why consent is Implied.', { variant: 'warn' })
       return
     }
-    const priorConsentStatus = String(form?.consent_status || 'not sent').trim().toLowerCase() || 'not sent'
-    const consentStatusForSave = consentNotRequired ? 'na' : (priorConsentStatus === 'na' ? 'not sent' : priorConsentStatus)
+    const consentStatusForSave = consentNotRequired ? 'implied' : (priorConsentStatus === 'implied' ? 'not sent' : priorConsentStatus)
     setEditSaveBusy(true)
     try {
+      const payload = {
+        name: form.name,
+        email: form.email || null,
+        ...personLookupFieldsFromRecord(form),
+        notes: null,
+        person_lookup_overridden: !!form.person_lookup_overridden,
+      }
+      if (consentStatusForSave !== 'awoc') {
+        payload.consent_status = consentStatusForSave
+        payload.consent_not_required_reason = consentNotRequired ? consentReason : null
+      }
       const res = await fetch(`${apiBase}/cases/${caseId}/custodians/${form.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email || null,
-          ...personLookupFieldsFromRecord(form),
-          notes: null,
-          person_lookup_overridden: !!form.person_lookup_overridden,
-          consent_status: consentStatusForSave,
-          consent_not_required_reason: consentNotRequired ? consentReason : null,
-        }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         if (res.status === 409) {

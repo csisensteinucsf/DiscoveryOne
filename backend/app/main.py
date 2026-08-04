@@ -378,11 +378,13 @@ from .system_backups import router as system_backups_router
 from .system_branding import router as system_branding_router
 from .system_ops import router as system_ops_router
 from .email_intake_api import router as email_intake_router
+from .case_templates import router as case_templates_router
 app.include_router(system_admin_router, dependencies=[Depends(current_user)])
 app.include_router(system_backups_router, dependencies=[Depends(current_user)])
 app.include_router(system_branding_router, dependencies=[Depends(current_user)])
 app.include_router(system_ops_router, dependencies=[Depends(current_user)])
 app.include_router(email_intake_router, dependencies=[Depends(current_user)])
+app.include_router(case_templates_router)
 
 from .case_requests import router as case_requests_router
 from .case_request_files import router as case_request_files_router

@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { isConsentComplete, normalizeConsentStatus, normalizeNtpStatus } from './custodianStatusCatalog.js'
 
 const DEFAULT_FILTERS = {
   name: '',
@@ -9,20 +10,21 @@ const DEFAULT_FILTERS = {
 }
 
 function ntpRank(value) {
-  const status = (value || 'not sent').toLowerCase()
+  const status = normalizeNtpStatus(value)
   if (status === 'acknowledged') return 2
   if (status === 'sent') return 1
-  if (status === 'na') return -1
+  if (status === 'silent') return -1
   return 0
 }
 
 function consentRank(value) {
   return ({
-    na: -1,
+    implied: -1,
     'not sent': 0,
     sent: 1,
     received: 2,
-  }[(value || 'not sent').toLowerCase()] ?? 0)
+    awoc: 2,
+  }[normalizeConsentStatus(value)] ?? 0)
 }
 
 export function useCaseDetailCustodianTable({
@@ -90,10 +92,10 @@ export function useCaseDetailCustodianTable({
       })
     }
     if (normalizedLabel === 'NTP') {
-      return ['sent', 'acknowledged'].includes(custodian.ntp_status || 'not sent')
+      return ['sent', 'acknowledged'].includes(normalizeNtpStatus(custodian.ntp_status))
     }
     if (normalizedLabel === 'CONSENT') {
-      return ['sent', 'received'].includes(custodian.consent_status || 'not sent')
+      return normalizeConsentStatus(custodian.consent_status) === 'sent' || isConsentComplete(custodian.consent_status)
     }
     if (normalizedLabel === 'SEARCH') return progressFor(custodian.id, 'search').total > 0
     if (normalizedLabel === 'EXPORT') return progressFor(custodian.id, 'export').total > 0
@@ -125,11 +127,11 @@ export function useCaseDetailCustodianTable({
     }
     if (!isTech && custFilters.ntp !== 'all') {
       const status = String(custFilters.ntp || '').toLowerCase()
-      list = list.filter(custodian => String(custodian.ntp_status || 'not sent').toLowerCase() === status)
+      list = list.filter(custodian => normalizeNtpStatus(custodian.ntp_status) === status)
     }
     if (!isTech && custFilters.consent !== 'all') {
       const status = String(custFilters.consent || '').toLowerCase()
-      list = list.filter(custodian => String(custodian.consent_status || 'not sent').toLowerCase() === status)
+      list = list.filter(custodian => normalizeConsentStatus(custodian.consent_status) === status)
     }
 
     const direction = custSort.dir === 'desc' ? -1 : 1

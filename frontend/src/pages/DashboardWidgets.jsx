@@ -1,17 +1,32 @@
+import { ArrowDown, ArrowUp, X } from 'lucide-react'
+import { dashboardWidgetTitle, dashboardWidgetTypeLabel } from './dashboardUtils.js'
+
 export function WidgetCard({ widget, idx, total, data, loading, onMoveUp, onMoveDown, onRemove, onDrilldown }) {
-  const title = (widget?.title || widget?.type || 'Widget').trim()
+  const title = dashboardWidgetTitle(widget)
   const body = renderWidgetBody(widget, data, loading, onDrilldown)
   return (
     <div className="card" style={{ padding: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text,#0f172a)' }}>{title}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted,#64748b)', marginTop: 2 }}>{widget?.type}</div>
+          <div style={{ fontSize: 12, color: 'var(--muted,#64748b)', marginTop: 2 }}>{dashboardWidgetTypeLabel(widget?.type)}</div>
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn secondary" onClick={onMoveUp} disabled={idx === 0} title="Move up">↑</button>
-          <button type="button" className="btn secondary" onClick={onMoveDown} disabled={idx === total - 1} title="Move down">↓</button>
-          <button type="button" className="btn danger" onClick={onRemove} title="Remove">Remove</button>
+        <div className="dashboard-widget-actions">
+          <button type="button" className="dashboard-icon-button" onClick={onMoveUp} disabled={idx === 0} title="Move up" aria-label="Move widget up">
+            <ArrowUp size={17} aria-hidden="true" />
+          </button>
+          <button type="button" className="dashboard-icon-button" onClick={onMoveDown} disabled={idx === total - 1} title="Move down" aria-label="Move widget down">
+            <ArrowDown size={17} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="dashboard-icon-button is-danger"
+            onClick={onRemove}
+            title="Remove widget"
+            aria-label={`Remove ${title} widget`}
+          >
+            <X size={18} aria-hidden="true" />
+          </button>
         </div>
       </div>
       <div style={{ marginTop: 12 }}>
@@ -32,16 +47,19 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
         <Stat
           label="Open"
           value={data.open}
+          tone="success"
           onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'Active cases', config: { closed: false } })}
         />
         <Stat
           label="Closed"
           value={data.closed}
+          tone="neutral"
           onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'Inactive cases', config: { closed: true } })}
         />
         <Stat
           label="Total"
           value={data.total}
+          tone="info"
           onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'All cases', config: {} })}
         />
         <div style={{ gridColumn: '1 / -1', color: 'var(--muted,#64748b)', fontSize: 13 }}>
@@ -70,6 +88,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Pending"
             value={data.pending}
+            tone="warning"
             onClick={() => onDrilldown?.({
               kind: 'consent_pending',
               title: 'Pending consents (Sent/Delivered)',
@@ -79,6 +98,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Sent"
             value={by.sent || 0}
+            tone="info"
             onClick={() => onDrilldown?.({
               kind: 'consent_pending',
               title: 'Consents in status: sent',
@@ -88,6 +108,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Delivered"
             value={by.delivered || 0}
+            tone="warning"
             onClick={() => onDrilldown?.({
               kind: 'consent_pending',
               title: 'Consents in status: delivered',
@@ -124,41 +145,49 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Total"
             value={data.total || 0}
+            tone="info"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'All searches', config: { ...(widget.config || {}), metric: 'all' } })}
           />
           <Stat
             label="Search done"
             value={data.search_performed || 0}
+            tone="success"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Searches performed', config: { ...(widget.config || {}), metric: 'search_performed' } })}
           />
           <Stat
             label="Search pending"
             value={data.search_not_performed || 0}
+            tone="warning"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Searches not performed', config: { ...(widget.config || {}), metric: 'search_not_performed' } })}
           />
           <Stat
             label="Exported"
             value={data.export_performed || 0}
+            tone="success"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Searches exported', config: { ...(widget.config || {}), metric: 'export_performed' } })}
           />
           <Stat
             label="Delivery pending"
             value={data.delivery_pending || 0}
+            tone="warning"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Exported searches pending delivery', config: { ...(widget.config || {}), metric: 'delivery_pending' } })}
           />
           <Stat
             label="Delivered"
             value={data.delivery_performed || 0}
+            tone="success"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Searches marked delivered', config: { ...(widget.config || {}), metric: 'delivery_performed' } })}
           />
           <Stat
             label="Delivery N/R"
             value={data.delivery_not_required || 0}
+            tone="neutral"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Searches with delivery not required', config: { ...(widget.config || {}), metric: 'delivery_not_required' } })}
           />
           <Stat
             label="Exported no consent"
             value={data.exported_without_consent || 0}
+            tone="danger"
             onClick={() => onDrilldown?.({ kind: 'searches_list', title: 'Searches exported without consent', config: { ...(widget.config || {}), metric: 'export_without_consent' } })}
           />
         </div>
@@ -191,6 +220,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Not sent"
             value={by['not sent'] || 0}
+            tone="warning"
             onClick={() => onDrilldown?.({
               kind: 'ntp_status_list',
               title: 'NTP status: not sent',
@@ -200,6 +230,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Sent"
             value={by.sent || 0}
+            tone="info"
             onClick={() => onDrilldown?.({
               kind: 'ntp_status_list',
               title: 'NTP status: sent',
@@ -209,6 +240,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Acknowledged"
             value={by.acknowledged || 0}
+            tone="success"
             onClick={() => onDrilldown?.({
               kind: 'ntp_status_list',
               title: 'NTP status: acknowledged',
@@ -216,12 +248,13 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
             })}
           />
           <Stat
-            label="N/A"
-            value={by.na || 0}
+            label="Silent"
+            value={(by.silent || 0) + (by.na || 0)}
+            tone="neutral"
             onClick={() => onDrilldown?.({
               kind: 'ntp_status_list',
-              title: 'NTP status: N/A',
-              config: { ...(widget.config || {}), status_filter: 'na' },
+              title: 'NTP status: silent',
+              config: { ...(widget.config || {}), status_filter: 'silent' },
             })}
           />
         </div>
@@ -250,6 +283,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Due now"
             value={data.due_now || 0}
+            tone="danger"
             onClick={() => onDrilldown?.({
               kind: 'ntp_reminders_list',
               title: 'NTP reminders due now',
@@ -259,6 +293,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label={`Due next ${daysAhead}d`}
             value={data.due_soon || 0}
+            tone="warning"
             onClick={() => onDrilldown?.({
               kind: 'ntp_reminders_list',
               title: `NTP reminders due in next ${daysAhead} days`,
@@ -268,6 +303,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Active"
             value={data.active || 0}
+            tone="info"
             onClick={() => onDrilldown?.({
               kind: 'ntp_reminders_list',
               title: 'Active NTP reminders',
@@ -285,27 +321,34 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
   if (widget.type === 'hold_status') {
     return (
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
-        <Stat label="Custodians" value={data.custodians} />
         <Stat
-          label="Active holds"
-          value={data.active_any}
-          onClick={() => onDrilldown?.({ kind: 'holds_list', title: 'Custodians with active holds', config: { ...(widget.config || {}), mode: 'active' } })}
+          label="Custodians"
+          value={data.custodians}
+          tone="info"
+          onClick={() => onDrilldown?.({ kind: 'holds_list', title: 'Preservation custodians', config: { ...(widget.config || {}), mode: 'all' } })}
         />
         <Stat
-          label="Pending holds"
+          label="Active preservation"
+          value={data.active_any}
+          tone="success"
+          onClick={() => onDrilldown?.({ kind: 'holds_list', title: 'Custodians with active preservation', config: { ...(widget.config || {}), mode: 'active' } })}
+        />
+        <Stat
+          label="Pending preservation"
           value={data.pending_any}
-          onClick={() => onDrilldown?.({ kind: 'holds_list', title: 'Custodians with pending holds', config: { ...(widget.config || {}), mode: 'pending' } })}
+          tone="warning"
+          onClick={() => onDrilldown?.({ kind: 'holds_list', title: 'Custodians with pending preservation', config: { ...(widget.config || {}), mode: 'pending' } })}
         />
         <div style={{ gridColumn: '1 / -1', fontSize: 13, color: 'var(--muted,#64748b)' }}>
-          Pending by type:
+          Pending by source:
           <div style={{ marginTop: 6, display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 6 }}>
             {Object.entries(data.pending_by_type || {}).map(([k, v]) => (
               <div
                 key={k}
                 role="button"
                 tabIndex={0}
-                onClick={() => onDrilldown?.({ kind: 'holds_list', title: `Pending holds: ${k}`, config: { ...(widget.config || {}), mode: 'pending', hold_type: k } })}
-                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDrilldown?.({ kind: 'holds_list', title: `Pending holds: ${k}`, config: { ...(widget.config || {}), mode: 'pending', hold_type: k } }) }}
+                onClick={() => onDrilldown?.({ kind: 'holds_list', title: `Pending preservation: ${k}`, config: { ...(widget.config || {}), mode: 'pending', hold_type: k } })}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDrilldown?.({ kind: 'holds_list', title: `Pending preservation: ${k}`, config: { ...(widget.config || {}), mode: 'pending', hold_type: k } }) }}
                 style={{ display: 'flex', justifyContent: 'space-between', gap: 10, cursor: 'pointer' }}
                 title="Click for details"
               >
@@ -328,21 +371,25 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Pending"
             value={data.pending}
+            tone="warning"
             onClick={() => onDrilldown?.({ kind: 'requests_list', title: 'Pending requests', config: { status: 'pending' } })}
           />
           <Stat
             label="<24h"
             value={age.lt_24h || 0}
+            tone="info"
             onClick={() => onDrilldown?.({ kind: 'requests_list', title: 'Pending requests (<24h)', config: { status: 'pending', age_bucket: 'lt_24h' } })}
           />
           <Stat
             label="1–3d"
             value={age.d1_3 || 0}
+            tone="warning"
             onClick={() => onDrilldown?.({ kind: 'requests_list', title: 'Pending requests (1–3 days)', config: { status: 'pending', age_bucket: 'd1_3' } })}
           />
           <Stat
             label=">3d"
             value={age.gt_3d || 0}
+            tone="danger"
             onClick={() => onDrilldown?.({ kind: 'requests_list', title: 'Pending requests (>3 days)', config: { status: 'pending', age_bucket: 'gt_3d' } })}
           />
         </div>
@@ -389,6 +436,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           <Stat
             label="Open"
             value={data.open}
+            tone="success"
             onClick={() => onDrilldown?.({ kind: 'tickets_list', title: 'Open tickets', config: { ...(widget.config || {}), open_only: true } })}
           />
           {top.map(([cat, count]) => (
@@ -396,6 +444,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
               key={cat}
               label={cat.replace(/_/g, ' ')}
               value={count}
+              tone="info"
               onClick={() => onDrilldown?.({ kind: 'tickets_list', title: `Open tickets: ${cat}`, config: { ...(widget.config || {}), open_only: true, category: cat } })}
             />
           ))}
@@ -430,21 +479,15 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
   return <pre style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{JSON.stringify(data, null, 2)}</pre>
 }
 
-function Stat({ label, value, onClick }) {
+function Stat({ label, value, onClick, tone = 'neutral' }) {
   const clickable = typeof onClick === 'function'
   return (
     <div
+      className={`dashboard-stat dashboard-stat--${tone}${clickable ? ' is-clickable' : ''}`}
       onClick={clickable ? onClick : undefined}
       role={clickable ? 'button' : undefined}
       tabIndex={clickable ? 0 : undefined}
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick() } : undefined}
-      style={{
-        border: '1px solid var(--border,#e2e8f0)',
-        borderRadius: 12,
-        padding: 10,
-        background: clickable ? 'rgba(5, 32, 73, 0.06)' : 'rgba(0,0,0,0.02)',
-        cursor: clickable ? 'pointer' : 'default',
-      }}
       title={clickable ? 'Click for details' : undefined}
     >
       <div style={{ fontSize: 12, color: 'var(--muted,#64748b)' }}>{label}</div>

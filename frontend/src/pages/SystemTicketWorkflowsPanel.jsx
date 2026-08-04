@@ -185,8 +185,8 @@ export default function SystemTicketWorkflowsPanel({
                   style={{ marginTop: 3 }}
                 />
                 <span>
-                  Keep hold status manual
-                  <span style={fieldHelpStyle}>Do not infer the linked preservation status from whether the external ticket is open or closed. Administrators and tech users will update the hold manually.</span>
+                  Keep preservation status manual
+                  <span style={fieldHelpStyle}>Do not infer the linked preservation status from whether the external ticket is open or closed. Administrators and tech users will update the preservation status manually.</span>
                 </span>
               </label>
 

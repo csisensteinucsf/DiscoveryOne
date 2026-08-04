@@ -108,9 +108,9 @@ export default function CaseDetailPreservationProviderModal({
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>Holds</div>
+                  <div style={{ fontWeight: 600 }}>Preservation</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    Add custodians to the {providerName} case and place email and/or OneDrive holds.
+                    Add custodians to the {providerName} case and apply email and/or OneDrive preservation.
                   </div>
                 </div>
                 {!purviewStatus.case_exists && (
@@ -119,7 +119,7 @@ export default function CaseDetailPreservationProviderModal({
               </div>
               <Field label="Named hold" hint="The external preservation policy and tracked status are isolated to this hold.">
                 <Select value={preservationHoldId} onChange={event => setPreservationHoldId(event.target.value)}>
-                  {!preservationHolds.length && <option value="">No active holds</option>}
+                  <option value="">{preservationHolds.length ? 'Select an active Hold' : 'No active Holds'}</option>
                   {preservationHolds.map(hold => (
                     <option key={hold.id} value={String(hold.id)}>
                       {hold.name} ({hold.custodian_count || 0} custodians)
@@ -130,7 +130,7 @@ export default function CaseDetailPreservationProviderModal({
               {purviewHoldBusy && (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#6b7280', marginTop: 6 }}>
                   <InlineSpinner size={12} />
-                  Applying hold updates...
+                  Applying preservation updates...
                 </div>
               )}
               <div style={{ marginTop: 10, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -140,7 +140,7 @@ export default function CaseDetailPreservationProviderModal({
                     checked={purviewHoldOptions.email}
                     onChange={(e) => setPurviewHoldOptions(prev => ({ ...prev, email: e.target.checked }))}
                   />
-                  Email hold
+                  Email preservation
                 </label>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
                   <input
@@ -148,12 +148,12 @@ export default function CaseDetailPreservationProviderModal({
                     checked={purviewHoldOptions.onedrive}
                     onChange={(e) => setPurviewHoldOptions(prev => ({ ...prev, onedrive: e.target.checked }))}
                   />
-                  OneDrive hold
+                  OneDrive preservation
                 </label>
               </div>
               <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <Button variant="subtle" onClick={selectAllPurviewHoldTargets} disabled={!purviewStatus.case_exists || purviewHoldBusy}>
-                  Select all missing holds
+                  Select all missing preservation
                 </Button>
                 <Button variant="ghost" onClick={() => setPurviewHoldSelection(new Set())} disabled={purviewHoldBusy}>
                   Clear selection
@@ -219,22 +219,22 @@ export default function CaseDetailPreservationProviderModal({
                       <InlineSpinner size={12} />
                       Applying...
                     </span>
-                  ) : `Apply holds (${purviewHoldSelection.size})`}
+                  ) : `Apply preservation (${purviewHoldSelection.size})`}
                 </Button>
               </div>
               {purviewHoldResults.length > 0 && (
                 <div style={{ marginTop: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Last hold run</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Last preservation run</div>
                   <div style={{ display: 'grid', gap: 6 }}>
                     {purviewHoldResults.map((row, idx) => {
                       const status = row?.status || 'unknown'
                       const name = custodianLabelById.get(Number(row?.custodian_id)) || row?.email || 'Custodian'
                       const meta = {
-                        on_hold: { variant: 'success', label: 'On hold' },
-                        already_on_hold: { variant: 'info', label: 'Already on hold' },
+                        on_hold: { variant: 'success', label: 'Preserved' },
+                        already_on_hold: { variant: 'info', label: 'Already preserved' },
                         missing_email: { variant: 'danger', label: 'Missing email' },
                         onedrive_missing: { variant: 'warn', label: 'OneDrive not found' },
-                        partial_hold: { variant: 'warn', label: 'Partial hold' },
+                        partial_hold: { variant: 'warn', label: 'Partial preservation' },
                         error: { variant: 'danger', label: 'Error' },
                         not_found: { variant: 'warn', label: 'Not found' },
                       }[status] || { variant: 'default', label: status }

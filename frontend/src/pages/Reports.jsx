@@ -69,9 +69,9 @@ const REPORT_SECTIONS = [
     description: "Breaks down consent letters per case, highlighting where notices are unsent, pending, or fully received."
   },
   {
-    title: "Hold Status",
+    title: "Preservation Status",
     exportUrl: "/api/reports/holds/export",
-    description: "Buckets all cases by whether any custodian holds are in place, giving a quick view into preservation coverage."
+    description: "Buckets all cases by whether any custodian preservation is active, giving a quick view into preservation coverage."
   },
   {
     title: "Per-Case Summary (Active Cases Only)",
@@ -91,7 +91,7 @@ const REPORT_SECTIONS = [
   {
     title: "Custodian Gaps",
     exportUrl: "/api/reports/custodian_gaps/export",
-    description: "Flags cases where custodians lack holds, NTPs, or completed consents so gaps can be resolved quickly."
+    description: "Flags cases where custodians lack preservation, NTPs, or completed consents so gaps can be resolved quickly."
   },
   {
     title: "Cases By Year",

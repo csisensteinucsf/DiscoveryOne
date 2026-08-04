@@ -45,6 +45,19 @@ def _create_case(db_session, *, name: str, requestor_email: str):
     return case
 
 
+def _create_hold(db_session, case, custodians, *, name="Hold A", sort_order=0):
+    hold = models.CaseHold(case_id=case.id, name=name, status="active", sort_order=sort_order)
+    db_session.add(hold)
+    db_session.flush()
+    case_holds.assign_custodians_to_hold(
+        db_session,
+        case_id=case.id,
+        hold_id=hold.id,
+        custodian_ids=[custodian.id for custodian in custodians],
+    )
+    return hold
+
+
 def _create_reminder(
     db_session,
     *,
@@ -88,7 +101,7 @@ def test_bulk_reactivate_ntp_reminders_updates_eligible_and_reports_failures(db_
     db_session.commit()
     db_session.refresh(cust1)
     db_session.refresh(cust2)
-    hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    hold = _create_hold(db_session, case, [cust1, cust2])
     db_session.commit()
     membership1 = db_session.query(models.HoldCustodian).filter_by(hold_id=hold.id, custodian_id=cust1.id).one()
     membership2 = db_session.query(models.HoldCustodian).filter_by(hold_id=hold.id, custodian_id=cust2.id).one()
@@ -135,7 +148,7 @@ def test_acknowledgement_changes_only_the_token_hold_membership(monkeypatch, db_
     )
     db_session.add(custodian)
     db_session.commit()
-    first_hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    first_hold = _create_hold(db_session, case, [custodian])
     second_hold = models.CaseHold(case_id=case.id, name="Hold B", sort_order=1)
     db_session.add(second_hold)
     db_session.flush()

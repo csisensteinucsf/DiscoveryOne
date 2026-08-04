@@ -7,6 +7,7 @@ import {
   employmentEndDateColor,
   lookupPersonName,
 } from './caseDetailUtils.js'
+import { normalizeConsentStatus } from './custodianStatusCatalog.js'
 
 export default function CaseDetailEditCustodianModal({
   editing,
@@ -23,6 +24,7 @@ export default function CaseDetailEditCustodianModal({
   editingConsentAutoReason,
 }) {
   if (!editing) return null
+  const editingConsentIsAwoc = normalizeConsentStatus(editing.consent_status) === 'awoc'
 
   return (
     <Modal
@@ -79,8 +81,8 @@ export default function CaseDetailEditCustodianModal({
             const checked = !!e.target.checked
             const next = { ...editing, is_claimant: checked }
             const nextAutoReason = consentNotRequiredAutoReason(caseData?.claimant, next, { forceClaimant: checked })
-            if (nextAutoReason) {
-              next.consent_status = 'na'
+            if (nextAutoReason && !editingConsentIsAwoc) {
+              next.consent_status = 'implied'
               next.consent_not_required_reason = nextAutoReason
             }
             setEditing(next)
@@ -92,7 +94,7 @@ export default function CaseDetailEditCustodianModal({
         <input
           type="checkbox"
           checked={editingConsentNotRequired}
-          disabled={!!editingConsentAutoReason || editSaveBusy}
+          disabled={editingConsentIsAwoc || !!editingConsentAutoReason || editSaveBusy}
           onChange={(e) => {
             const checked = !!e.target.checked
             setEditing(prev => {
@@ -101,23 +103,28 @@ export default function CaseDetailEditCustodianModal({
                 const priorStatus = String(current.consent_status || '').trim().toLowerCase()
                 return {
                   ...current,
-                  consent_status: priorStatus === 'na' ? 'not sent' : (current.consent_status || 'not sent'),
+                  consent_status: ['na', 'implied'].includes(priorStatus) ? 'not sent' : (current.consent_status || 'not sent'),
                   consent_not_required_reason: 'retaliation',
                 }
               }
               return {
                 ...current,
-                consent_status: 'na',
+                consent_status: 'implied',
                 consent_not_required_reason: String(current.consent_not_required_reason || '').trim() || CONSENT_NOT_REQUIRED_DEFAULT_REASON,
               }
             })
           }}
         />
-        Consent not required
+        Consent is implied
       </label>
+      {editingConsentIsAwoc ? (
+        <div style={{ marginTop: 6, fontSize: 12, color: '#475467' }}>
+          AWOC is managed by the uploaded AWOC consent document. Remove or replace that document to change this status.
+        </div>
+      ) : null}
       {editingConsentNotRequired ? (
         <Field
-          label="Consent not required reason"
+          label="Implied consent reason"
           hint={editingConsentAutoReason ? 'Auto-set based on claimant/separated status.' : 'Provide a short reason.'}
         >
           <TextInput

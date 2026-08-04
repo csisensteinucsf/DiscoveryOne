@@ -18,6 +18,8 @@ import SystemNtpPanel from './SystemNtpPanel.jsx'
 import { SystemNotificationsPanel, SystemSmtpPanel } from './SystemMessagingPanels.jsx'
 import SystemClamavPanel from './SystemClamavPanel.jsx'
 import SystemPreferencesPanel from './SystemPreferencesPanel.jsx'
+import SystemCaseTemplatesPanel from './SystemCaseTemplatesPanel.jsx'
+import SystemEmailIntakeWorkspace from './SystemEmailIntakeWorkspace.jsx'
 import Logs from './Logs.jsx'
 import { useSystemNtpTemplates } from './useSystemNtpTemplates.js'
 import { useSystemImportsWorkflow } from './useSystemImportsWorkflow.js'
@@ -30,6 +32,7 @@ import { useSystemClamavMonitor } from './useSystemClamavMonitor.js'
 import { useSystemPreferences } from './useSystemPreferences.js'
 import { useSystemAdministrativeSettings } from './useSystemAdministrativeSettings.js'
 import { useSystemInstitutionWorkflow } from './useSystemInstitutionWorkflow.js'
+import { normalizeGroupValue } from './systemUtils.js'
 export default function System({ apiBase = '/api' }) {
 
   const { user, refreshUser, authConfig } = useAuth()
@@ -118,7 +121,6 @@ export default function System({ apiBase = '/api' }) {
     apiBase,
     isSysAdmin,
   })
-  const normalizeGroupValue = (value) => (value || '').trim().toLowerCase()
   const userGroup = normalizeGroupValue(user?.requestor_group || '')
   const {
     ntpTemplates,
@@ -415,9 +417,17 @@ export default function System({ apiBase = '/api' }) {
       views: [
         { id: 'preservation', label: 'Preservation' },
         { id: 'ticket_workflows', label: 'Ticket Workflows' },
-        { id: 'ntp', label: 'NTP Templates' },
-        { id: 'notifications', label: 'Notifications' },
         { id: 'imports', label: 'Bulk Case Import' },
+      ],
+    },
+    {
+      id: 'templates',
+      label: 'Templates',
+      views: [
+        { id: 'case_templates', label: 'New Case Templates' },
+        { id: 'ntp', label: 'NTP Templates' },
+        { id: 'notifications', label: 'Notification Templates' },
+        { id: 'email_intake_templates', label: 'Email Intake Templates' },
       ],
     },
     {
@@ -486,7 +496,7 @@ export default function System({ apiBase = '/api' }) {
             type="button"
             role="tab"
             aria-selected={section.id === activeSection}
-            className={section.id === activeSection ? 'btn' : 'btn secondary'}
+            className={section.id === activeSection ? 'system-section-nav__button is-active' : 'system-section-nav__button'}
             onClick={() => selectSystemView(section.id, section.views[0].id)}
           >
             {section.label}
@@ -619,6 +629,24 @@ export default function System({ apiBase = '/api' }) {
           integrationStatus={integrationStatus}
           apiBase={apiBase}
           showToast={showToast}
+        />
+      )}
+
+      {activeTab === 'case_templates' && (
+        <SystemCaseTemplatesPanel
+          apiBase={apiBase}
+          isSysAdmin={isSysAdmin}
+          analystOptions={analystOptions}
+          titleStyle={titleStyle}
+        />
+      )}
+
+      {activeTab === 'email_intake_templates' && (
+        <SystemEmailIntakeWorkspace
+          apiBase={apiBase}
+          enabled={!!integrationSettings.enabled?.email_intake}
+          showToast={showToast}
+          mode="templates"
         />
       )}
 

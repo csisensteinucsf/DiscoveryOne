@@ -4,6 +4,7 @@ import { Upload, UserPlus } from 'lucide-react'
 import DataTableHeader from '../components/DataTableHeader.jsx'
 import Modal from '../components/Modal.jsx'
 import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
+import { buildCustodianWorkflowQuery } from './holdAssignmentUtils.js'
 
 const lightBtn = { background: '#E5EEF3', color: '#00598C', border: '1px solid #C9D7E2' }
 
@@ -163,9 +164,8 @@ export default function Custodians({ apiBase = '/api' }) {
     if (!response.ok) throw new Error('Unable to load holds for the selected case')
     const data = await response.json()
     const nextHolds = Array.isArray(data?.holds) ? data.holds : []
-    const firstActive = nextHolds.find(hold => hold?.status === 'active')
     setHoldOptions(nextHolds)
-    setSelectedHoldIds(firstActive ? [Number(firstActive.id)] : [])
+    setSelectedHoldIds([])
   }
 
   const onWorkflowHoldCreated = (created) => {
@@ -216,12 +216,8 @@ export default function Custodians({ apiBase = '/api' }) {
 
 
   const continueCustodianWorkflow = () => {
-    if (!selectedCaseId || !selectedHoldIds.length) return
-    const params = new URLSearchParams({
-      action: 'custodians',
-      mode: workflowMode === 'import' ? 'import' : 'add',
-      hold_ids: selectedHoldIds.join(','),
-    })
+    if (!selectedCaseId) return
+    const params = buildCustodianWorkflowQuery(workflowMode, selectedHoldIds)
     setWorkflowMode(null)
     nav('/cases/' + selectedCaseId + '?' + params.toString())
   }
@@ -308,7 +304,7 @@ export default function Custodians({ apiBase = '/api' }) {
                   filterPlaceholder="Case name contains..."
                 />
                 <DataTableHeader
-                  label="Active holds"
+                  label="Active preservation"
                   sortKey="holds"
                   sort={sort}
                   onSort={toggleSort}
@@ -364,7 +360,7 @@ export default function Custodians({ apiBase = '/api' }) {
               type="button"
               className="btn"
               onClick={continueCustodianWorkflow}
-              disabled={workflowLoading || !selectedCaseId || !selectedHoldIds.length}
+              disabled={workflowLoading || !selectedCaseId}
             >
               Continue
             </button>
@@ -372,7 +368,7 @@ export default function Custodians({ apiBase = '/api' }) {
         )}
       >
         <p style={{ marginTop: 0, color: 'var(--muted,#64748b)' }}>
-          Choose the active case and every named hold that should receive these custodians. The next screen uses the existing validated add or CSV import workflow.
+          Choose the active case. Hold assignment is optional; leave all Holds unselected to add custodians to the matter only, or select the named Holds they should join.
         </p>
         {workflowError && <div className="alert error">{workflowError}</div>}
         <div className="named-hold-form">

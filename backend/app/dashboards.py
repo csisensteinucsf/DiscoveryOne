@@ -307,7 +307,7 @@ def drilldown(
     if kind == "ntp_status_list":
         open_only = bool(config.get("open_only", True))
         status_filter = (config.get("status_filter") or "").strip().lower()
-        allowed = {"not sent", "sent", "acknowledged", "na"}
+        allowed = {"not sent", "sent", "acknowledged", "silent"}
         if status_filter and status_filter not in allowed:
             raise HTTPException(status_code=422, detail="invalid ntp status")
         status_col = func.lower(func.coalesce(models.HoldCustodian.ntp_status, "not sent"))

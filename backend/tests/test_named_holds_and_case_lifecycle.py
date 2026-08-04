@@ -49,6 +49,21 @@ def create_case(db, name="Matter One"):
     return case
 
 
+def create_hold(db, case, *, name="Hold A", custodians=(), sort_order=0):
+    hold = models.CaseHold(case_id=case.id, name=name, status="active", sort_order=sort_order)
+    db.add(hold)
+    db.flush()
+    ids = [int(custodian.id) for custodian in custodians]
+    if ids:
+        case_holds.assign_custodians_to_hold(
+            db,
+            case_id=case.id,
+            hold_id=hold.id,
+            custodian_ids=ids,
+        )
+    return hold
+
+
 def test_default_hold_copies_legacy_member_workflow_and_preservation(monkeypatch, db_session):
     monkeypatch.setattr(
         case_holds,
@@ -71,7 +86,7 @@ def test_default_hold_copies_legacy_member_workflow_and_preservation(monkeypatch
     db_session.add(custodian)
     db_session.commit()
 
-    hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    hold = create_hold(db_session, case, custodians=[custodian])
     db_session.commit()
 
     membership = db_session.query(models.HoldCustodian).filter_by(hold_id=hold.id, custodian_id=custodian.id).one()
@@ -101,7 +116,7 @@ def test_same_custodian_can_have_independent_status_in_multiple_holds(monkeypatc
     )
     db_session.add(custodian)
     db_session.commit()
-    first = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    first = create_hold(db_session, case, custodians=[custodian])
     db_session.commit()
 
     second_payload = case_holds.CaseHoldCreate(name="Hold B")
@@ -246,7 +261,7 @@ def test_named_hold_preservation_automation_falls_back_to_manual_tracking(monkey
     )
     db_session.add(custodian)
     db_session.commit()
-    hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    hold = create_hold(db_session, case, custodians=[custodian])
     db_session.commit()
 
     result = case_holds.automate_hold_preservation(
@@ -297,7 +312,7 @@ def test_named_hold_preservation_uses_configured_source_adapter(monkeypatch, db_
     )
     db_session.add(custodian)
     db_session.commit()
-    hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    hold = create_hold(db_session, case, custodians=[custodian])
     db_session.commit()
 
     result = case_holds.automate_hold_preservation(
@@ -333,7 +348,7 @@ def test_provider_hold_route_updates_only_selected_named_hold(monkeypatch, db_se
     )
     db_session.add(custodian)
     db_session.commit()
-    first_hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    first_hold = create_hold(db_session, case, custodians=[custodian])
     second_hold = models.CaseHold(case_id=case.id, name="Hold B", sort_order=1)
     db_session.add(second_hold)
     db_session.flush()
@@ -392,9 +407,9 @@ def test_provider_hold_route_updates_only_selected_named_hold(monkeypatch, db_se
     assert second_source.status == "not_started"
 
 
-def test_searches_support_multiple_holds_and_default_assignment(db_session):
+def test_searches_support_multiple_holds_and_allow_no_assignment(db_session):
     case = create_case(db_session, name="Search Hold Matter")
-    first_hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    first_hold = create_hold(db_session, case)
     second_hold = models.CaseHold(case_id=case.id, name="Hold B", sort_order=1)
     db_session.add(second_hold)
     db_session.flush()
@@ -426,13 +441,13 @@ def test_searches_support_multiple_holds_and_default_assignment(db_session):
     assert {row.hold_id for row in rows} == {first_hold.id, second_hold.id}
     assert {row.status_search for row in rows} == {"performed"}
     assert {row.status_export for row in rows} == {"performed"}
-    assert default_assigned == [first_hold.id]
+    assert default_assigned == []
     default_rows = db_session.query(models.HoldSearch).filter_by(search_id=default_search.id).all()
-    assert [row.hold_id for row in default_rows] == [first_hold.id]
+    assert default_rows == []
 def test_bulk_custodian_import_assigns_every_selected_hold_atomically(monkeypatch, db_session):
     admin = create_user(db_session, suffix="multi-hold-import")
     case = create_case(db_session, name="Multi Hold Import")
-    first_hold = case_holds.ensure_default_hold(db_session, case, assign_existing=False)
+    first_hold = create_hold(db_session, case)
     second_hold = models.CaseHold(case_id=case.id, name="Hold B", status="active", sort_order=1)
     db_session.add(second_hold)
     db_session.commit()
@@ -459,10 +474,10 @@ def test_bulk_custodian_import_assigns_every_selected_hold_atomically(monkeypatc
     custodian_id = result.created[0].id
     memberships = db_session.query(models.HoldCustodian).filter_by(custodian_id=custodian_id).all()
     assert {membership.hold_id for membership in memberships} == {first_hold.id, second_hold.id}
-def test_closing_case_requires_explicit_active_hold_decision(db_session):
+def test_closing_case_requires_all_holds_to_be_closed_first(db_session):
     analyst = create_user(db_session, role="analyst", suffix="hold-close-analyst")
     case = create_case(db_session, name="Active Hold Closure")
-    hold = case_holds.ensure_default_hold(db_session, case, assign_existing=False)
+    hold = create_hold(db_session, case)
     db_session.commit()
 
     with pytest.raises(HTTPException) as blocked:
@@ -475,16 +490,19 @@ def test_closing_case_requires_explicit_active_hold_decision(db_session):
         )
 
     assert blocked.value.status_code == 409
-    assert blocked.value.detail["code"] == "active_holds_require_confirmation"
-    assert blocked.value.detail["active_holds"][0]["id"] == hold.id
+    assert blocked.value.detail["code"] == "case_closure_blocked"
+    assert blocked.value.detail["active_holds"][0]["hold_id"] == hold.id
     db_session.refresh(case)
     db_session.refresh(hold)
     assert case.closed is False
     assert hold.status == "active"
 
+    hold.status = "closed"
+    db_session.add(hold)
+    db_session.commit()
     closed = case_update.update_case_record(
         case_id=case.id,
-        payload=schemas.CaseUpdate(closed=True, close_active_holds=True),
+        payload=schemas.CaseUpdate(closed=True),
         db=db_session,
         request=None,
         user=analyst,
@@ -493,15 +511,15 @@ def test_closing_case_requires_explicit_active_hold_decision(db_session):
     db_session.refresh(hold)
     assert closed.closed is True
     assert hold.status == "closed"
-    assert hold.closed_at is not None
+    assert hold.status == "closed"
 
 
-def test_legacy_custodian_bridge_updates_only_default_hold(db_session):
+def test_matter_level_custodian_bridge_updates_all_existing_holds(db_session):
     case = create_case(db_session, name="Legacy Bridge Matter")
     custodian = models.Custodian(case_id=case.id, name="Legacy Person", email="legacy@example.edu")
     db_session.add(custodian)
     db_session.flush()
-    first_hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    first_hold = create_hold(db_session, case, custodians=[custodian])
     second_hold = models.CaseHold(case_id=case.id, name="Hold B", status="active", sort_order=1)
     db_session.add(second_hold)
     db_session.flush()
@@ -531,7 +549,7 @@ def test_legacy_custodian_bridge_updates_only_default_hold(db_session):
     ).one()
     db_session.refresh(second_membership)
     assert first_membership.consent_status == "received"
-    assert second_membership.consent_status == "sent"
+    assert second_membership.consent_status == "received"
 
 
 def test_global_not_required_policy_updates_all_holds_but_preserves_ack(db_session):
@@ -539,7 +557,7 @@ def test_global_not_required_policy_updates_all_holds_but_preserves_ack(db_sessi
     custodian = models.Custodian(case_id=case.id, name="Policy Person", email="policy@example.edu")
     db_session.add(custodian)
     db_session.flush()
-    first_hold = case_holds.ensure_default_hold(db_session, case, assign_existing=True)
+    first_hold = create_hold(db_session, case, custodians=[custodian])
     second_hold = models.CaseHold(case_id=case.id, name="Hold B", status="active", sort_order=1)
     db_session.add(second_hold)
     db_session.flush()
@@ -555,21 +573,21 @@ def test_global_not_required_policy_updates_all_holds_but_preserves_ack(db_sessi
     hold_workflows.set_membership_ntp_status(db_session, first, "sent")
     hold_workflows.set_membership_ntp_status(db_session, second, "acknowledged")
 
-    custodian.ntp_status = "na"
+    custodian.ntp_status = "silent"
     custodian.ntp_not_required_reason = "Separated employee"
-    custodian.consent_status = "na"
+    custodian.consent_status = "implied"
     custodian.consent_not_required_reason = "Separated employee"
     hold_workflows.sync_custodian_not_required_policy_to_memberships(db_session, custodian)
     db_session.commit()
 
     db_session.refresh(first)
     db_session.refresh(second)
-    assert first.ntp_status == "na"
+    assert first.ntp_status == "silent"
     assert second.ntp_status == "acknowledged"
-    assert {first.consent_status, second.consent_status} == {"na"}
+    assert {first.consent_status, second.consent_status} == {"implied"}
 
 
-def test_request_consent_proof_is_assigned_to_default_hold(db_session):
+def test_request_consent_proof_is_assigned_only_to_explicit_hold(db_session):
     from types import SimpleNamespace
     from app import case_requests
 
@@ -577,6 +595,7 @@ def test_request_consent_proof_is_assigned_to_default_hold(db_session):
     custodian = models.Custodian(case_id=case.id, name="Proof Person", email="proof@example.edu")
     db_session.add(custodian)
     db_session.flush()
+    hold = create_hold(db_session, case, name="Request Hold", custodians=[custodian])
     proof = models.CaseRequestConsentProof(
         case_id=case.id,
         custodian_name=custodian.name,
@@ -588,7 +607,7 @@ def test_request_consent_proof_is_assigned_to_default_hold(db_session):
     )
     db_session.add(proof)
     db_session.flush()
-    record = SimpleNamespace(case_id=case.id, consent_proofs=[proof])
+    record = SimpleNamespace(case_id=case.id, consent_proofs=[proof], payload='{"hold_name":"Request Hold"}')
 
     case_requests._assign_request_proofs_to_default_hold(db_session, record)
     db_session.commit()
@@ -596,4 +615,5 @@ def test_request_consent_proof_is_assigned_to_default_hold(db_session):
     membership = db_session.get(models.HoldCustodian, proof.hold_custodian_id)
     assert membership is not None
     assert membership.custodian_id == custodian.id
+    assert membership.hold_id == hold.id
     assert membership.consent_status == "received"
