@@ -146,7 +146,7 @@ export default function CaseRequestPreservationStep({
                                 />
                               </label>
                               <label className="field">
-                                <span>Email (optional)</span>
+                                <span>Email</span>
                                 <input
                                   type="email"
                                   name={`override-email-${c.id}`}

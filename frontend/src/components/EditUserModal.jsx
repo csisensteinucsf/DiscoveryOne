@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Modal from './Modal.jsx'
 import { useToast } from './ToastProvider.jsx'
+import RequiredFieldLabel from './RequiredFieldLabel.jsx'
 
 const ADMIN_USERNAME = 'admin'
 
@@ -100,7 +101,7 @@ export default function EditUserModal({ apiBase, user, onClose, onSaved }) {
             </>
           ) : (
             <>
-              <label>First Name</label>
+              <label><RequiredFieldLabel>First Name</RequiredFieldLabel></label>
               <input
                 className="input"
                 value={form.first_name}
@@ -108,7 +109,7 @@ export default function EditUserModal({ apiBase, user, onClose, onSaved }) {
                 required
               />
 
-              <label>Last Name</label>
+              <label><RequiredFieldLabel>Last Name</RequiredFieldLabel></label>
               <input
                 className="input"
                 value={form.last_name}
@@ -118,25 +119,26 @@ export default function EditUserModal({ apiBase, user, onClose, onSaved }) {
             </>
           )}
 
-          <label>New Password (optional)</label>
+          <label><RequiredFieldLabel required={isSeedAdmin}>New Password</RequiredFieldLabel></label>
           <input
             type="password"
             className="input"
             value={form.password}
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+            required={isSeedAdmin}
           />
 
-          <label>Confirm New Password</label>
+          <label><RequiredFieldLabel required={isSeedAdmin}>Confirm New Password</RequiredFieldLabel></label>
           <input
             type="password"
             className="input"
             value={form.confirmPassword}
             onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+            required={isSeedAdmin}
           />
-
           {!isSeedAdmin && (
             <>
-              <label>Email</label>
+              <label><RequiredFieldLabel>Email</RequiredFieldLabel></label>
               <input
                 type="email"
                 className="input"

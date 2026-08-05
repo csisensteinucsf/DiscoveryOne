@@ -71,7 +71,7 @@ export default function CaseDetailConsentModal({
               />
             </Field>
           </div>
-          <Field label="Optional message to recipients">
+          <Field label="Message to recipients">
             <textarea
               rows={3}
               value={consentFormInline.message}

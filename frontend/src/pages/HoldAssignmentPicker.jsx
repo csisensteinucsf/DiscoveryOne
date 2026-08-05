@@ -58,7 +58,7 @@ export default function HoldAssignmentPicker({
   return (
     <fieldset disabled={disabled || creating} style={{ border: 0, padding: 0, margin: '0 0 14px' }}>
       <legend style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
-        Assign to Holds (optional)
+        Assign to Holds
       </legend>
       <p style={{ fontSize: 12, color: '#64748b', margin: '0 0 8px' }}>
         Leave every Hold unselected to add these custodians to the matter only. Select a named Hold only when they should join that Hold's notices, consent, preservation, and search workflow.
@@ -86,7 +86,7 @@ export default function HoldAssignmentPicker({
           className="input"
           value={newHoldName}
           onChange={event => setNewHoldName(event.target.value)}
-          placeholder={activeHolds.length ? 'Create another Hold (optional)' : 'Create a named Hold (optional)'}
+          placeholder={activeHolds.length ? 'Create another Hold' : 'Create a named Hold'}
           style={{ flex: '1 1 260px' }}
         />
         <button type="button" className="btn secondary" onClick={createHold} disabled={disabled || creating || !caseId}>

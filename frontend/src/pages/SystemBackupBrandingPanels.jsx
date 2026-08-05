@@ -161,7 +161,7 @@ export function SystemBackupsPanel({
           {restoreStatus && <span style={{ color: 'var(--muted,#6b7280)' }}>{restoreStatus}</span>}
         </div>
         <div style={{ marginTop: 12, maxWidth: 360 }}>
-          <label style={{ display: 'block', marginBottom: 4 }}>Encryption Key (optional)</label>
+          <label style={{ display: 'block', marginBottom: 4 }}>Encryption Key</label>
           <input type="password" value={restoreKey} onChange={(e) => setRestoreKey(e.target.value)} placeholder="Base64 key" />
           <small style={{ color: 'var(--muted,#6b7280)' }}>Leave blank to use the server-configured key.</small>
         </div>

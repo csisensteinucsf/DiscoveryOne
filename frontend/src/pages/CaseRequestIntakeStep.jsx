@@ -1,3 +1,4 @@
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import {
   CASE_REQUEST_MAX_MB,
   DEFAULT_LOOKUP_INPUT_PLACEHOLDER,
@@ -59,11 +60,11 @@ export default function CaseRequestIntakeStep({
                       ) : null}
                     </label>
                     <label className="field">
-                      <span>{secondaryCaseNameLabel}</span>
+                      <RequiredFieldLabel required={caseNamingMode === 'legal_case_name'}>{secondaryCaseNameLabel}</RequiredFieldLabel>
                       <input type="text" value={form.legal_case_name} onChange={(e) => updateLegalCaseName(e.target.value)} required={caseNamingMode === 'legal_case_name'} />
                     </label>
                     <label className="field">
-                      <span>Claimant (optional)</span>
+                      <span>Claimant</span>
                       <input type="text" value={form.claimant} onChange={(e) => setForm((prev) => ({ ...prev, claimant: e.target.value }))} />
                     </label>
                   </div>
@@ -188,7 +189,7 @@ export default function CaseRequestIntakeStep({
                     </span>
                     {form.is_private && (
                       <span className="field field--full" style={{ margin: 0 }}>
-                        <span>Additional requestors (optional)</span>
+                        <span>Additional requestors</span>
                         <input
                           type="text"
                           value={form.additional_requestors}

@@ -368,7 +368,7 @@ export default function Custodians({ apiBase = '/api' }) {
         )}
       >
         <p style={{ marginTop: 0, color: 'var(--muted,#64748b)' }}>
-          Choose the active case. Hold assignment is optional; leave all Holds unselected to add custodians to the matter only, or select the named Holds they should join.
+          Choose the active case. Leave all Holds unselected to add custodians to the matter only, or select the named Holds they should join.
         </p>
         {workflowError && <div className="alert error">{workflowError}</div>}
         <div className="named-hold-form">

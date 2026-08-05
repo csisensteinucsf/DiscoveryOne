@@ -304,7 +304,7 @@ export function AddCustodiansModal({
                     {lookupResults[i].override && (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10 }}>
                         <TextInput placeholder="Final name" value={r.name} onChange={e => update(i, 'name', e.target.value, { invalidate: false })} disabled={saving} />
-                        <TextInput placeholder="Final email (optional)" value={r.email} onChange={e => update(i, 'email', e.target.value, { invalidate: false })} disabled={saving} />
+                        <TextInput placeholder="Final email" value={r.email} onChange={e => update(i, 'email', e.target.value, { invalidate: false })} disabled={saving} />
                       </div>
                     )}
                   </>
@@ -323,7 +323,7 @@ export function AddCustodiansModal({
                     {lookupResults[i].override && (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                         <TextInput placeholder="Final name" value={r.name} onChange={e => update(i, 'name', e.target.value, { invalidate: false })} disabled={saving} />
-                        <TextInput placeholder="Final email (optional)" value={r.email} onChange={e => update(i, 'email', e.target.value, { invalidate: false })} disabled={saving} />
+                        <TextInput placeholder="Final email" value={r.email} onChange={e => update(i, 'email', e.target.value, { invalidate: false })} disabled={saving} />
                       </div>
                     )}
                   </div>

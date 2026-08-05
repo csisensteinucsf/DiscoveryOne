@@ -1,4 +1,6 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
+import { DeleteIconButton } from '../components/RowActionIconButton.jsx'
 import {
   CUSTOM_FIELD_TYPES,
   createCustomFieldDefinition,
@@ -71,12 +73,12 @@ export default function SystemCaseTemplateCustomFields({ editor, setEditor }) {
       </div>
       {fields.map((field, index) => (
         <div className="case-template-custom-field" key={field.key}>
-          <label>
-            Field label
-            <input value={field.label || ''} maxLength={120} onChange={event => updateField(index, { label: event.target.value })} placeholder="e.g., Business unit" />
+          <label className="case-template-custom-field__label">
+            <RequiredFieldLabel>Field label</RequiredFieldLabel>
+            <input value={field.label || ''} maxLength={120} onChange={event => updateField(index, { label: event.target.value })} placeholder="e.g., Business unit" required />
           </label>
-          <label>
-            Type
+          <label className="case-template-custom-field__type">
+            <span>Type</span>
             <select
               value={field.field_type || 'text'}
               onChange={event => updateField(index, {
@@ -88,21 +90,24 @@ export default function SystemCaseTemplateCustomFields({ editor, setEditor }) {
               {CUSTOM_FIELD_TYPES.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             </select>
           </label>
-          <label className="case-template-option">
-            <input type="checkbox" checked={!!field.required} onChange={event => updateField(index, { required: event.target.checked })} />
+          <label className="case-template-custom-field__required">
             <span>Required</span>
+            <span className="case-template-custom-field__required-control">
+              <input type="checkbox" aria-label={`Require ${field.label || 'custom field'}`} checked={!!field.required} onChange={event => updateField(index, { required: event.target.checked })} />
+            </span>
           </label>
-          <label>
-            Default
+          <label className="case-template-custom-field__default">
+            <span>Default value</span>
             <CustomDefaultInput field={field} onChange={defaultValue => updateField(index, { default_value: defaultValue })} />
           </label>
-          <button className="icon-button" type="button" title="Remove custom field" aria-label={`Remove ${field.label || 'custom field'}`} onClick={() => removeField(index)}>
-            <Trash2 size={16} />
-          </button>
+          <div className="case-template-custom-field__remove">
+            <DeleteIconButton label={`Remove ${field.label || 'custom field'}`} onClick={() => removeField(index)} />
+          </div>
           {field.field_type === 'select' && (
             <label className="case-template-custom-field__options">
-              Dropdown options
+              <RequiredFieldLabel>Dropdown options</RequiredFieldLabel>
               <input
+                required
                 value={(field.options || []).join(', ')}
                 onChange={event => {
                   const options = event.target.value.split(',').map(option => option.trim()).filter(Boolean)

@@ -44,6 +44,7 @@ import CaseDetailNotesTab from './CaseDetailNotesTab.jsx'
 import CaseDetailDocumentationTab from './CaseDetailDocumentationTab.jsx'
 import CaseDetailSearchesTab from './CaseDetailSearchesTab.jsx'
 import CaseDetailNamedHoldsTab from './CaseDetailNamedHoldsTab.jsx'
+import CaseDetailPreservationDetailTab from './CaseDetailPreservationDetailTab.jsx'
 import CaseDetailCustodiansTab from './CaseDetailCustodiansTab.jsx'
 import CaseDetailTicketsTab from './CaseDetailTicketsTab.jsx'
 import CaseDetailTicketNotesTab from './CaseDetailTicketNotesTab.jsx'
@@ -54,6 +55,7 @@ import CaseDetailNtpModals from './CaseDetailNtpModals.jsx'
 import CaseDetailPreservationProviderModal from './CaseDetailPreservationProviderModal.jsx'
 import CaseDetailConsentModal from './CaseDetailConsentModal.jsx'
 import CaseDetailEditCustodianModal from './CaseDetailEditCustodianModal.jsx'
+import CaseDetailStatusReasonModal from './CaseDetailStatusReasonModal.jsx'
 import CaseDetailSearchStatusModals from './CaseDetailSearchStatusModals.jsx'
 import CaseDetailCustodianEntryModals from './CaseDetailCustodianEntryModals.jsx'
 import CaseDetailEditCaseModal from './CaseDetailEditCaseModal.jsx'
@@ -300,8 +302,8 @@ export default function CaseDetail() {
   }, [isTech])
   useEffect(() => {
     const allowedTabs = new Set(isTech
-      ? ['custodians', 'holds', 'requests']
-      : ['custodians', 'holds', 'searches', 'requests', 'documentation', 'sla', 'notes'])
+      ? ['custodians', 'holds', 'preservation', 'requests']
+      : ['custodians', 'holds', 'preservation', 'searches', 'requests', 'documentation', 'sla', 'notes'])
     if (!allowedTabs.has(activeTab)) setActiveTab(isTech ? 'requests' : 'custodians')
   }, [activeTab, isTech])
   useEffect(() => {
@@ -832,7 +834,15 @@ export default function CaseDetail() {
     updateCase,
     updateCustodianLocal,
   })
-  const { onToggleHold, onChangeNtp, onChangeConsent } = useCaseDetailCustodianStatusActions({
+  const {
+    onToggleHold,
+    onChangeNtp,
+    onChangeConsent,
+    statusReasonRequest,
+    statusReasonBusy,
+    closeStatusReasonDialog,
+    submitStatusReason,
+  } = useCaseDetailCustodianStatusActions({
     caseData,
     custodians,
     setCustodians,
@@ -1012,18 +1022,23 @@ export default function CaseDetail() {
               isReadOnly={isReadOnly}
               showToast={showToast}
               requestEntries={requestEntries}
-              legacyProps={{
-                holdsDetail,
-                holdsDetailTotals,
-                holdsDetailRows,
-                formatDateTime,
-                loadHoldsDetail,
-                isTech,
-                techHoldKeySet,
-                holdDetailStateStyle,
-                holdDetailStateLabel,
-                formatActionLabel,
-              }}
+            />
+          )}
+          {activeTab === 'preservation' && (
+            <CaseDetailPreservationDetailTab
+              apiBase={apiBase}
+              caseId={caseId}
+              showToast={showToast}
+              holdsDetail={holdsDetail}
+              holdsDetailTotals={holdsDetailTotals}
+              holdsDetailRows={holdsDetailRows}
+              formatDateTime={formatDateTime}
+              loadHoldsDetail={loadHoldsDetail}
+              isTech={isTech}
+              techHoldKeySet={techHoldKeySet}
+              holdDetailStateStyle={holdDetailStateStyle}
+              holdDetailStateLabel={holdDetailStateLabel}
+              formatActionLabel={formatActionLabel}
             />
           )}
           {!isTech && activeTab === 'searches' && (
@@ -1129,6 +1144,12 @@ export default function CaseDetail() {
           )}
         </>
           )}
+      <CaseDetailStatusReasonModal
+        request={statusReasonRequest}
+        onClose={closeStatusReasonDialog}
+        onSubmit={submitStatusReason}
+        busy={statusReasonBusy}
+      />
       <CaseDetailPreservationProviderModal
         open={showPurviewModal}
         onClose={() => setShowPurviewModal(false)}

@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Pencil, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
-import CaseDetailHoldsTab from './CaseDetailHoldsTab.jsx'
+import CaseDetailHoldSelector from './CaseDetailHoldSelector.jsx'
+import CaseDetailStatusReasonModal from './CaseDetailStatusReasonModal.jsx'
 import { useCaseDetailNamedHolds } from './useCaseDetailNamedHolds.js'
 import {
   CONSENT_STATUS_OPTIONS,
@@ -57,7 +58,6 @@ function HoldWorkflowSummary({ hold }) {
   const exportState = aggregateWorkflowState(hold.search_counts?.export, ['performed', 'complete', 'completed'])
   const delivery = aggregateWorkflowState(hold.search_counts?.delivery, ['performed', 'complete', 'completed'])
   const labels = [
-    ['Hold', hold.status || 'active'],
     ['NTP', ntp],
     ['Consent', consent],
     ['Search', search],
@@ -150,7 +150,6 @@ export default function CaseDetailNamedHoldsTab({
   isReadOnly,
   showToast,
   requestEntries,
-  legacyProps,
 }) {
   const holds = useCaseDetailNamedHolds({ apiBase, caseId, showToast })
   const [createOpen, setCreateOpen] = useState(false)
@@ -160,11 +159,20 @@ export default function CaseDetailNamedHoldsTab({
   const [form, setForm] = useState(emptyForm)
   const [selectedCustodians, setSelectedCustodians] = useState([])
   const [selectedSearches, setSelectedSearches] = useState([])
+  const [statusReasonRequest, setStatusReasonRequest] = useState(null)
+  const [selectedHoldId, setSelectedHoldId] = useState(null)
 
   const custodianById = useMemo(
     () => new Map((custodians || []).map(custodian => [Number(custodian.id), custodian])),
     [custodians],
   )
+  const selectedHold = useMemo(
+    () => holds.namedHolds.find(hold => String(hold.id) === String(selectedHoldId))
+      || holds.namedHolds[0]
+      || null,
+    [holds.namedHolds, selectedHoldId],
+  )
+  const visibleNamedHolds = selectedHold ? [selectedHold] : []
 
   const openCreate = () => {
     setForm(emptyForm())
@@ -239,13 +247,16 @@ export default function CaseDetailNamedHoldsTab({
     const status = normalizeNtpStatus(value)
     const payload = { ntp_status: status, ntp_not_required_reason: null }
     if (status === 'silent') {
-      const reason = window.prompt('Why should this custodian be Silent for NTP?', member.ntp_not_required_reason || '')
-      if (reason === null) return
-      if (!reason.trim()) {
-        showToast('A reason is required for Silent NTP status.', { variant: 'warn' })
-        return
-      }
-      payload.ntp_not_required_reason = reason.trim()
+      setStatusReasonRequest({
+        kind: 'ntp',
+        hold,
+        member,
+        status,
+        title: 'Silent NTP reason',
+        question: 'Why should this custodian be Silent for NTP?',
+        initialReason: member.ntp_not_required_reason || '',
+      })
+      return
     }
     await holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, payload)
   }
@@ -258,15 +269,36 @@ export default function CaseDetailNamedHoldsTab({
     }
     const payload = { consent_status: status, consent_not_required_reason: null }
     if (status === 'implied') {
-      const reason = window.prompt('Why is consent Implied for this custodian?', member.consent_not_required_reason || '')
-      if (reason === null) return
-      if (!reason.trim()) {
-        showToast('A reason is required for Implied consent.', { variant: 'warn' })
-        return
-      }
-      payload.consent_not_required_reason = reason.trim()
+      setStatusReasonRequest({
+        kind: 'consent',
+        hold,
+        member,
+        status,
+        title: 'Implied consent reason',
+        question: 'Why is consent Implied for this custodian?',
+        initialReason: member.consent_not_required_reason || '',
+      })
+      return
     }
     await holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, payload)
+  }
+
+  const submitStatusReason = async reason => {
+    const request = statusReasonRequest
+    if (!request || holds.namedHoldBusy) return
+    const payload = request.kind === 'ntp'
+      ? { ntp_status: request.status, ntp_not_required_reason: reason }
+      : { consent_status: request.status, consent_not_required_reason: reason }
+    const success = await holds.updateNamedHoldWorkflow(
+      request.hold.id,
+      request.member.custodian_id,
+      payload,
+    )
+    if (success) setStatusReasonRequest(null)
+  }
+
+  const closeStatusReasonDialog = () => {
+    if (!holds.namedHoldBusy) setStatusReasonRequest(null)
   }
 
   return (
@@ -301,8 +333,15 @@ export default function CaseDetailNamedHoldsTab({
       {holds.namedHoldsError && <div className="alert error">{holds.namedHoldsError}</div>}
       {holds.namedHoldsLoading && !holds.namedHolds.length && <p>Loading holds...</p>}
 
+      <CaseDetailHoldSelector
+        holds={holds.namedHolds}
+        selectedHoldId={selectedHold?.id}
+        onSelect={setSelectedHoldId}
+        ariaLabel="Select Hold workspace"
+      />
+
       <div className="named-holds-list">
-        {holds.namedHolds.map(hold => (
+        {visibleNamedHolds.map(hold => (
           <section className="named-hold-section" key={hold.id}>
             <div className="named-hold-section__header">
               <div>
@@ -427,11 +466,6 @@ export default function CaseDetailNamedHoldsTab({
         ))}
       </div>
 
-      <details className="legacy-hold-details">
-        <summary>Legacy preservation timeline and provider events</summary>
-        <CaseDetailHoldsTab {...legacyProps} />
-      </details>
-
       <Modal
         open={createOpen || !!editHold}
         title={editHold ? 'Edit Hold' : 'New Hold'}
@@ -473,6 +507,13 @@ export default function CaseDetailNamedHoldsTab({
           </label>
         </form>
       </Modal>
+
+      <CaseDetailStatusReasonModal
+        request={statusReasonRequest}
+        onClose={closeStatusReasonDialog}
+        onSubmit={submitStatusReason}
+        busy={holds.namedHoldBusy}
+      />
 
       <Modal
         open={!!memberHold}

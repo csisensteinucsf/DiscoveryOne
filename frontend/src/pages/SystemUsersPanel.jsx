@@ -1,4 +1,5 @@
 import { ADMIN_USERNAME, formatDateTime } from './systemUtils.js'
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 
 export default function SystemUsersPanel({
   active,
@@ -75,22 +76,18 @@ export default function SystemUsersPanel({
                   <td>{formatGroupLabel(u.requestor_group || '')}</td>
                   <td>{formatDateTime(u.last_login)}</td>
                   <td className="users-table__actions">
-                    <button
-                      className="btn secondary compact"
+                    <EditIconButton
+                      label={'Edit ' + (u.email || u.username || 'user')}
                       onClick={() => openEdit(u)}
                       disabled={!(canManageUsers || user?.id === u.id)}
-                    >
-                      Edit
-                    </button>
+                    />
                     {canManageUsers && user?.id !== u.id && (
-                      <button
-                        className="btn danger compact"
+                      <DeleteIconButton
+                        label={'Delete ' + (u.email || u.username || 'user')}
                         onClick={() => deleteUser(u.id)}
                         disabled={(u.username || '').toLowerCase() === ADMIN_USERNAME}
                         title={(u.username || '').toLowerCase() === ADMIN_USERNAME ? 'Built-in admin cannot be deleted.' : undefined}
-                      >
-                        Delete
-                      </button>
+                      />
                     )}
                   </td>
                 </tr>

@@ -1,6 +1,21 @@
+import { useState } from 'react'
 import { formatNameRaw } from './caseDetailUtils.js'
+import CaseDetailHoldSelector from './CaseDetailHoldSelector.jsx'
+import { useCaseDetailNamedHolds } from './useCaseDetailNamedHolds.js'
 
-export default function CaseDetailHoldsTab({
+function PreservationStateBadge({ status }) {
+  const normalized = String(status || 'not_started').toLowerCase().replaceAll(' ', '_')
+  return (
+    <span className={'hold-status-badge is-' + normalized.replaceAll('_', '-')}>
+      {normalized.replaceAll('_', ' ')}
+    </span>
+  )
+}
+
+export default function CaseDetailPreservationDetailTab({
+  apiBase,
+  caseId,
+  showToast,
   holdsDetail,
   holdsDetailTotals,
   holdsDetailRows,
@@ -12,24 +27,141 @@ export default function CaseDetailHoldsTab({
   holdDetailStateLabel,
   formatActionLabel,
 }) {
+  const namedHolds = useCaseDetailNamedHolds({ apiBase, caseId, showToast })
+  const [selectedHoldId, setSelectedHoldId] = useState(null)
+  const selectedHold = namedHolds.namedHolds.find(
+    hold => String(hold.id) === String(selectedHoldId),
+  ) || namedHolds.namedHolds[0] || null
+  const visibleNamedHolds = selectedHold ? [selectedHold] : []
+  const selectedCustodianIds = new Set(
+    (selectedHold?.custodians || []).map(member => String(member.custodian_id)),
+  )
+  const visibleHoldsDetailRows = selectedHold
+    ? holdsDetailRows.filter(row => selectedCustodianIds.has(String(row?.id)))
+    : holdsDetailRows
+  const visibleCustodianCount = selectedHold
+    ? selectedCustodianIds.size
+    : (holdsDetailTotals.custodians || 0)
+  const visibleTimelineEventCount = selectedHold
+    ? visibleHoldsDetailRows.reduce(
+      (total, row) => total + (Array.isArray(row?.timeline) ? row.timeline.length : 0),
+      0,
+    )
+    : (holdsDetailTotals.events || 0)
+  const refreshAll = () => {
+    loadHoldsDetail()
+    namedHolds.loadNamedHolds()
+  }
+
   return (
-<section className="legacy-hold-timeline">
+<section className="card preservation-detail-tab">
               <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
                   <h3 style={{ margin: 0 }}>Preservation Detail</h3>
                   <div style={{ color: '#6b7280', fontSize: 12, marginTop: 2 }}>
-                    Custodians: {holdsDetailTotals.custodians || 0} | Timeline events: {holdsDetailTotals.events || 0}
+                    Custodians: {visibleCustodianCount} | Timeline events: {visibleTimelineEventCount}
                     {holdsDetail?.data?.generated_at ? ` | Updated: ${formatDateTime(holdsDetail.data.generated_at) || '-'}` : ''}
                   </div>
                 </div>
                 <button
                   className="btn secondary"
                   type="button"
-                  onClick={loadHoldsDetail}
-                  disabled={holdsDetail.loading}
+                  onClick={refreshAll}
+                  disabled={holdsDetail.loading || namedHolds.namedHoldsLoading}
                 >
-                  {holdsDetail.loading ? 'Refreshing...' : 'Refresh'}
+                  {holdsDetail.loading || namedHolds.namedHoldsLoading ? 'Refreshing...' : 'Refresh'}
                 </button>
+              </div>
+
+              <p className="preservation-detail-intro">
+                Preservation sources and provider history are grouped by Hold. Use the Hold buttons to view each workspace separately.
+              </p>
+
+              <CaseDetailHoldSelector
+                holds={namedHolds.namedHolds}
+                selectedHoldId={selectedHold?.id}
+                onSelect={setSelectedHoldId}
+                ariaLabel="Select Hold preservation detail"
+              />
+
+              <section className="preservation-detail-holds" aria-labelledby="preservation-detail-holds-heading">
+                <div className="preservation-detail-section-heading">
+                  <div>
+                    <h4 id="preservation-detail-holds-heading">Hold preservation status</h4>
+                    <p>
+                      Holds: {namedHolds.namedHoldTotals.holds || 0} | Custodian assignments: {namedHolds.namedHoldTotals.custodian_memberships || 0}
+                    </p>
+                  </div>
+                </div>
+
+                {namedHolds.namedHoldsError ? <div className="alert error">{namedHolds.namedHoldsError}</div> : null}
+                {namedHolds.namedHoldsLoading && !namedHolds.namedHolds.length ? <p className="muted">Loading Hold preservation...</p> : null}
+                {!namedHolds.namedHoldsLoading && !namedHolds.namedHolds.length ? <p className="muted">No Holds have been created for this case.</p> : null}
+
+                <div className="preservation-detail-hold-list">
+                  {visibleNamedHolds.map(hold => (
+                    <section className="preservation-detail-hold" key={hold.id}>
+                      <div className="preservation-detail-hold-heading">
+                        <div className="row" style={{ gap: 8, flexWrap: 'wrap' }}>
+                          <h5>{hold.name}</h5>
+                          <PreservationStateBadge status={hold.status} />
+                        </div>
+                        <span className="muted">{hold.custodian_count || 0} custodians</span>
+                      </div>
+
+                      {(hold.custodians || []).length ? (
+                        <div className="table-scroll">
+                          <table className="table preservation-detail-table">
+                            <thead>
+                              <tr><th>Custodian</th><th>Preservation sources</th></tr>
+                            </thead>
+                            <tbody>
+                              {(hold.custodians || []).map(member => (
+                                <tr key={member.membership_id || `${hold.id}-${member.custodian_id}`}>
+                                  <td>
+                                    <strong>{formatNameRaw(member.name || '') || member.email || 'Unnamed custodian'}</strong>
+                                    <div className="muted">{member.email || '-'}</div>
+                                  </td>
+                                  <td>
+                                    {(member.preservation_sources || []).length ? (
+                                      <div className="preservation-detail-source-list">
+                                        {(member.preservation_sources || []).map(source => (
+                                          <div className="preservation-detail-source" key={source.id || source.source_key}>
+                                            <div className="preservation-detail-source-heading">
+                                              <strong>{source.source_label || source.source_key || 'Preservation source'}</strong>
+                                              <PreservationStateBadge status={source.status} />
+                                            </div>
+                                            <div className="preservation-detail-source-meta">
+                                              <span>Automation: {source.automation_ready ? 'Ready' : 'Manual'}</span>
+                                              <span>Provider reference: {source.provider_reference || '-'}</span>
+                                              <span>Updated: {formatDateTime(source.updated_at) || '-'}</span>
+                                            </div>
+                                            {source.last_error ? <div className="preservation-detail-source-error">{source.last_error}</div> : null}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : <span className="muted">No preservation sources configured for this custodian.</span>}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      ) : <p className="muted">No custodians are assigned to this Hold.</p>}
+                    </section>
+                  ))}
+                </div>
+              </section>
+
+              <div className="preservation-detail-section-heading preservation-detail-events-heading">
+                <div>
+                  <h4>Provider events and preservation timeline</h4>
+                  <p>
+                    {selectedHold
+                      ? 'Provider states and event history for custodians assigned to ' + selectedHold.name + '.'
+                      : 'Case-wide provider states and event history for every custodian.'}
+                  </p>
+                </div>
               </div>
 
               {holdsDetail.error && !holdsDetail.data ? (
@@ -46,12 +178,14 @@ export default function CaseDetailHoldsTab({
                 <p style={{ color: '#6b7280', marginTop: 10 }}>Loading preservation details...</p>
               ) : null}
 
-              {!holdsDetail.loading && holdsDetailRows.length === 0 ? (
-                <p style={{ color: '#6b7280', marginTop: 10 }}>No custodians found for this case.</p>
+              {!holdsDetail.loading && visibleHoldsDetailRows.length === 0 ? (
+                <p style={{ color: '#6b7280', marginTop: 10 }}>
+                  {selectedHold ? 'No custodians are assigned to this Hold.' : 'No custodians found for this case.'}
+                </p>
               ) : null}
 
               <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
-                {holdsDetailRows.map((row) => {
+                {visibleHoldsDetailRows.map((row) => {
                   const currentRows = (Array.isArray(row?.current_holds) ? row.current_holds : []).filter(item => !isTech || techHoldKeySet.has(item?.key))
                   const timelineRows = (Array.isArray(row?.timeline) ? row.timeline : []).filter(item => !isTech || techHoldKeySet.has(item?.hold_key))
                   return (

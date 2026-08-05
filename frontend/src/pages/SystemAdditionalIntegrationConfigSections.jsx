@@ -155,7 +155,7 @@ export default function SystemAdditionalIntegrationConfigSections({ integrationS
             <div style={{ marginTop: 18 }}>
               <h3 style={{ margin: '0 0 8px' }}>AI assistant</h3>
               <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-                Configure an OpenAI-compatible chat completions endpoint for optional DiscoveryOne AI features. Secrets are encrypted before storage.
+                Configure an OpenAI-compatible chat completions endpoint for available DiscoveryOne AI features. Secrets are encrypted before storage.
               </p>
               <div className="form-grid">
                 <label>Endpoint URL<input className="input" value={integrationSettings.configs?.ai?.url || ''} onChange={e => updateIntegrationConfig('ai', 'url', e.target.value)} placeholder="https://api.openai.com/v1/chat/completions" /></label>
@@ -164,7 +164,7 @@ export default function SystemAdditionalIntegrationConfigSections({ integrationS
                 <label>Auth header<input className="input" value={integrationSettings.configs?.ai?.auth_header || 'Authorization'} onChange={e => updateIntegrationConfig('ai', 'auth_header', e.target.value)} /></label>
                 <label>Timeout seconds<input className="input" type="number" min="1" value={integrationSettings.configs?.ai?.timeout_seconds ?? 25} onChange={e => updateIntegrationConfig('ai', 'timeout_seconds', e.target.value)} /></label>
                 <label>Temperature<input className="input" type="number" min="0" max="1" step="0.1" value={integrationSettings.configs?.ai?.temperature ?? 0.1} onChange={e => updateIntegrationConfig('ai', 'temperature', e.target.value)} /></label>
-                <label>System prompt<textarea className="input" rows={3} value={integrationSettings.configs?.ai?.system_prompt || ''} onChange={e => updateIntegrationConfig('ai', 'system_prompt', e.target.value)} placeholder="Optional shared AI system prompt override" /></label>
+                <label>System prompt<textarea className="input" rows={3} value={integrationSettings.configs?.ai?.system_prompt || ''} onChange={e => updateIntegrationConfig('ai', 'system_prompt', e.target.value)} placeholder="Shared AI system prompt override" /></label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={integrationSettings.configs?.ai?.assistant_enabled !== false} onChange={e => updateIntegrationConfig('ai', 'assistant_enabled', e.target.checked)} />Enable AI assistant</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={integrationSettings.configs?.ai?.case_summary_enabled !== false} onChange={e => updateIntegrationConfig('ai', 'case_summary_enabled', e.target.checked)} />Enable case summary AI</label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={integrationSettings.configs?.ai?.search_builder_enabled !== false} onChange={e => updateIntegrationConfig('ai', 'search_builder_enabled', e.target.checked)} />Enable search builder AI</label>

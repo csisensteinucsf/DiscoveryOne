@@ -1,4 +1,5 @@
 import Modal from '../components/Modal.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import { Button, Field, Select, TextInput } from './caseDetailControls.jsx'
 
 export function CaseDetailAddDocModal({
@@ -24,7 +25,7 @@ export function CaseDetailAddDocModal({
     <Modal open title="Upload consent proof" onClose={closeDocModal}>
       <form onSubmit={submitConsentDocument}>
         <Field
-          label="Named hold"
+          label={<RequiredFieldLabel>Named hold</RequiredFieldLabel>}
           hint="The proof completes consent only for this custodian's workflow in the selected hold."
         >
           <Select
@@ -40,7 +41,7 @@ export function CaseDetailAddDocModal({
           </Select>
         </Field>
         <Field
-          label="Custodian"
+          label={<RequiredFieldLabel>Custodian</RequiredFieldLabel>}
           hint="Only custodians assigned to the selected hold are available."
         >
           <Select
@@ -143,7 +144,7 @@ export function CaseDetailCloseCaseModal({
           <p style={{ marginTop:0, color:'#475467' }}>
             This will request the eDiscovery team to close the case and release all current holds and preservation. Analysts will review before completing the action.
           </p>
-          <label style={{ display:'block', fontSize:13, color:'#475467', marginBottom:6 }}>Optional message to the eDiscovery team</label>
+          <label style={{ display:'block', fontSize:13, color:'#475467', marginBottom:6 }}>Message to the eDiscovery team</label>
           <textarea
             rows={4}
             value={closeCaseNote}

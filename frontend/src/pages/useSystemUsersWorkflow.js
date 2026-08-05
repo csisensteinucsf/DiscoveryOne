@@ -211,7 +211,10 @@ export function useSystemUsersWorkflow({
   }, [canManageUsers, user?.id])
 
   const saveUser = useCallback(async () => {
-    if ((form.password || form.confirm) && form.password !== form.confirm) return
+    if ((form.password || form.confirm) && form.password !== form.confirm) {
+      flash('Passwords do not match.')
+      return
+    }
     if (editingId && !canManageUsers && editingId !== user?.id) {
       flash('You can only edit your own account.')
       return
@@ -297,21 +300,6 @@ export function useSystemUsersWorkflow({
       setUserSaveBusy(false)
     }
   }, [apiBase, canManageUsers, closeModal, editingId, editingSeedAdmin, employeeIdLabel, flash, form, isRequestor, loadGroups, loadUsers, ssoEnabled, refreshUser, showToast, user?.id, users])
-
-  const editingSelfOnly = Boolean(editingId && editingId === user?.id && !canManageUsers)
-  const userModalSaveDisabled = editingSeedAdmin
-    ? !form.password || form.password !== form.confirm
-    : !form.first_name?.trim()
-      || !form.last_name?.trim()
-      || (!editingSelfOnly && !form.email?.trim())
-      || ((form.password || form.confirm) && form.password !== form.confirm)
-      || ((form.password || '').trim() && (form.password || '').trim().length < 8)
-      || (!editingSelfOnly
-        && ['analyst', 'sys_admin'].includes(form.role || 'analyst')
-        && (form.email || '').trim().toLowerCase() !== ADMIN_USERNAME
-        && !(form.employee_id || '').trim())
-      || (!editingId && (!ssoEnabled || form.local_auth_only) && !(form.password || '').trim())
-      || userSaveBusy
 
   const deleteUser = useCallback(async (id) => {
     if (!canManageUsers) return
@@ -401,7 +389,7 @@ export function useSystemUsersWorkflow({
 
   const declineRegistration = useCallback(async (request) => {
     if (!canManageUsers) return
-    const reason = window.prompt('Optional decline reason:', '')
+    const reason = window.prompt('Decline reason:', '')
     try {
       const res = await fetch(`${apiBase}/auth/register_requests/${request.id}/decline`, {
         method: 'POST',
@@ -565,7 +553,6 @@ export function useSystemUsersWorkflow({
     openCreate,
     openEdit,
     saveUser,
-    userModalSaveDisabled,
     deleteUser,
     openGroup,
     openCreateGroup,

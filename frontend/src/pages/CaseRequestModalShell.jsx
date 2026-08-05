@@ -47,7 +47,7 @@ export function CaseRequestModalShell({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, color: '#475569', fontSize: 13 }}>
             <strong style={{ color: '#0f172a' }}>Step {step} of 3</strong>
             <span aria-hidden="true"></span>
-            <span>Custodians  preservation/NTP/consent  search (optional)</span>
+            <span>Custodians  preservation/NTP/consent  search details</span>
           </div>
         )}
         {children}

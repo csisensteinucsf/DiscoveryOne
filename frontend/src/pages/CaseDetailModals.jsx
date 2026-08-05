@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import Modal from '../components/Modal.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import { Field, TextInput, Select, Button } from './caseDetailControls.jsx'
 import { displayUserName } from './caseDetailUtils.js'
 import CaseCustomFieldsEditor from './CaseCustomFieldsEditor.jsx'
+import { findInvalidFormControls, findMissingRequiredControls } from './casesUtils.js'
 export function EditCaseModal({ initial, analysts, requestorOptions, onClose, onSave, useLegalCaseNameAsPrimary = false, internalCounselLabel = 'Internal Counsel' }) {
   const [form, setForm] = useState({ ...initial, additional_requestors: '' })
+  const [showMissingRequired, setShowMissingRequired] = useState(false)
   useEffect(() => {
     const primary = (initial.requestor || '').trim().toLowerCase()
     const extras = Array.isArray(initial.requestors)
@@ -14,6 +17,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
       ...initial,
       additional_requestors: extras.map(r => r.email).filter(Boolean).join(', '),
     })
+    setShowMissingRequired(false)
   }, [initial])
   const caseNameValue = useLegalCaseNameAsPrimary ? (form.legal_case_name || form.name || '') : (form.name || '')
   const updatePrimaryCaseName = (value) => {
@@ -23,7 +27,33 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
       setForm({ ...form, name: value })
     }
   }
-  const canSave = !!caseNameValue.trim()
+  const fieldLabel = (label, required = false) => (
+    <RequiredFieldLabel required={required}>
+      {label}
+    </RequiredFieldLabel>
+  )
+  const handleSubmit = (event) => {
+    event.preventDefault()
+    const missingControls = findMissingRequiredControls(event.currentTarget)
+    if (missingControls.length) {
+      setShowMissingRequired(true)
+      missingControls[0]?.focus?.()
+      return
+    }
+    setShowMissingRequired(false)
+    const invalidControls = findInvalidFormControls(event.currentTarget)
+    if (invalidControls.length) {
+      invalidControls[0]?.focus?.()
+      event.currentTarget.reportValidity?.()
+      return
+    }
+    onSave(form)
+  }
+  const handleInput = (event) => {
+    if (showMissingRequired && !findMissingRequiredControls(event.currentTarget).length) {
+      setShowMissingRequired(false)
+    }
+  }
   return (
     <Modal
       open
@@ -31,14 +61,27 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
       onClose={onClose}
       width={720}
       footer={(
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={() => onSave(form)} disabled={!canSave}>Save Changes</Button>
+        <div className="case-editor-footer">
+          {showMissingRequired ? (
+            <div className="case-editor-missing-required" role="alert">Missing required fields</div>
+          ) : null}
+          <div className="case-editor-footer__actions">
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit" form="edit-case-form">Save Changes</Button>
+          </div>
         </div>
       )}
     >
-      <Field label={useLegalCaseNameAsPrimary ? 'Case Name' : 'eDiscovery Case Name'}>
-        <TextInput value={caseNameValue} onChange={e => updatePrimaryCaseName(e.target.value)} />
+      <form
+        id="edit-case-form"
+        className="case-editor-form"
+        noValidate
+        data-show-missing-required={showMissingRequired || undefined}
+        onInput={handleInput}
+        onSubmit={handleSubmit}
+      >
+      <Field label={fieldLabel(useLegalCaseNameAsPrimary ? 'Case Name' : 'eDiscovery Case Name', true)}>
+        <TextInput value={caseNameValue} onChange={e => updatePrimaryCaseName(e.target.value)} required />
       </Field>
       {!useLegalCaseNameAsPrimary && (
         <Field label="Legal Case Name">
@@ -59,20 +102,20 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
           </small>
         </span>
       </label>
-      <Field label="Claimant (optional)">
+      <Field label="Claimant">
         <TextInput value={form.claimant || ''} onChange={e => setForm({ ...form, claimant: e.target.value })} />
       </Field>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <Field label="Matter or Claim Number (optional)">
+        <Field label="Matter or Claim Number">
           <TextInput value={form.matter_number || ''} onChange={e => setForm({ ...form, matter_number: e.target.value })} />
         </Field>
-        <Field label="Start Date (optional)">
+        <Field label="Start Date">
           <TextInput type="date" value={form.start_date || ''} onChange={e => setForm({ ...form, start_date: e.target.value })} />
         </Field>
-        <Field label={`${internalCounselLabel} (optional)`}>
+        <Field label={internalCounselLabel}>
           <TextInput value={form.internal_counsel || ''} onChange={e => setForm({ ...form, internal_counsel: e.target.value })} />
         </Field>
-        <Field label="Outside Counsel (optional)">
+        <Field label="Outside Counsel">
           <TextInput value={form.outside_counsel || ''} onChange={e => setForm({ ...form, outside_counsel: e.target.value })} />
         </Field>
       </div>
@@ -94,7 +137,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
             {analysts.map(u => (<option key={u.id} value={u.id}>{displayUserName(u)}</option>))}
           </Select>
         </Field>
-        <Field label="Requestor Email (optional)">
+        <Field label="Requestor Email">
           <div>
             <TextInput
               type="email"
@@ -139,6 +182,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
         customFields={form.custom_fields}
         onChange={custom_fields => setForm({ ...form, custom_fields })}
       />
+      </form>
     </Modal>
   )
 }

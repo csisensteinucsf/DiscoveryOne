@@ -27,7 +27,7 @@ export function useCaseDetailBootstrap({
   loadConsents,
   loadSlaStatus,
 }) {
-  const tabDataLoadedRef = useRef({ documentation: false, sla: false, holds: false })
+  const tabDataLoadedRef = useRef({ documentation: false, sla: false, preservation: false })
 
   useEffect(() => {
     let cancelled = false
@@ -99,12 +99,12 @@ export function useCaseDetailBootstrap({
   }, [apiBase, caseId, isTech, setCaseData, setCustodians, setError, setHoldBaseline, setLoading, setRequestorOptions, setSearches, setUsers])
 
   useEffect(() => {
-    tabDataLoadedRef.current = { documentation: false, sla: false, holds: false }
+    tabDataLoadedRef.current = { documentation: false, sla: false, preservation: false }
   }, [caseId])
 
   useEffect(() => {
-    if (activeTab === 'holds' && !tabDataLoadedRef.current.holds) {
-      tabDataLoadedRef.current.holds = true
+    if (activeTab === 'preservation' && !tabDataLoadedRef.current.preservation) {
+      tabDataLoadedRef.current.preservation = true
       loadHoldsDetail()
     }
     if (isTech) return

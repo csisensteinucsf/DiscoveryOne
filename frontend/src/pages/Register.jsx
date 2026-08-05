@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams, Link } from 'react-router-dom'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 
 export default function Register({ apiBase }) {
   const [params] = useSearchParams()
@@ -92,9 +93,9 @@ export default function Register({ apiBase }) {
             <form onSubmit={submit}>
               {!ssoEnabled && (
                 <>
-                  <label htmlFor="register-password">New Password</label>
+                  <label htmlFor="register-password"><RequiredFieldLabel>New Password</RequiredFieldLabel></label>
                   <input id="register-password" className="input" type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required />
-                  <label htmlFor="register-confirm">Confirm Password</label>
+                  <label htmlFor="register-confirm"><RequiredFieldLabel>Confirm Password</RequiredFieldLabel></label>
                   <input id="register-confirm" className="input" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} minLength={8} required />
                 </>
               )}

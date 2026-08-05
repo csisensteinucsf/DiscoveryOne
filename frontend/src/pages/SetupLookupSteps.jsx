@@ -121,7 +121,7 @@ export function PersonLookupStep({
           <label>
             Email Parameter
             <input className="input" value={form.integration_configs.person_lookup?.http_email_param || 'email'} onChange={e => updateIntegrationConfig('person_lookup', 'http_email_param', e.target.value)} placeholder="email" />
-            <FieldHelp>This optional request parameter receives an explicit email address when one is available.</FieldHelp>
+            <FieldHelp>This request parameter receives an explicit email address when one is available; leave it blank if the endpoint does not use one.</FieldHelp>
           </label>
           <label>
             Results Path

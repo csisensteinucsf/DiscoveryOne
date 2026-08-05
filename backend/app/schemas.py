@@ -1,7 +1,7 @@
 from typing import Any, Dict, List
 from typing import Optional, List, Literal
 from datetime import date, datetime
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 
 # ---------------- Users ----------------
 
@@ -409,6 +409,13 @@ class CaseBase(BaseModel):
     start_date: Optional[date] = None
     closure_nag_days: Optional[int] = Field(default=None, ge=1, le=3650, description="Days between closure reminders")
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("start_date", mode="before")
+    @classmethod
+    def blank_start_date_as_none(cls, value):
+        if isinstance(value, str) and not value.strip():
+            return None
+        return value
 
 class CaseCreate(CaseBase):
     case_template_id: Optional[int] = Field(default=None, ge=1)

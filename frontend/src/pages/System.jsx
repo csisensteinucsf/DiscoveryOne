@@ -238,7 +238,6 @@ export default function System({ apiBase = '/api' }) {
     openCreate,
     openEdit,
     saveUser,
-    userModalSaveDisabled,
     deleteUser,
     openGroup,
     openCreateGroup,
@@ -895,7 +894,6 @@ export default function System({ apiBase = '/api' }) {
         closeModal={closeModal}
         userSaveBusy={userSaveBusy}
         saveUser={saveUser}
-        userModalSaveDisabled={userModalSaveDisabled}
         editingSeedAdmin={editingSeedAdmin}
         form={form}
         setForm={setForm}

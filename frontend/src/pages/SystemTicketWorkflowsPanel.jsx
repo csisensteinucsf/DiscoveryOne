@@ -132,7 +132,7 @@ export default function SystemTicketWorkflowsPanel({
                     <option value="release">Release hold</option>
                   </select>
                 </WorkflowField>
-                <WorkflowField label="Completion satisfies source" help="Optional preservation source to mark held when this external ticket closes. Leave blank when closing the ticket should not satisfy another source.">
+                <WorkflowField label="Completion satisfies source" help="Preservation source to mark held when this external ticket closes. Leave blank when closing the ticket should not satisfy another source.">
                   <input
                     className="input"
                     list="ticket-workflow-preservation-sources"
@@ -141,7 +141,7 @@ export default function SystemTicketWorkflowsPanel({
                     placeholder="email"
                   />
                 </WorkflowField>
-                <WorkflowField label="Completion hold field/key" help="Advanced optional hold field to mark complete when the ticket closes. Prefer Completion satisfies source for normal configuration.">
+                <WorkflowField label="Completion hold field/key" help="Advanced hold field to mark complete when the ticket closes. Prefer Completion satisfies source for normal configuration.">
                   <input className="input" value={workflow.completion_satisfies_hold_key || ''} onChange={e => updateTicketWorkflow(index, 'completion_satisfies_hold_key', e.target.value)} placeholder="holds_email" />
                 </WorkflowField>
                 <WorkflowField label="Tech group" help="Tech users assigned to this group can work this workflow. Groups are defined by this catalog and can match any team structure you use.">
@@ -210,16 +210,16 @@ export default function SystemTicketWorkflowsPanel({
                     <WorkflowField label="Assignment group" help="The provider group that receives tickets for this workflow.">
                       <input className="input" value={workflow.assignment_group || ''} onChange={e => updateTicketWorkflow(index, 'assignment_group', e.target.value)} />
                     </WorkflowField>
-                    <WorkflowField label="Incident keyword" help="Optional keyword or routing token included in the provider payload.">
+                    <WorkflowField label="Incident keyword" help="Keyword or routing token included in the provider payload; leave blank when unused.">
                       <input className="input" value={workflow.incident_keyword || ''} onChange={e => updateTicketWorkflow(index, 'incident_keyword', e.target.value)} />
                     </WorkflowField>
                     <WorkflowField label="Short description" help="Default short description used when DiscoveryOne creates the external ticket.">
                       <input className="input" value={workflow.short_description || ''} onChange={e => updateTicketWorkflow(index, 'short_description', e.target.value)} placeholder="Preservation action needed" />
                     </WorkflowField>
-                    <WorkflowField label="Symptom" help="Optional provider symptom/category value for this workflow.">
+                    <WorkflowField label="Symptom" help="Provider symptom/category value for this workflow; leave blank when unused.">
                       <input className="input" value={workflow.symptom || ''} onChange={e => updateTicketWorkflow(index, 'symptom', e.target.value)} placeholder="Inquiry" />
                     </WorkflowField>
-                    <WorkflowField label="Request type" help="Optional request type value for import-set or custom provider mappings.">
+                    <WorkflowField label="Request type" help="Request type value for import-set or custom provider mappings; leave blank when unused.">
                       <input className="input" value={workflow.request_type || ''} onChange={e => updateTicketWorkflow(index, 'request_type', e.target.value)} />
                     </WorkflowField>
                     <WorkflowField label="Case link label" help="Text label used for the DiscoveryOne case link in the external ticket payload.">

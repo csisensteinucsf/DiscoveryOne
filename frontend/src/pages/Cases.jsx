@@ -25,6 +25,7 @@ import {
   isValidEmail,
   nameFromEmail,
   normalizeGroupValue,
+  optionalDateValue,
   toSentenceCase,
 } from './casesUtils.js'
 
@@ -73,7 +74,7 @@ function formFromCaseTemplate(template, closureNagDays, current = {}) {
 
 
 export default function Cases({ apiBase }) {
-  const { user } = useAuth()
+  const { user, refreshUser } = useAuth()
   const { appName } = useBrandingSettings(apiBase, { updateTitle: true, titleSuffix: 'Cases' })
   const casesPageTitle = `${appName} Cases`
   const { showToast } = useToast()
@@ -268,6 +269,7 @@ export default function Cases({ apiBase }) {
         body: JSON.stringify({ cases_visible_columns: next }),
       })
       if (!response.ok) throw new Error('Unable to save column preferences')
+      await refreshUser()
     } catch {
       setVisibleColumns(previous)
       showToast('Unable to save Cases column preferences.', { variant: 'error' })
@@ -492,7 +494,7 @@ export default function Cases({ apiBase }) {
       is_private: !!form.is_private,
       color: form.color,
       description: form.description,
-      start_date: form.start_date,
+      start_date: optionalDateValue(form.start_date),
       closure_nag_days: Number.isFinite(closureDays) ? closureDays : undefined,
       case_template_id: !editingId && form.case_template_id ? Number(form.case_template_id) : undefined,
       custom_fields: customFieldValues(form.custom_fields),

@@ -1,4 +1,5 @@
 import { Badge, Select } from './caseDetailControls.jsx'
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 import { isSearchPushedToProvider } from './caseDetailPersistence.js'
 import { searchExportIsAutomated } from './searchExportProviderCatalog.js'
 
@@ -141,7 +142,7 @@ export default function CaseDetailSearchesTab({
                         ) : (
                           <div style={{ display:'flex', flexDirection:'column', gap:6, alignItems:'flex-end' }}>
                             <div className="row" style={{ gap:6, justifyContent:'flex-end', flexWrap:'wrap' }}>
-                              <button className="btn secondary" onClick={() => openEditSearch(s)} style={{padding:'4px 8px',borderRadius:10,fontSize:12}}>Edit</button>
+                              <EditIconButton label={'Edit ' + (s.name || 'search')} onClick={() => openEditSearch(s)} />
                               <button className="btn secondary" onClick={() => copySearch(s)} style={{padding:'4px 8px',borderRadius:10,fontSize:12}}>Copy</button>
                               {automatedSearchExport && (
                                 <button
@@ -162,7 +163,7 @@ export default function CaseDetailSearchesTab({
                                 </button>
                               )}
                             </div>
-                            <button className="btn danger" onClick={() => removeSearch(s.id)} style={{padding:'4px 8px',borderRadius:10,fontSize:12,width:'fit-content'}}>Remove</button>
+                            <DeleteIconButton label={'Remove ' + (s.name || 'search')} onClick={() => removeSearch(s.id)} />
                           </div>
                         )}
                       </td>

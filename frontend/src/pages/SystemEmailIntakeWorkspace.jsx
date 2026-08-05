@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Ban, Eye, Play, Plus, RefreshCw, RotateCcw, Save, TestTube2, Trash2 } from 'lucide-react'
+import { Ban, Eye, Play, Plus, RefreshCw, RotateCcw, Save, TestTube2 } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 
 const emptyTemplate = () => ({
   id: null,
@@ -261,7 +262,13 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
                   <td>{template.priority}</td>
                   <td style={{ fontSize: 12 }}>{[template.sender_pattern && `From: ${template.sender_pattern}`, template.recipient_pattern && `To: ${template.recipient_pattern}`, template.subject_pattern && `Subject: ${template.subject_pattern}`].filter(Boolean).join(' | ') || `${template.body_markers?.length || 0} body marker(s)`}</td>
                   <td>{template.enabled ? 'Enabled' : 'Disabled'}</td>
-                  <td><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button className="btn secondary" onClick={() => setEditor({ ...template })}>Edit</button><button className="btn secondary" onClick={() => openTemplateTest(template)}><TestTube2 size={15} /> Test</button><button className="btn secondary" onClick={() => deleteTemplate(template)}><Trash2 size={15} /> Delete</button></div></td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <EditIconButton label={'Edit ' + template.name} onClick={() => setEditor({ ...template })} />
+                      <button className="btn secondary" onClick={() => openTemplateTest(template)}><TestTube2 size={15} /> Test</button>
+                      <DeleteIconButton label={'Delete ' + template.name} onClick={() => deleteTemplate(template)} />
+                    </div>
+                  </td>
                 </tr>
               ))}
               {!templates.length && <tr><td colSpan="5" style={{ color: 'var(--muted,#6b7280)' }}>No templates configured. Messages remain unmatched until an enabled template exists.</td></tr>}
@@ -300,7 +307,7 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
             <label>Name<input className="input" value={editor.name || ''} onChange={e => setEditor(prev => ({ ...prev, name: e.target.value }))} /></label>
             <label>Priority<input className="input" type="number" min="1" max="10000" value={editor.priority ?? 100} onChange={e => setEditor(prev => ({ ...prev, priority: Number(e.target.value) }))} /></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={editor.enabled !== false} onChange={e => setEditor(prev => ({ ...prev, enabled: e.target.checked }))} />Enabled</label>
-            <label>Named Hold (optional)<input className="input" value={editor.hold_name || ''} onChange={e => setEditor(prev => ({ ...prev, hold_name: e.target.value }))} /><span className="form-help">Leave blank to create the case request and custodians without assigning them to a Hold.</span></label>
+            <label>Named Hold<input className="input" value={editor.hold_name || ''} onChange={e => setEditor(prev => ({ ...prev, hold_name: e.target.value }))} /><span className="form-help">Leave blank to create the case request and custodians without assigning them to a Hold.</span></label>
             <label style={{ gridColumn: '1 / -1' }}>Description<textarea className="input" rows={2} value={editor.description || ''} onChange={e => setEditor(prev => ({ ...prev, description: e.target.value }))} /></label>
             <label>Sender match<input className="input" value={editor.sender_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, sender_pattern: e.target.value }))} placeholder="*@outside-counsel.com" /></label>
             <label>Recipient match<input className="input" value={editor.recipient_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, recipient_pattern: e.target.value }))} placeholder="ediscovery-intake@example.edu" /></label>

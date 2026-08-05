@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react'
 import Modal from '../components/Modal.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import CaseCustomFieldsEditor from './CaseCustomFieldsEditor.jsx'
+import { findInvalidFormControls, findMissingRequiredControls } from './casesUtils.js'
 
 export function CaseEditorModal({
   open,
@@ -20,12 +23,45 @@ export function CaseEditorModal({
   selectedTemplate = null,
   onTemplateChange,
 }) {
+  const [showMissingRequired, setShowMissingRequired] = useState(false)
+
+  useEffect(() => {
+    setShowMissingRequired(false)
+  }, [open, editingId, form.case_template_id])
   if (!open) return null
   const rules = selectedTemplate?.field_rules || {}
   const fieldRule = (name) => rules[name] || { visible: true, required: false }
   const showField = (name) => editingId || fieldRule(name).visible !== false
   const fieldRequired = (name) => !editingId && !!fieldRule(name).required
-  const fieldSuffix = (name) => fieldRequired(name) ? ' (required)' : ' (optional)'
+  const fieldLabel = (label, required = false) => (
+    <RequiredFieldLabel required={required}>
+      {label}
+    </RequiredFieldLabel>
+  )
+  const handleSubmit = (event) => {
+    const missingControls = findMissingRequiredControls(event.currentTarget)
+    if (missingControls.length) {
+      event.preventDefault()
+      setShowMissingRequired(true)
+      missingControls[0]?.focus?.()
+      return
+    }
+
+    setShowMissingRequired(false)
+    const invalidControls = findInvalidFormControls(event.currentTarget)
+    if (invalidControls.length) {
+      event.preventDefault()
+      invalidControls[0]?.focus?.()
+      event.currentTarget.reportValidity?.()
+      return
+    }
+    onSubmit(event)
+  }
+  const handleInput = (event) => {
+    if (showMissingRequired && !findMissingRequiredControls(event.currentTarget).length) {
+      setShowMissingRequired(false)
+    }
+  }
   return (
     <Modal
       open={open}
@@ -33,13 +69,26 @@ export function CaseEditorModal({
       onClose={onClose}
       width={560}
       footer={(
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-          <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" form="case-modal-form" className="btn">{editingId ? 'Save' : 'Create'}</button>
+        <div className="case-editor-footer">
+          {showMissingRequired ? (
+            <div className="case-editor-missing-required" role="alert">missing required fields</div>
+          ) : null}
+          <div className="case-editor-footer__actions">
+            <button type="button" className="btn secondary" onClick={onClose}>Cancel</button>
+            <button type="submit" form="case-modal-form" className="btn">{editingId ? 'Save' : 'Create'}</button>
+          </div>
         </div>
       )}
     >
-      <form id="case-modal-form" onSubmit={onSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <form
+        id="case-modal-form"
+        className="case-editor-form"
+        noValidate
+        data-show-missing-required={showMissingRequired || undefined}
+        onInput={handleInput}
+        onSubmit={handleSubmit}
+        style={{ display: 'flex', flexDirection: 'column', gap: 12 }}
+      >
         {!editingId && (
           <label>
             New Case Template
@@ -60,19 +109,19 @@ export function CaseEditorModal({
         )}
         {useLegalCaseNameAsPrimary ? (
           showField('legal_case_name') && <label>
-            Case Name
+            {fieldLabel('Case Name', true)}
             <input
               className="input"
               name="case_name"
               value={form.legal_case_name || form.name}
               onChange={e => onLegalCaseNameChange(e.target.value)}
-              required={fieldRequired('legal_case_name') || !selectedTemplate}
+              required
             />
           </label>
         ) : (
           <>
             <label>
-              eDiscovery Name
+              {fieldLabel('eDiscovery Name', true)}
               <input
                 className="input"
                 name="name"
@@ -87,7 +136,7 @@ export function CaseEditorModal({
             </label>
 
             {showField('legal_case_name') && <label>
-              {secondaryCaseNameLabel}
+              {fieldLabel(secondaryCaseNameLabel, fieldRequired('legal_case_name'))}
               <input className="input" value={form.legal_case_name} onChange={e => onLegalCaseNameChange(e.target.value)} required={fieldRequired('legal_case_name')} />
             </label>}
           </>
@@ -111,16 +160,16 @@ export function CaseEditorModal({
             style={{ marginTop: 3 }}
           />
           <span>
-            <strong>Make case private</strong>
+            <strong>{fieldLabel('Make case private', fieldRequired('is_private'))}</strong>
             <small style={{ display: 'block', color: '#0f766e', marginTop: 3 }}>
               Only requestors on this case, admins, and analysts can see it.
             </small>
           </span>
         </label>}
 
-        <div className="form-grid">
+        <div className="form-grid case-editor-two-column">
           {showField('matter_number') && <label>
-            Matter or Claim Number{fieldSuffix('matter_number')}
+            {fieldLabel('Matter or Claim Number', fieldRequired('matter_number'))}
             <input
               className="input"
               value={form.matter_number}
@@ -129,7 +178,7 @@ export function CaseEditorModal({
             />
           </label>}
           {showField('start_date') && <label>
-            Start Date{fieldSuffix('start_date')}
+            {fieldLabel('Start Date', fieldRequired('start_date'))}
             <input
               className="input"
               type="date"
@@ -139,7 +188,7 @@ export function CaseEditorModal({
             />
           </label>}
           {showField('internal_counsel') && <label>
-            {internalCounselLabel}{fieldSuffix('internal_counsel')}
+            {fieldLabel(internalCounselLabel, fieldRequired('internal_counsel'))}
             <input
               className="input"
               value={form.internal_counsel}
@@ -148,7 +197,7 @@ export function CaseEditorModal({
             />
           </label>}
           {showField('outside_counsel') && <label>
-            Outside Counsel{fieldSuffix('outside_counsel')}
+            {fieldLabel('Outside Counsel', fieldRequired('outside_counsel'))}
             <input
               className="input"
               value={form.outside_counsel}
@@ -159,12 +208,12 @@ export function CaseEditorModal({
         </div>
 
         {showField('claimant') && <label>
-          Claimant{fieldSuffix('claimant')}
+          {fieldLabel('Claimant', fieldRequired('claimant'))}
           <input className="input" value={form.claimant} onChange={e => setForm(f => ({ ...f, claimant: e.target.value }))} required={fieldRequired('claimant')} />
         </label>}
 
         {showField('requestor') && <label>
-          Requestor Email{fieldSuffix('requestor')}
+          {fieldLabel('Requestor Email', fieldRequired('requestor'))}
           <input
             className="input"
             type="email"
@@ -181,7 +230,7 @@ export function CaseEditorModal({
         </label>}
 
         {showField('requestors') && <label>
-          Additional Requestors (comma separated){fieldSuffix('requestors')}
+          {fieldLabel('Additional Requestors (comma separated)', fieldRequired('requestors'))}
           <input
             className="input"
             type="text"
@@ -197,14 +246,14 @@ export function CaseEditorModal({
         </label>}
 
         {showField('analyst_id') && <label>
-          Analyst{fieldSuffix('analyst_id')}
+          {fieldLabel('Analyst', fieldRequired('analyst_id'))}
           <select className="input" value={form.analyst_id} onChange={e => setForm(f => ({ ...f, analyst_id: e.target.value }))} required={fieldRequired('analyst_id')}>
             <option value="">-- Select analyst --</option>
             {analysts.map(a => <option key={a.id} value={a.id}>{formatAnalystName(a)}</option>)}
           </select>
         </label>}
         {showField('description') && <label>
-          Additional Notes / Comments{fieldSuffix('description')}
+          {fieldLabel('Additional Notes / Comments', fieldRequired('description'))}
           <textarea
             className="input"
             rows={4}
@@ -216,7 +265,7 @@ export function CaseEditorModal({
         </label>}
 
         {showField('closure_nag_days') && <label>
-          Send case status notification to requestor every (days){fieldSuffix('closure_nag_days')}
+          {fieldLabel('Send case status notification to requestor every (days)', fieldRequired('closure_nag_days'))}
           <input
             className="input"
             type="number"

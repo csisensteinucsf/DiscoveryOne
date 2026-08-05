@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import {
   CONSENT_NOT_REQUIRED_DEFAULT_REASON,
   NTP_NOT_REQUIRED_DEFAULT_REASON,
@@ -27,17 +28,8 @@ export function useCaseDetailCustodianStatusActions({
   ntpAutoNaReason,
   showToast,
 }) {
-  const promptStatusReason = (prompt, currentReason, fallbackReason) => {
-    const seeded = String(currentReason || fallbackReason || '').trim()
-    const answer = window.prompt(prompt, seeded)
-    if (answer === null) return null
-    const trimmed = answer.trim()
-    if (!trimmed) {
-      showToast('A reason is required for this status.', { variant: 'warn' })
-      return ''
-    }
-    return trimmed
-  }
+  const [statusReasonRequest, setStatusReasonRequest] = useState(null)
+  const [statusReasonBusy, setStatusReasonBusy] = useState(false)
 
   async function onToggleHold(c, fieldKey, nextState) {
     if (isRequestor) return
@@ -67,18 +59,12 @@ export function useCaseDetailCustodianStatusActions({
     }
   }
 
-  async function onChangeNtp(c, value) {
-    if (isTech) return
-    const v = normalizeNtpStatus(value)
+  async function saveNtpStatus(c, v, reason = null) {
     const beforeStatus = c.ntp_status || 'not sent'
     const beforeReason = c.ntp_not_required_reason || null
-    const patch = { ntp_status: v }
-    if (v === 'silent') {
-      const reason = promptStatusReason('Why should this custodian be Silent for NTP?', beforeReason, ntpAutoNaReason(c) || NTP_NOT_REQUIRED_DEFAULT_REASON)
-      if (reason === null || !reason) return
-      patch.ntp_not_required_reason = reason
-    } else {
-      patch.ntp_not_required_reason = null
+    const patch = {
+      ntp_status: v,
+      ntp_not_required_reason: v === 'silent' ? reason : null,
     }
     if (!isRequestor && bulk.ntp) return applyToAll('ntp_status', v, { ntp_not_required_reason: patch.ntp_not_required_reason })
     updateCustodianLocal(c.id, patch)
@@ -91,23 +77,33 @@ export function useCaseDetailCustodianStatusActions({
     }
   }
 
-  async function onChangeConsent(c, value) {
+  function onChangeNtp(c, value) {
     if (isTech) return
-    const v = normalizeConsentStatus(value)
-    if (v === 'awoc') {
-      showToast('AWOC status is set only by uploading an AWOC consent document.', { variant: 'warn' })
+    const v = normalizeNtpStatus(value)
+    if (v === 'silent') {
+      setStatusReasonRequest({
+        kind: 'ntp',
+        custodian: c,
+        value: v,
+        title: 'Silent NTP reason',
+        question: 'Why should this custodian be Silent for NTP?',
+        initialReason: String(
+          c.ntp_not_required_reason
+          || ntpAutoNaReason(c)
+          || NTP_NOT_REQUIRED_DEFAULT_REASON,
+        ).trim(),
+      })
       return
     }
+    return saveNtpStatus(c, v)
+  }
+
+  async function saveConsentStatus(c, v, reason = null) {
     const beforeStatus = c.consent_status || 'not sent'
     const beforeReason = c.consent_not_required_reason || null
-    const autoReason = consentNotRequiredAutoReason(caseData?.claimant, c)
-    const patch = { consent_status: v }
-    if (v === 'implied') {
-      const reason = promptStatusReason('Why is consent Implied for this custodian?', beforeReason, autoReason || CONSENT_NOT_REQUIRED_DEFAULT_REASON)
-      if (reason === null || !reason) return
-      patch.consent_not_required_reason = reason
-    } else {
-      patch.consent_not_required_reason = null
+    const patch = {
+      consent_status: v,
+      consent_not_required_reason: v === 'implied' ? reason : null,
     }
     if (!isRequestor && bulk.consent) return applyToAll('consent_status', v, { consent_not_required_reason: patch.consent_not_required_reason })
     updateCustodianLocal(c.id, patch)
@@ -120,6 +116,51 @@ export function useCaseDetailCustodianStatusActions({
         consent_not_required_reason: beforeReason,
       })
       showToast(e?.message || 'Failed to update consent status.', { variant: 'error' })
+    }
+  }
+
+  function onChangeConsent(c, value) {
+    if (isTech) return
+    const v = normalizeConsentStatus(value)
+    if (v === 'awoc') {
+      showToast('AWOC status is set only by uploading an AWOC consent document.', { variant: 'warn' })
+      return
+    }
+    if (v === 'implied') {
+      setStatusReasonRequest({
+        kind: 'consent',
+        custodian: c,
+        value: v,
+        title: 'Implied consent reason',
+        question: 'Why is consent Implied for this custodian?',
+        initialReason: String(
+          c.consent_not_required_reason
+          || consentNotRequiredAutoReason(caseData?.claimant, c)
+          || CONSENT_NOT_REQUIRED_DEFAULT_REASON,
+        ).trim(),
+      })
+      return
+    }
+    return saveConsentStatus(c, v)
+  }
+
+  const closeStatusReasonDialog = () => {
+    if (!statusReasonBusy) setStatusReasonRequest(null)
+  }
+
+  const submitStatusReason = async reason => {
+    const request = statusReasonRequest
+    if (!request || statusReasonBusy) return
+    setStatusReasonBusy(true)
+    try {
+      if (request.kind === 'ntp') {
+        await saveNtpStatus(request.custodian, request.value, reason)
+      } else {
+        await saveConsentStatus(request.custodian, request.value, reason)
+      }
+      setStatusReasonRequest(null)
+    } finally {
+      setStatusReasonBusy(false)
     }
   }
 
@@ -195,5 +236,13 @@ export function useCaseDetailCustodianStatusActions({
     }
   }
 
-  return { onToggleHold, onChangeNtp, onChangeConsent }
+  return {
+    onToggleHold,
+    onChangeNtp,
+    onChangeConsent,
+    statusReasonRequest,
+    statusReasonBusy,
+    closeStatusReasonDialog,
+    submitStatusReason,
+  }
 }

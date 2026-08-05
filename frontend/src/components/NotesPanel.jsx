@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { Paperclip, X } from 'lucide-react';
+import { DeleteIconButton, EditIconButton } from './RowActionIconButton.jsx';
 import {
   ATTACH_ACCEPT,
   CURRENT_USERNAME,
@@ -371,7 +373,7 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
         {!editing ? (
           <div>
             <div style={{ fontSize: 12, color: "#6b7280", marginBottom: 4 }}>
-              <span title={ts}>{ts} â€” {note.user_name ?? note.username ?? note.author ?? 'unknown'}</span>
+              <span title={ts}>{ts} - {note.user_name ?? note.username ?? note.author ?? 'unknown'}</span>
             </div>
             {note.format === "html" ? (
               <div
@@ -396,10 +398,10 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
                   style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}
                   disabled={uploadingAttachment}
                 >
-                  {uploadingAttachment ? "Uploadingâ€¦" : "ðŸ“Ž Attach"}
+                  {uploadingAttachment ? "Uploading..." : <><Paperclip size={14} aria-hidden="true" /> Attach</>}
                 </button>
-                <button className="btn secondary" onClick={() => setEditing(true)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Edit</button>
-                <button className="btn danger" onClick={() => deleteNote(note.id)} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Delete</button>
+                <EditIconButton label="Edit note" onClick={() => setEditing(true)} />
+                <DeleteIconButton label="Delete note" onClick={() => deleteNote(note.id)} />
               </div>
             )}
           </div>
@@ -423,7 +425,7 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
                 style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}
                 disabled={uploadingAttachment}
               >
-                {uploadingAttachment ? "Uploadingâ€¦" : "ðŸ“Ž Attach"}
+                {uploadingAttachment ? "Uploading..." : <><Paperclip size={14} aria-hidden="true" /> Attach</>}
               </button>
               <button className="btn" onClick={() => { setEditing(false); setText(note.body || ""); }} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Cancel</button>
               <button className="btn secondary" onClick={async () => { await updateNote(note.id, text); setEditing(false); }} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Save</button>
@@ -462,7 +464,7 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
                       onClick={() => removeDraftAttachment(idx)}
                       aria-label={`Remove ${file.name}`}
                     >
-                      Ã—
+                      <X size={14} aria-hidden="true" />
                     </button>
                   </span>
                 ))}
@@ -480,9 +482,9 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
             <div className="row" style={{ justifyContent: "flex-end", marginTop: 8, gap: 8 }}>
               {draftControlsBeforeAttach}
               <button className="btn secondary" type="button" onClick={() => draftFileInputRef.current?.click()} disabled={saving}>
-                ðŸ“Ž Attach
+                <Paperclip size={16} aria-hidden="true" /> Attach
               </button>
-              <button className="btn secondary" onClick={addNote} disabled={!draft || saving}>{saving ? "Savingâ€¦" : "Add Note"}</button>
+              <button className="btn secondary" onClick={addNote} disabled={!draft || saving}>{saving ? "Saving..." : "Add Note"}</button>
             </div>
           </div>
         ) : (
@@ -490,7 +492,7 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
         )}
 
         <div style={{ height: 12 }} />
-        {loading ? <div>Loadingâ€¦</div> : (notes.length ? notes.map(n => <NoteItem key={n.id} note={n} />) : <em>No notes yet.</em>)}
+        {loading ? <div>Loading...</div> : (notes.length ? notes.map(n => <NoteItem key={n.id} note={n} />) : <em>No notes yet.</em>)}
       </section>
 
       {preview && (

@@ -118,7 +118,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     title: 'New Case Request (Step-by-Step, Extremely Detailed)',
     paragraphs: [
       'This workflow creates intake for a new matter. Accuracy here drives downstream preservation quality and approval speed.',
-      'The wizard collects case details, custodian identity and preservation intent, optional NTP/consent indicators, and optional search requests.',
+      'The wizard collects case details, custodian identity and preservation intent, plus any NTP/consent indicators and search requests.',
     ],
     steps: [
       'Open Requests and click New Case Request.',
@@ -134,7 +134,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Mark NTP already sent only when notice has already gone out and status is known.',
       'Mark Consent already received only when valid proof exists; attach proof file per custodian when required.',
       'Use Apply to all controls only when custodians share identical scope. Recheck edge cases afterward.',
-      'Step 3 optional search details: include keywords, senders, recipients, date range, and additional instructions.',
+      'Step 3 search details: include keywords, senders, recipients, date range, and additional instructions when needed.',
       'If multiple searches are needed, save one, add next, and keep each search focused on a single goal.',
       'Submit and wait for success confirmation before closing modal.',
     ],
@@ -360,7 +360,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     ],
     controls: [
       'Template: required selector for the outbound notice format.',
-      'Reminder Template (optional): enables reminder interval/duration fields.',
+      'Reminder Template: enables reminder interval/duration fields when selected.',
       'Reminder every (days): cadence for reminders.',
       'Reminders for (days): duration window before reminders stop.',
       'See previous NTPs: opens historical send/reminder timeline modal.',

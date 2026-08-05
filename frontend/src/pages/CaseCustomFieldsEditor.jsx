@@ -2,6 +2,7 @@ import {
   formatCustomFieldValue,
   withCustomFieldValue,
 } from './caseCustomFields.js'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 
 function CustomFieldInput({ field, onChange }) {
   const value = field?.value ?? (field?.field_type === 'checkbox' ? false : '')
@@ -44,7 +45,9 @@ export default function CaseCustomFieldsEditor({ customFields, onChange }) {
       <div className="custom-case-fields__grid">
         {entries.map(([key, field]) => (
           <label key={key} className={field.field_type === 'textarea' ? 'custom-case-field custom-case-field--wide' : 'custom-case-field'}>
-            <span>{field.label}{field.required ? ' (required)' : ' (optional)'}</span>
+            <RequiredFieldLabel required={field.required}>
+              {field.label}
+            </RequiredFieldLabel>
             <CustomFieldInput
               field={field}
               onChange={value => onChange(withCustomFieldValue(customFields, key, value))}

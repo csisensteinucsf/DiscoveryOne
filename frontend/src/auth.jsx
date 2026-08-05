@@ -51,6 +51,7 @@ const normalizeUser = (payload) => {
     user_theme: theme,
     theme,
     case_sort_mode,
+    ui_preferences: payload.ui_preferences && typeof payload.ui_preferences === 'object' ? payload.ui_preferences : {},
     auth_provider: payload.auth_provider || 'local',
     local_password_login_allowed: payload.local_password_login_allowed !== false,
   }

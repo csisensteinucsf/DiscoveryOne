@@ -38,7 +38,6 @@ export function useCaseDetailCustodianTable({
   holdMetaForView,
   holdState,
 }) {
-  const [showCustFilters, setShowCustFilters] = useState(false)
   const [custSort, setCustSort] = useState({ key: 'name', dir: 'asc' })
   const [badgeSort, setBadgeSort] = useState(null)
   const [custFilters, setCustFilters] = useState(DEFAULT_FILTERS)
@@ -195,23 +194,15 @@ export function useCaseDetailCustodianTable({
     ))
   }, [])
 
-  const resetFilters = useCallback(() => {
-    setCustFilters({ ...DEFAULT_FILTERS })
-    setCustSort({ key: 'name', dir: 'asc' })
-  }, [])
-
   const onBadgeClick = useCallback((label) => {
     setBadgeSort(previous => (previous === label ? null : label))
   }, [])
 
   return {
-    showCustFilters,
-    setShowCustFilters,
     custFilters,
     setCustFilters,
     custSort,
     toggleSort,
-    resetFilters,
     visibleCustodians,
     techCustodianKeys,
     progressFor,

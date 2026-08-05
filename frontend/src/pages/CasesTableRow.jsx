@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 
 function HoldCountBadge({ count }) {
   const total = Number(count || 0)
@@ -121,12 +122,12 @@ export function CasesTableRow({
             <span style={{ color: 'var(--muted,#6b7280)' }}>Read only</span>
           ) : (
             <>
-              <button className="btn secondary compact" type="button" onClick={() => onEdit(c)}>Edit</button>
               <button className="btn secondary compact" type="button" onClick={() => onToggleClosed(c)}>
                 {c.closed ? 'Reopen' : 'Close'}
               </button>
+              <EditIconButton label={'Edit ' + primaryCaseName} onClick={() => onEdit(c)} />
               {canDelete && (
-                <button className="btn danger compact" type="button" onClick={() => onDelete(c)}>Delete</button>
+                <DeleteIconButton label={'Delete ' + primaryCaseName} onClick={() => onDelete(c)} />
               )}
             </>
           )}

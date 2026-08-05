@@ -147,7 +147,7 @@ export default function CaseDetailNtpModals({
                 Archive copy: <strong>{ntpTemplates.find(t => Number(t?.id) === Number(selectedTemplateId))?.archive_copy_address || 'Not configured'}</strong>. This address will receive a copy of all NTPs for archive purposes when configured.
               </div>
               <label style={{ ...ntpFieldLabelStyle, gridColumn: '1 / -1' }}>
-                <span>Reminder Template (optional)</span>
+                <span>Reminder Template</span>
                 <select
                   value={selectedReminderTemplateId || ''}
                   onChange={e => {

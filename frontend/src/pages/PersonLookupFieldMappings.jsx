@@ -28,7 +28,7 @@ export default function PersonLookupFieldMappings({ config = {}, onChange }) {
       <div>
         <h4 style={{ margin: '0 0 4px' }}>Response Field Mappings</h4>
         <p style={{ color: 'var(--muted,#6b7280)', margin: 0, lineHeight: 1.45 }}>
-          Optional dot-separated paths map your directory fields into DiscoveryOne. Leave a field blank to use common names such as display_name, mail, employee_id, department, title, and separation_date.
+          Dot-separated paths map your directory fields into DiscoveryOne. Leave a field blank to use common names such as display_name, mail, employee_id, department, title, and separation_date.
         </p>
       </div>
       <div className="form-grid">

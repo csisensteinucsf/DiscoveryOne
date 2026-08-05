@@ -8,6 +8,7 @@ import { useBrandingSettings } from './lib/useBrandingSettings.js'
 import BrandLogo from './components/BrandLogo.jsx'
 import BrandingBoot from './components/BrandingBoot.jsx'
 import HelpButton from './components/HelpButton.jsx'
+import RequiredFormFeedback from './components/RequiredFormFeedback.jsx'
 import CaseRequests from './pages/CaseRequests.jsx'
 import './styles/themes.css'
 import { ToastProvider } from './components/ToastProvider.jsx'
@@ -360,6 +361,7 @@ export default function App() {
     <AuthProvider apiBase={apiBase}>
       <ToastProvider>
         <ConfirmProvider>
+          <RequiredFormFeedback />
           <Shell />
         </ConfirmProvider>
       </ToastProvider>

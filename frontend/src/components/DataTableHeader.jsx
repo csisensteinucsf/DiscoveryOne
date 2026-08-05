@@ -9,6 +9,8 @@ export default function DataTableHeader({
   filterValue,
   onFilterChange,
   filterPlaceholder,
+  filterOptions,
+  filterClearValue = '',
   style,
   className = '',
 }) {
@@ -18,7 +20,8 @@ export default function DataTableHeader({
   const sortable = Boolean(sortKey && onSort)
   const filterable = typeof onFilterChange === 'function'
   const isSorted = sortable && sort?.key === sortKey
-  const hasFilter = filterable && String(filterValue || '').trim().length > 0
+  const hasFilter = filterable
+    && String(filterValue ?? filterClearValue).trim() !== String(filterClearValue).trim()
 
   useEffect(() => {
     if (!filterOpen) return undefined
@@ -85,22 +88,36 @@ export default function DataTableHeader({
           >
             <label htmlFor={`${filterId}-input`}>Filter {label}</label>
             <div className="data-table-filter-popover__control">
-              <input
-                id={`${filterId}-input`}
-                className="input"
-                value={filterValue || ''}
-                placeholder={filterPlaceholder || `Contains...`}
-                onChange={event => onFilterChange(event.target.value)}
-                autoFocus
-                autoComplete="off"
-              />
+              {Array.isArray(filterOptions) ? (
+                <select
+                  id={`${filterId}-input`}
+                  className="input"
+                  value={filterValue ?? filterClearValue}
+                  onChange={event => onFilterChange(event.target.value)}
+                  autoFocus
+                >
+                  {filterOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={`${filterId}-input`}
+                  className="input"
+                  value={filterValue || ''}
+                  placeholder={filterPlaceholder || `Contains...`}
+                  onChange={event => onFilterChange(event.target.value)}
+                  autoFocus
+                  autoComplete="off"
+                />
+              )}
               {hasFilter && (
                 <button
                   type="button"
                   className="icon-button"
                   title={`Clear ${label} filter`}
                   aria-label={`Clear ${label} filter`}
-                  onClick={() => onFilterChange('')}
+                  onClick={() => onFilterChange(filterClearValue)}
                 >
                   <X size={16} aria-hidden="true" />
                 </button>

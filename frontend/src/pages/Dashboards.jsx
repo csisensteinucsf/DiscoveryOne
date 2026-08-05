@@ -490,7 +490,7 @@ export default function Dashboards({ apiBase = '/api' }) {
             </div>
           </div>
           <div className="field">
-            <label>Title (optional)</label>
+            <label>Title</label>
             <input value={addTitle} onChange={(e) => setAddTitle(e.target.value)} placeholder="e.g., Consent pipeline" />
           </div>
         </Modal>

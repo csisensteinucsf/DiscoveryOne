@@ -1,4 +1,6 @@
 import { Badge, Button, Select } from './caseDetailControls.jsx'
+import DataTableHeader from '../components/DataTableHeader.jsx'
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
 import {
   CONSENT_STATUS_OPTIONS,
@@ -8,30 +10,27 @@ import {
   normalizeNtpStatus,
 } from './custodianStatusCatalog.js'
 
-function SortLabel({ label, col, custSort, onSort }) {
-  const isActive = custSort.key === col
-  const arrow = isActive ? (custSort.dir === 'asc' ? '\u25B2' : '\u25BC') : '\u21C5'
-  return (
-    <button
-      type="button"
-      onClick={() => onSort(col)}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: 0,
-        fontWeight: 600,
-        color: 'var(--text,#e5e7eb)',
-      }}
-      title={'Sort by ' + label}
-    >
-      <span>{label}</span>
-      <span style={{ opacity: isActive ? 1 : 0.5 }}>{arrow}</span>
-    </button>
-  )
+const PRESERVATION_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  { value: 'has', label: 'Has preservation' },
+  { value: 'none', label: 'No preservation' },
+]
+
+const NTP_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  ...NTP_STATUS_OPTIONS,
+]
+
+const CONSENT_FILTER_OPTIONS = [
+  { value: 'all', label: 'All' },
+  ...CONSENT_STATUS_OPTIONS,
+  { value: 'awoc', label: 'AWOC' },
+]
+
+const HEADER_STYLE = {
+  textAlign: 'left',
+  padding: '8px',
+  color: 'var(--text,#e5e7eb)',
 }
 
 export default function CaseDetailCustodiansTab({
@@ -71,13 +70,10 @@ export default function CaseDetailCustodiansTab({
 }) {
   const {
     custodianCount,
-    showCustFilters,
-    setShowCustFilters,
     custFilters,
     setCustFilters,
     custSort,
     toggleSort,
-    resetFilters,
     visibleCustodians,
     progressFor,
     onBadgeClick,
@@ -140,7 +136,6 @@ export default function CaseDetailCustodiansTab({
               </div>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 12, flexWrap:'wrap', gap:12 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-                  <div style={{ fontSize: 12, color: 'var(--muted,#6b7280)' }}>Sort & Filter custodians</div>
                   {!isReadOnly && (
                     <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, color: 'var(--muted,#6b7280)' }}>Apply to all:</span>
@@ -154,26 +149,66 @@ export default function CaseDetailCustodiansTab({
                     </div>
                   )}
                 </div>
-                <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                  <button className="btn subtle" type="button" onClick={() => setShowCustFilters(v => !v)}>
-                    {showCustFilters ? 'Hide Filters' : 'Show Filters'}
-                  </button>
-                  <button className="btn subtle" type="button" onClick={resetFilters}>
-                    Reset
-                  </button>
-                </div>
               </div>
               <table style={{ width: '100%', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 8, minWidth: 1000 }}>
                 <thead style={{ background: 'rgba(0,0,0,.04)', color: 'var(--text,#e5e7eb)' }}>
                   <tr>
-                    <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Name" col="name" custSort={custSort} onSort={toggleSort} /></th>
-                    <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Email" col="email" custSort={custSort} onSort={toggleSort} /></th>
-                    <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Preservation" col="holds" custSort={custSort} onSort={toggleSort} /></th>
+                    <DataTableHeader
+                      label="Name"
+                      sortKey="name"
+                      sort={custSort}
+                      onSort={toggleSort}
+                      filterValue={custFilters.name}
+                      onFilterChange={value => setCustFilters(filters => ({ ...filters, name: value }))}
+                      filterPlaceholder="Filter name..."
+                      style={HEADER_STYLE}
+                    />
+                    <DataTableHeader
+                      label="Email"
+                      sortKey="email"
+                      sort={custSort}
+                      onSort={toggleSort}
+                      filterValue={custFilters.email}
+                      onFilterChange={value => setCustFilters(filters => ({ ...filters, email: value }))}
+                      filterPlaceholder="Filter email..."
+                      style={HEADER_STYLE}
+                    />
+                    <DataTableHeader
+                      label="Preservation"
+                      sortKey="holds"
+                      sort={custSort}
+                      onSort={toggleSort}
+                      filterValue={custFilters.holds}
+                      onFilterChange={value => setCustFilters(filters => ({ ...filters, holds: value }))}
+                      filterOptions={PRESERVATION_FILTER_OPTIONS}
+                      filterClearValue="all"
+                      style={HEADER_STYLE}
+                    />
                     {!isTech && (
-                      <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="NTP" col="ntp" custSort={custSort} onSort={toggleSort} /></th>
+                      <DataTableHeader
+                        label="NTP"
+                        sortKey="ntp"
+                        sort={custSort}
+                        onSort={toggleSort}
+                        filterValue={custFilters.ntp}
+                        onFilterChange={value => setCustFilters(filters => ({ ...filters, ntp: value }))}
+                        filterOptions={NTP_FILTER_OPTIONS}
+                        filterClearValue="all"
+                        style={HEADER_STYLE}
+                      />
                     )}
                     {!isTech && (
-                      <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}><SortLabel label="Consent" col="consent" custSort={custSort} onSort={toggleSort} /></th>
+                      <DataTableHeader
+                        label="Consent"
+                        sortKey="consent"
+                        sort={custSort}
+                        onSort={toggleSort}
+                        filterValue={custFilters.consent}
+                        onFilterChange={value => setCustFilters(filters => ({ ...filters, consent: value }))}
+                        filterOptions={CONSENT_FILTER_OPTIONS}
+                        filterClearValue="all"
+                        style={HEADER_STYLE}
+                      />
                     )}
                     {!isTech && (
                       <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}>Status</th>
@@ -182,73 +217,7 @@ export default function CaseDetailCustodiansTab({
                       <th style={{ textAlign: 'right', padding: '8px', color: 'var(--text,#e5e7eb)' }}>Actions</th>
                     )}
                   </tr>
-                  {showCustFilters && (
-                    <tr>
-                      {/* Name filter */}
-                      <th style={{ padding: 6 }}>
-                        <input
-                          type="text"
-                          value={custFilters.name}
-                          onChange={e => setCustFilters(f => ({ ...f, name: e.target.value }))}
-                          placeholder="Filter name..."
-                          style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8 }}
-                        />
-                      </th>
-                      {/* Email filter */}
-                      <th style={{ padding: 6 }}>
-                        <input
-                          type="text"
-                          value={custFilters.email}
-                          onChange={e => setCustFilters(f => ({ ...f, email: e.target.value }))}
-                          placeholder="Filter email..."
-                          style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8 }}
-                        />
-                      </th>
-                      {/* Preservation filter */}
-                      <th style={{ padding: 6 }}>
-                        <select
-                          value={custFilters.holds}
-                          onChange={e => setCustFilters(f => ({ ...f, holds: e.target.value }))}
-                          style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8, background:'white' }}
-                        >
-                          <option value="all">All</option>
-                          <option value="has">Has preservation</option>
-                          <option value="none">No preservation</option>
-                        </select>
-                      </th>
-                      {!isTech && (
-                        <>
-                          {/* NTP filter */}
-                          <th style={{ padding: 6 }}>
-                            <select
-                              value={custFilters.ntp}
-                              onChange={e => setCustFilters(f => ({ ...f, ntp: e.target.value }))}
-                              style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8, background:'white' }}
-                            >
-                              <option value="all">All</option>
-                              {NTP_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            </select>
-                          </th>
-                          {/* Consent filter */}
-                          <th style={{ padding: 6 }}>
-                            <select
-                              value={custFilters.consent}
-                              onChange={e => setCustFilters(f => ({ ...f, consent: e.target.value }))}
-                              style={{ width:'100%', padding:'6px 8px', border:'1px solid #d1d5db', borderRadius: 8, background:'white' }}
-                            >
-                              <option value="all">All</option>
-                              {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                              <option value="awoc">AWOC</option>
-                            </select>
-                          </th>
-                          {/* keep column alignment */}
-                          <th />
-                          <th />
-                        </>
-                      )}
-  </tr>
-)}
-</thead>
+                </thead>
                 <tbody>
                   {visibleCustodians && visibleCustodians.length > 0 ? (
                     visibleCustodians.map(c => {
@@ -438,8 +407,8 @@ export default function CaseDetailCustodiansTab({
                                 <span style={{ color:'#6b7280' }}>Read only</span>
                               ) : (
                                 <div className="row" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                                  <button className="btn secondary" onClick={() => onEditCustodian(c)} style={{padding:'4px 8px',borderRadius:10,fontSize:12}}>Edit</button>
-                                  <button className="btn danger" onClick={() => openRemoveCustodian(c)} style={{padding:'4px 8px',borderRadius:10,fontSize:12}}>Remove</button>
+                                  <EditIconButton label={'Edit ' + (c.name || c.email || 'custodian')} onClick={() => onEditCustodian(c)} />
+                                  <DeleteIconButton label={'Remove ' + (c.name || c.email || 'custodian')} onClick={() => openRemoveCustodian(c)} />
                                 </div>
                               )}
                             </td>

@@ -25,11 +25,11 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                 </label>
                                 <label>
                                   Username
-                                  <input className="input" value={form.smtp?.username || ''} onChange={e => updateSmtp('username', e.target.value)} placeholder="optional" />
+                                  <input className="input" value={form.smtp?.username || ''} onChange={e => updateSmtp('username', e.target.value)} placeholder="SMTP username" />
                                 </label>
                                 <label>
                                   Password
-                                  <input className="input" type="password" value={form.smtp?.password || ''} onChange={e => updateSmtp('password', e.target.value)} placeholder="optional" />
+                                  <input className="input" type="password" value={form.smtp?.password || ''} onChange={e => updateSmtp('password', e.target.value)} placeholder="SMTP password" />
                                   <FieldHelp>Use this only when the SMTP relay requires authentication; the password is encrypted before storage.</FieldHelp>
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
@@ -74,7 +74,7 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                     </label>
                                     <label>
                                       OAuth Scope
-                                      <input className="input" value={form.integration_configs.servicenow?.oauth_scope || ''} onChange={e => updateIntegrationConfig('servicenow', 'oauth_scope', e.target.value)} placeholder="optional" />
+                                      <input className="input" value={form.integration_configs.servicenow?.oauth_scope || ''} onChange={e => updateIntegrationConfig('servicenow', 'oauth_scope', e.target.value)} placeholder="OAuth scope" />
                                     </label>
                                   </>
                                 ) : (
@@ -108,7 +108,7 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                 </label>
                                 <label>
                                   Default Customer ID
-                                  <input className="input" value={form.integration_configs.servicenow?.default_customer_id || ''} onChange={e => updateIntegrationConfig('servicenow', 'default_customer_id', e.target.value)} placeholder="optional fallback" />
+                                  <input className="input" value={form.integration_configs.servicenow?.default_customer_id || ''} onChange={e => updateIntegrationConfig('servicenow', 'default_customer_id', e.target.value)} placeholder="Fallback customer ID" />
                                   <FieldHelp>Used only when a user creating tickets does not have their own Employee ID.</FieldHelp>
                                 </label>
                                 <label>
@@ -214,8 +214,8 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                 </label>
                                 <label>
                                   Additional Connect HMAC Keys
-                                  <textarea className="input" rows={2} value={form.integration_configs.docusign?.connect_keys || ''} onChange={e => updateIntegrationConfig('docusign', 'connect_keys', e.target.value)} placeholder="Optional comma-separated rotated keys" />
-                                  <FieldHelp>Optional. Use this while rotating DocuSign Connect HMAC keys.</FieldHelp>
+                                  <textarea className="input" rows={2} value={form.integration_configs.docusign?.connect_keys || ''} onChange={e => updateIntegrationConfig('docusign', 'connect_keys', e.target.value)} placeholder="Comma-separated rotated keys" />
+                                  <FieldHelp>Use this while rotating DocuSign Connect HMAC keys; otherwise leave it blank.</FieldHelp>
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                                   <input type="checkbox" checked={!!form.integration_configs.docusign?.resend_allow_recipient_correction_fallback} onChange={e => updateIntegrationConfig('docusign', 'resend_allow_recipient_correction_fallback', e.target.checked)} />

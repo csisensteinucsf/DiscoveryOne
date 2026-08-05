@@ -19,6 +19,20 @@ export const defaultCaseForm = (closureNagDays = 180) => ({
   is_private: false,
   custom_fields: {},
 })
+const formControls = (formElement) => Array.from(formElement?.elements || [])
+  .filter(control => typeof control?.checkValidity === 'function')
+
+export const findMissingRequiredControls = (formElement) => formControls(formElement)
+  .filter(control => control.required && !control.disabled && control.validity?.valueMissing)
+
+export const findInvalidFormControls = (formElement) => formControls(formElement)
+  .filter(control => !control.disabled && !control.checkValidity())
+
+export const optionalDateValue = (value) => {
+  const normalized = String(value ?? '').trim()
+  return normalized || null
+}
+
 
 export const looksLikeEmail = (value) => EMAIL_REGEX.test((value || '').trim())
 

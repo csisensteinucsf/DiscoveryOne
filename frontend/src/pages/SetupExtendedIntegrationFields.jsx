@@ -55,7 +55,7 @@ export default function SetupExtendedIntegrationFields({ integrationKey, form, u
                                 <label>
                                   Refresh Token
                                   <input className="input" type="password" value={form.integration_configs.dropbox_business?.refresh_token || ''} onChange={e => updateIntegrationConfig('dropbox_business', 'refresh_token', e.target.value)} />
-                                  <FieldHelp>Optional until live Dropbox API automation is enabled.</FieldHelp>
+                                  <FieldHelp>Leave blank until live Dropbox API automation is enabled.</FieldHelp>
                                 </label>
                                 <label>
                                   Scopes
@@ -282,8 +282,8 @@ export default function SetupExtendedIntegrationFields({ integrationKey, form, u
                                 </label>
                                 <label>
                                   Proxy Shared Secret
-                                  <input className="input" type="password" value={form.integration_configs.slack?.shared_secret || ''} onChange={e => updateIntegrationConfig('slack', 'shared_secret', e.target.value)} placeholder="optional" />
-                                  <FieldHelp>Optional. Require this secret in X-Proxy-Shared-Secret when the OAuth callback is behind a trusted proxy.</FieldHelp>
+                                  <input className="input" type="password" value={form.integration_configs.slack?.shared_secret || ''} onChange={e => updateIntegrationConfig('slack', 'shared_secret', e.target.value)} placeholder="Proxy shared secret" />
+                                  <FieldHelp>Set this to require X-Proxy-Shared-Secret when the OAuth callback is behind a trusted proxy.</FieldHelp>
                                 </label>
                               </div>
                             )}
@@ -292,7 +292,7 @@ export default function SetupExtendedIntegrationFields({ integrationKey, form, u
                             {key === 'ai' && form.enabled_integrations.ai && (
                               <div className="form-grid" style={{ marginTop: 10 }}>
                                 <div style={{ gridColumn: '1 / -1', color: 'var(--muted,#6b7280)', lineHeight: 1.45 }}>
-                                  Configure an OpenAI-compatible chat completions endpoint for optional DiscoveryOne AI features. The API key is encrypted before storage.
+                                  Configure an OpenAI-compatible chat completions endpoint for available DiscoveryOne AI features. The API key is encrypted before storage.
                                 </div>
                                 <label>Endpoint URL<input className="input" value={form.integration_configs.ai?.url || ''} onChange={e => updateIntegrationConfig('ai', 'url', e.target.value)} placeholder="https://api.openai.com/v1/chat/completions" /></label>
                                 <label>Model<input className="input" value={form.integration_configs.ai?.model || ''} onChange={e => updateIntegrationConfig('ai', 'model', e.target.value)} placeholder="gpt-4.1-mini" /></label>

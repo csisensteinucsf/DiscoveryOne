@@ -1,3 +1,5 @@
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
+
 export default function SystemNtpPanel({
   titleStyle,
   isSysAdmin,
@@ -145,13 +147,13 @@ export default function SystemNtpPanel({
                   <td>{tpl.updated_at ? new Date(tpl.updated_at).toLocaleString() : ''}</td>
                   <td style={{ textAlign: 'right', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                     {templateAccessible(tpl) && (
-                      <button className="btn secondary compact" onClick={() => openTemplateModal(tpl)}>Edit</button>
+                      <EditIconButton label={'Edit ' + tpl.name} onClick={() => openTemplateModal(tpl)} />
                     )}
                     {templateAccessible(tpl) && (
                       <button className="btn compact" onClick={() => copyTemplate(tpl)}>Copy</button>
                     )}
                     {templateDeletable(tpl) && (
-                      <button className="btn danger compact" onClick={() => deleteTemplate(tpl)}>Delete</button>
+                      <DeleteIconButton label={'Delete ' + tpl.name} onClick={() => deleteTemplate(tpl)} />
                     )}
                     {!templateAccessible(tpl) && !templateDeletable(tpl) && (
                       <span style={{ color: 'var(--muted,#6b7280)' }}>No access</span>

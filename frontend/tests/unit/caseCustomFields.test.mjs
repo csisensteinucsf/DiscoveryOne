@@ -75,3 +75,37 @@ test('template flags use compact Enabled and Default labels', () => {
   assert.match(source, /<span>Default<\/span>/)
   assert.match(source, /className="case-template-options"/)
 })
+
+test('template custom fields use clean aligned labeled controls', () => {
+  const source = readFileSync(
+    new URL('../../src/pages/SystemCaseTemplateCustomFields.jsx', import.meta.url),
+    'utf8',
+  )
+  const panelSource = readFileSync(
+    new URL('../../src/pages/SystemCaseTemplatesPanel.jsx', import.meta.url),
+    'utf8',
+  )
+  const styles = readFileSync(new URL('../../src/styles.css', import.meta.url), 'utf8')
+
+  assert.match(source, /<span>Default value<\/span>/)
+  assert.match(source, /case-template-custom-field__required-control/)
+  assert.match(source, /<DeleteIconButton/)
+  assert.match(panelSource, /<RequiredFieldLabel>Template name<\/RequiredFieldLabel>/)
+  assert.match(styles, /\.case-template-custom-field\s*{[^}]*grid-template-columns:/s)
+})
+
+test('template saves cannot leave the editor stuck in a busy state', () => {
+  const source = readFileSync(
+    new URL('../../src/pages/SystemCaseTemplatesPanel.jsx', import.meta.url),
+    'utf8',
+  )
+  const saveBlock = source.slice(source.indexOf('const save = async'), source.indexOf('const remove = async'))
+
+  assert.match(saveBlock, /new AbortController\(\)/)
+  assert.match(saveBlock, /signal: controller\.signal/)
+  assert.match(saveBlock, /catch \(error\)/)
+  assert.match(saveBlock, /finally[\s\S]*?setBusy\(false\)/)
+  assert.match(saveBlock, /mergeSavedCaseTemplate/)
+  assert.doesNotMatch(saveBlock, /await load\(\)/)
+  assert.match(source, /case-template-editor-status/)
+})

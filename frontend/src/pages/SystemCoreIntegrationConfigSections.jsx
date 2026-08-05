@@ -111,7 +111,7 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
                     <label>OAuth client ID<input className="input" value={integrationSettings.configs?.servicenow?.oauth_client_id || ''} onChange={e => updateIntegrationConfig('servicenow', 'oauth_client_id', e.target.value)} /></label>
                     <label>OAuth client secret<input className="input" type="password" value={secretInputValue(integrationSettings.configs?.servicenow?.oauth_client_secret)} onChange={e => updateIntegrationConfig('servicenow', 'oauth_client_secret', e.target.value)} placeholder={integrationSettings.configs?.servicenow?.oauth_client_secret === MASKED_SECRET_VALUE ? 'Configured' : ''} /></label>
                     <label>OAuth token URL<input className="input" value={integrationSettings.configs?.servicenow?.oauth_token_url || ''} onChange={e => updateIntegrationConfig('servicenow', 'oauth_token_url', e.target.value)} placeholder="https://instance.service-now.com/oauth_token.do" /></label>
-                    <label>OAuth scope<input className="input" value={integrationSettings.configs?.servicenow?.oauth_scope || ''} onChange={e => updateIntegrationConfig('servicenow', 'oauth_scope', e.target.value)} placeholder="optional" /></label>
+                    <label>OAuth scope<input className="input" value={integrationSettings.configs?.servicenow?.oauth_scope || ''} onChange={e => updateIntegrationConfig('servicenow', 'oauth_scope', e.target.value)} placeholder="OAuth scope" /></label>
                   </>
                 ) : (
                   <>
@@ -126,7 +126,7 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
                   Use ServiceNow Import Set API
                 </label>
                 <label>Source system<input className="input" value={integrationSettings.configs?.servicenow?.source_system || ''} onChange={e => updateIntegrationConfig('servicenow', 'source_system', e.target.value)} placeholder="discoveryone" /></label>
-                <label>Default customer ID<input className="input" value={integrationSettings.configs?.servicenow?.default_customer_id || ''} onChange={e => updateIntegrationConfig('servicenow', 'default_customer_id', e.target.value)} placeholder="optional fallback" /></label>
+                <label>Default customer ID<input className="input" value={integrationSettings.configs?.servicenow?.default_customer_id || ''} onChange={e => updateIntegrationConfig('servicenow', 'default_customer_id', e.target.value)} placeholder="Fallback customer ID" /></label>
                 <label>App customer ID<input className="input" value={integrationSettings.configs?.servicenow?.customer_id || ''} onChange={e => updateIntegrationConfig('servicenow', 'customer_id', e.target.value)} placeholder="discoveryone" /></label>
               </div>
             </div>
@@ -167,7 +167,7 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
                 <label>Auth server<input className="input" value={integrationSettings.configs?.docusign?.auth_server || ''} onChange={e => updateIntegrationConfig('docusign', 'auth_server', e.target.value)} placeholder="account-d.docusign.com" /></label>
                 <label>Private key<textarea className="input" rows={4} value={secretInputValue(integrationSettings.configs?.docusign?.private_key)} onChange={e => updateIntegrationConfig('docusign', 'private_key', e.target.value)} placeholder={integrationSettings.configs?.docusign?.private_key === MASKED_SECRET_VALUE ? 'Configured' : ''} /></label>
                 <label>Connect HMAC key<input className="input" type="password" value={secretInputValue(integrationSettings.configs?.docusign?.connect_key)} onChange={e => updateIntegrationConfig('docusign', 'connect_key', e.target.value)} placeholder={integrationSettings.configs?.docusign?.connect_key === MASKED_SECRET_VALUE ? 'Configured' : ''} /></label>
-                <label>Additional Connect HMAC keys<textarea className="input" rows={2} value={secretInputValue(integrationSettings.configs?.docusign?.connect_keys)} onChange={e => updateIntegrationConfig('docusign', 'connect_keys', e.target.value)} placeholder={integrationSettings.configs?.docusign?.connect_keys === MASKED_SECRET_VALUE ? 'Configured' : 'Optional comma-separated rotated keys'} /></label>
+                <label>Additional Connect HMAC keys<textarea className="input" rows={2} value={secretInputValue(integrationSettings.configs?.docusign?.connect_keys)} onChange={e => updateIntegrationConfig('docusign', 'connect_keys', e.target.value)} placeholder={integrationSettings.configs?.docusign?.connect_keys === MASKED_SECRET_VALUE ? 'Configured' : 'Comma-separated rotated keys'} /></label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={!!integrationSettings.configs?.docusign?.resend_allow_recipient_correction_fallback} onChange={e => updateIntegrationConfig('docusign', 'resend_allow_recipient_correction_fallback', e.target.checked)} />Allow recipient correction fallback on resend</label>
               </div>
             </div>
@@ -221,7 +221,7 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
                 <label>OAuth state lifetime seconds<input className="input" type="number" min="60" max="3600" value={integrationSettings.configs?.slack?.oauth_state_ttl_seconds ?? 900} onChange={e => updateIntegrationConfig('slack', 'oauth_state_ttl_seconds', e.target.value)} /></label>
                 <label>OAuth authorize URL<input className="input" value={integrationSettings.configs?.slack?.oauth_authorize_url || ''} onChange={e => updateIntegrationConfig('slack', 'oauth_authorize_url', e.target.value)} placeholder="https://slack.com/oauth/v2/authorize" /></label>
                 <label>OAuth token URL<input className="input" value={integrationSettings.configs?.slack?.oauth_access_url || ''} onChange={e => updateIntegrationConfig('slack', 'oauth_access_url', e.target.value)} placeholder="https://slack.com/api/oauth.v2.access" /></label>
-                <label>Proxy shared secret<input className="input" type="password" value={secretInputValue(integrationSettings.configs?.slack?.shared_secret)} onChange={e => updateIntegrationConfig('slack', 'shared_secret', e.target.value)} placeholder={integrationSettings.configs?.slack?.shared_secret === MASKED_SECRET_VALUE ? 'Configured' : 'Optional'} /></label>
+                <label>Proxy shared secret<input className="input" type="password" value={secretInputValue(integrationSettings.configs?.slack?.shared_secret)} onChange={e => updateIntegrationConfig('slack', 'shared_secret', e.target.value)} placeholder={integrationSettings.configs?.slack?.shared_secret === MASKED_SECRET_VALUE ? 'Configured' : 'Proxy shared secret'} /></label>
               </div>
             </div>
           )}

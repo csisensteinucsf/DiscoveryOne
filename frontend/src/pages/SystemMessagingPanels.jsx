@@ -53,7 +53,7 @@ export function SystemSmtpPanel({
         </label>
         <label>
           Username
-          <input value={smtpForm.username} onChange={e => updateSmtpField('username', e.target.value)} placeholder="optional" />
+          <input value={smtpForm.username} onChange={e => updateSmtpField('username', e.target.value)} placeholder="SMTP username" />
         </label>
         <label>
           Password

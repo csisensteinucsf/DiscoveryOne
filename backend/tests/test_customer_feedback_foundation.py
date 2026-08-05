@@ -221,6 +221,12 @@ def test_case_template_today_start_date_round_trips_through_case_create(db_sessi
     assert result.start_date is not None
 
 
+def test_case_create_schema_treats_blank_optional_start_date_as_none():
+    payload = schemas.CaseCreate(name="Blank Start Date", start_date="")
+
+    assert payload.start_date is None
+
+
 def test_case_template_custom_fields_are_validated_snapshotted_and_editable(db_session):
     admin = _user(db_session, username="custom-fields-admin")
 

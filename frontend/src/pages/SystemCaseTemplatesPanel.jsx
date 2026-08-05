@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { GripVertical, Plus } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
+import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 import SystemCaseTemplateCustomFields from './SystemCaseTemplateCustomFields.jsx'
+import {
+  nextCaseTemplateSortOrder,
+  mergeSavedCaseTemplate,
+  reorderCaseTemplates,
+  templateOrderUpdates,
+} from './caseTemplateOrder.js'
 
 const TEMPLATE_FIELDS = [
   ['legal_case_name', 'Case name', 'text'],
@@ -24,7 +32,6 @@ const emptyEditor = () => ({
   description: '',
   enabled: true,
   is_default: false,
-  sort_order: 100,
   defaults: {},
   field_rules: Object.fromEntries(TEMPLATE_FIELDS.map(([key]) => [key, { visible: true, required: false }])),
   custom_fields: [],
@@ -52,11 +59,16 @@ const responseError = async response => {
   return `Request failed (${response.status})`
 }
 
+const TEMPLATE_SAVE_TIMEOUT_MS = 20000
+
 export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystOptions = [], titleStyle }) {
   const [templates, setTemplates] = useState([])
   const [editor, setEditor] = useState(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
+  const [reorderBusy, setReorderBusy] = useState(false)
+  const [draggedTemplateId, setDraggedTemplateId] = useState(null)
+  const [dropTarget, setDropTarget] = useState(null)
 
   const load = useCallback(async () => {
     if (!isSysAdmin) return
@@ -112,7 +124,7 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
       description: editor.description.trim() || null,
       enabled: !!editor.enabled,
       is_default: !!editor.is_default,
-      sort_order: Number(editor.sort_order || 0),
+      sort_order: editor.id ? Number(editor.sort_order || 0) : nextCaseTemplateSortOrder(templates),
       defaults,
       field_rules: editor.field_rules,
       custom_fields: (editor.custom_fields || []).map(field => ({
@@ -121,21 +133,35 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
         options: field.field_type === 'select' ? field.options : [],
       })),
     }
-    const response = await fetch(`${apiBase}/case-templates${editor.id ? `/${editor.id}` : ''}`, {
-      method: editor.id ? 'PUT' : 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!response.ok) {
-      setStatus(await responseError(response))
+    const controller = new AbortController()
+    const timeoutId = window.setTimeout(() => controller.abort(), TEMPLATE_SAVE_TIMEOUT_MS)
+    try {
+      const response = await fetch(`${apiBase}/case-templates${editor.id ? `/${editor.id}` : ''}`, {
+        method: editor.id ? 'PUT' : 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      })
+      if (!response.ok) {
+        setStatus(await responseError(response))
+        return
+      }
+      const savedTemplate = await response.json()
+      setTemplates(current => mergeSavedCaseTemplate(current, savedTemplate))
+      setEditor(null)
+      setStatus('Case template saved.')
+    } catch (error) {
+      const requestTimedOut = error?.name === 'AbortError'
+      setStatus(
+        requestTimedOut
+          ? 'Saving timed out. Check the connection, then reopen templates before trying again.'
+          : 'Unable to save the case template. Check the connection and try again.',
+      )
+    } finally {
+      window.clearTimeout(timeoutId)
       setBusy(false)
-      return
     }
-    setEditor(null)
-    setStatus('Case template saved.')
-    await load()
-    setBusy(false)
   }
 
   const remove = async template => {
@@ -148,6 +174,71 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
       await load()
     }
     setBusy(false)
+  }
+
+  const clearDragState = () => {
+    setDraggedTemplateId(null)
+    setDropTarget(null)
+  }
+
+  const persistTemplateOrder = async orderedTemplates => {
+    const updates = templateOrderUpdates(orderedTemplates)
+    setReorderBusy(true)
+    setStatus('')
+    try {
+      for (const update of updates) {
+        const response = await fetch(apiBase + '/case-templates/' + update.id, {
+          method: 'PUT',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sort_order: update.sort_order }),
+        })
+        if (!response.ok) throw new Error(await responseError(response))
+      }
+      setTemplates(orderedTemplates.map((template, index) => ({
+        ...template,
+        sort_order: updates[index].sort_order,
+      })))
+      setStatus('Template order saved.')
+    } catch (error) {
+      setStatus('Failed to save template order: ' + error.message)
+      await load()
+    } finally {
+      setReorderBusy(false)
+    }
+  }
+
+  const handleTemplateDragStart = (event, templateId) => {
+    if (busy || reorderBusy) {
+      event.preventDefault()
+      return
+    }
+    const id = String(templateId)
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', id)
+    setDraggedTemplateId(id)
+  }
+
+  const handleTemplateDragOver = (event, templateId) => {
+    const targetId = String(templateId)
+    if (!draggedTemplateId || draggedTemplateId === targetId) return
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const placement = event.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before'
+    setDropTarget({ id: targetId, placement })
+  }
+
+  const handleTemplateDrop = async (event, targetId) => {
+    event.preventDefault()
+    const sourceId = draggedTemplateId || event.dataTransfer.getData('text/plain')
+    const bounds = event.currentTarget.getBoundingClientRect()
+    const placement = event.clientY > bounds.top + bounds.height / 2 ? 'after' : 'before'
+    const reordered = reorderCaseTemplates(templates, sourceId, targetId, placement)
+    clearDragState()
+    if (reordered.every((template, index) => String(template.id) === String(templates[index]?.id))) return
+    setTemplates(reordered)
+    await persistTemplateOrder(reordered)
   }
 
   const defaultInput = (field, type) => {
@@ -186,23 +277,70 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
           <div style={titleStyle}>New Case Templates</div>
           <p style={{ color: 'var(--muted,#6b7280)', margin: 0 }}>Create choices for the New Case form. Each template can supply default values and decide which fields are visible or required.</p>
         </div>
-        <button className="btn" type="button" onClick={() => setEditor(emptyEditor())}><Plus size={16} /> New Template</button>
+        <button className="btn" type="button" onClick={() => { setStatus(''); setEditor(emptyEditor()) }} disabled={busy || reorderBusy}><Plus size={16} /> New Template</button>
       </div>
       {status && <div style={{ marginTop: 12, color: status.toLowerCase().includes('failed') || status.toLowerCase().includes('required') ? '#b91c1c' : 'var(--muted,#6b7280)' }}>{status}</div>}
       <div className="table-responsive" style={{ marginTop: 16 }}>
         <table className="table">
-          <thead><tr><th>Name</th><th>Default</th><th>Status</th><th>Order</th><th>Actions</th></tr></thead>
+          <thead>
+            <tr>
+              <th className="case-template-order-column" aria-label="Reorder" />
+              <th>Name</th>
+              <th>Default</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
           <tbody>
-            {templates.map(template => <tr key={template.id}><td><strong>{template.name}</strong><div className="form-help">{template.description}</div></td><td>{template.is_default ? 'Yes' : '-'}</td><td>{template.enabled ? 'Enabled' : 'Disabled'}</td><td>{template.sort_order}</td><td><div style={{ display: 'flex', gap: 8 }}><button className="btn secondary compact" onClick={() => setEditor(normalizeEditor(template))}>Edit</button><button className="icon-button" title="Delete template" aria-label={`Delete ${template.name}`} onClick={() => remove(template)} disabled={busy}><Trash2 size={16} /></button></div></td></tr>)}
+            {templates.map(template => {
+              const templateId = String(template.id)
+              const dragClass = draggedTemplateId === templateId ? ' is-dragging' : ''
+              const dropClass = dropTarget?.id === templateId ? ' is-drop-' + dropTarget.placement : ''
+              return (
+                <tr
+                  key={template.id}
+                  className={'case-template-order-row' + dragClass + dropClass}
+                  onDragOver={event => handleTemplateDragOver(event, template.id)}
+                  onDrop={event => handleTemplateDrop(event, template.id)}
+                >
+                  <td className="case-template-order-column">
+                    <button
+                      className="case-template-drag-handle"
+                      type="button"
+                      draggable={!busy && !reorderBusy}
+                      disabled={busy || reorderBusy}
+                      title="Drag to reorder"
+                      aria-label={'Drag ' + template.name + ' to reorder'}
+                      onDragStart={event => handleTemplateDragStart(event, template.id)}
+                      onDragEnd={clearDragState}
+                    >
+                      <GripVertical size={18} aria-hidden="true" />
+                    </button>
+                  </td>
+                  <td><strong>{template.name}</strong><div className="form-help">{template.description}</div></td>
+                  <td>{template.is_default ? 'Yes' : '-'}</td>
+                  <td>{template.enabled ? 'Enabled' : 'Disabled'}</td>
+                  <td>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <EditIconButton label={'Edit ' + template.name} onClick={() => { setStatus(''); setEditor(normalizeEditor(template)) }} disabled={busy || reorderBusy} />
+                      <DeleteIconButton label={'Delete ' + template.name} onClick={() => remove(template)} disabled={busy || reorderBusy} />
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
             {!templates.length && <tr><td colSpan="5">No case templates configured. The standard New Case form remains available.</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {editor && <Modal open title={editor.id ? 'Edit New Case Template' : 'New Case Template'} onClose={() => setEditor(null)} width={900} bodyStyle={{ maxHeight: '72vh', overflowY: 'auto' }} footer={<><button className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button className="btn" onClick={save} disabled={busy}>{busy ? 'Saving' : 'Save Template'}</button></>}>
+      {editor && <Modal open title={editor.id ? 'Edit New Case Template' : 'New Case Template'} onClose={() => setEditor(null)} width={900} bodyStyle={{ maxHeight: '72vh', overflowY: 'auto' }} footer={<><button type="button" className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button type="submit" form="case-template-form" className="btn" disabled={busy}>{busy ? 'Saving' : 'Save Template'}</button></>}>
+        <form id="case-template-form" onSubmit={event => { event.preventDefault(); save() }}>
         <div className="form-grid">
-          <label>Template name<input value={editor.name} onChange={event => setEditor(current => ({ ...current, name: event.target.value }))} required /></label>
-          <label>Display order<input type="number" value={editor.sort_order} onChange={event => setEditor(current => ({ ...current, sort_order: Number(event.target.value) }))} /></label>
+          <label style={{ gridColumn: '1 / -1' }}>
+            <RequiredFieldLabel>Template name</RequiredFieldLabel>
+            <input value={editor.name} onChange={event => setEditor(current => ({ ...current, name: event.target.value }))} required />
+          </label>
           <label style={{ gridColumn: '1 / -1' }}>Description<textarea rows={2} value={editor.description} onChange={event => setEditor(current => ({ ...current, description: event.target.value }))} /></label>
           <div className="case-template-options" style={{ gridColumn: '1 / -1' }}>
             <label className="case-template-option"><input type="checkbox" checked={editor.enabled} onChange={event => setEditor(current => ({ ...current, enabled: event.target.checked, is_default: event.target.checked ? current.is_default : false }))} /><span>Enabled</span></label>
@@ -217,6 +355,12 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
           })}
         </div>
         <SystemCaseTemplateCustomFields editor={editor} setEditor={setEditor} />
+        {status && (
+          <div className="case-template-editor-status" role="alert" aria-live="polite">
+            {status}
+          </div>
+        )}
+        </form>
       </Modal>}
     </div>
   )

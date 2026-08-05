@@ -1,4 +1,5 @@
 import BrandLogo from '../components/BrandLogo.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import { CASE_NAMING_OPTIONS } from './setupCatalog.js'
 
 export { CASE_NAMING_OPTIONS }
@@ -105,7 +106,7 @@ export function AdminStep({ form, update, passwordTooShort, passwordMismatch }) 
     <>
       <div className="form-grid">
         <label>
-          One-Time Setup Code
+          <RequiredFieldLabel>One-Time Setup Code</RequiredFieldLabel>
           <input
             className="input"
             type="password"
@@ -117,17 +118,17 @@ export function AdminStep({ form, update, passwordTooShort, passwordMismatch }) 
           <FieldHelp>Find the code in the backend startup output with docker compose logs backend. The backend generates and persists it automatically; it is not the administrator password.</FieldHelp>
         </label>
         <label>
-          Username
+          <RequiredFieldLabel>Username</RequiredFieldLabel>
           <input className="input" value={form.admin_username} readOnly required />
           <FieldHelp>The first local sys-admin account is always named admin; use it only to finish setup and create named user accounts.</FieldHelp>
         </label>
         <label>
-          Password
+          <RequiredFieldLabel>Password</RequiredFieldLabel>
           <input className="input" type="password" value={form.admin_password} onChange={e => update('admin_password', e.target.value)} minLength={12} required />
           <FieldHelp>This password protects the first sys-admin account and must be at least 12 characters with multiple character types.</FieldHelp>
         </label>
         <label>
-          Confirm Password
+          <RequiredFieldLabel>Confirm Password</RequiredFieldLabel>
           <input className="input" type="password" value={form.confirm_password} onChange={e => update('confirm_password', e.target.value)} minLength={12} required />
           <FieldHelp>This must match the password above so DiscoveryOne can create the initial administrator safely.</FieldHelp>
         </label>

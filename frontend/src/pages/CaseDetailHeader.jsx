@@ -1,6 +1,35 @@
 import { Badge } from './caseDetailControls.jsx'
 import { formatCustomFieldValue } from './caseCustomFields.js'
 
+function SummaryItem({ label, children, wide = false }) {
+  return (
+    <div className={`case-detail-summary__item${wide ? ' case-detail-summary__item--wide' : ''}`}>
+      <dt>{label}</dt>
+      <dd>{children}</dd>
+    </div>
+  )
+}
+
+function RequestorSummary({ caseData }) {
+  if (!Array.isArray(caseData?.requestors) || caseData.requestors.length === 0) {
+    return caseData?.requestor || '-'
+  }
+
+  return (
+    <span className="case-detail-summary__requestors">
+      {caseData.requestors.map((requestor, index) => (
+        <span
+          className={`case-detail-summary__requestor${requestor.is_primary ? ' is-primary' : ''}`}
+          key={`${requestor.email || index}`}
+        >
+          {requestor.email || 'unknown'}
+          {requestor.is_primary && <span className="case-detail-summary__primary-label">Primary</span>}
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export default function CaseDetailHeader({
   caseData,
   isReadOnly,
@@ -21,6 +50,7 @@ export default function CaseDetailHeader({
   internalCounselLabel = 'Internal Counsel',
 }) {
   const primaryCaseName = useLegalCaseNameAsPrimary ? (caseData?.legal_case_name || caseData?.name) : caseData?.name
+  const customFields = Object.entries(caseData?.custom_fields || {})
   return (
     <>
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -78,69 +108,66 @@ export default function CaseDetailHeader({
               >
                 {'\u2190'} Back to Cases
               </button>
-          {!isTech && !useLegalCaseNameAsPrimary && (
-            <p style={{ color: 'var(--text,#0f172a)', opacity: 0.85, fontSize: '0.9rem', marginBottom: 4 }}>
-              Legal Case: {caseData?.legal_case_name || '-'}
-            </p>
-          )}
           {!isTech && (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '6px 16px', margin: '8px 0 10px', color: 'var(--muted,#6b7280)', fontSize: '0.85rem' }}>
-              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Matter / Claim Number:</strong> {caseData?.matter_number || '-'}</div>
-              <div><strong style={{ color: 'var(--text,#0f172a)' }}>{internalCounselLabel}:</strong> {caseData?.internal_counsel || '-'}</div>
-              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Outside Counsel:</strong> {caseData?.outside_counsel || '-'}</div>
-              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Claimant:</strong> {caseData?.claimant || '-'}</div>
-              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Start Date:</strong> {caseData?.start_date ? formatDate(caseData.start_date) : '-'}</div>
-              <div><strong style={{ color: 'var(--text,#0f172a)' }}>Last Updated:</strong> {caseData?.updated_at ? formatDate(caseData.updated_at) : '-'}</div>
-              {Object.entries(caseData?.custom_fields || {}).map(([key, field]) => (
-                <div key={key}>
-                  <strong style={{ color: 'var(--text,#0f172a)' }}>{field?.label || key.replaceAll('_', ' ')}:</strong> {formatCustomFieldValue(field)}
+            <section className="case-detail-summary" aria-label="Case summary">
+              <div className="case-detail-summary__group">
+                <h3>Case details</h3>
+                <dl className="case-detail-summary__list">
+                  {!useLegalCaseNameAsPrimary && (
+                    <SummaryItem label="Legal case">{caseData?.legal_case_name || '-'}</SummaryItem>
+                  )}
+                  <SummaryItem label="Matter / Claim number">{caseData?.matter_number || '-'}</SummaryItem>
+                  <SummaryItem label="Start date">{caseData?.start_date ? formatDate(caseData.start_date) : '-'}</SummaryItem>
+                  <SummaryItem label="Created">{caseData?.created_at ? formatDate(caseData.created_at) : '-'}</SummaryItem>
+                  <SummaryItem label="Last updated">{caseData?.updated_at ? formatDate(caseData.updated_at) : '-'}</SummaryItem>
+                </dl>
+              </div>
+
+              <div className="case-detail-summary__group">
+                <h3>People &amp; access</h3>
+                <dl className="case-detail-summary__list">
+                  <SummaryItem label="Claimant">{caseData?.claimant || '-'}</SummaryItem>
+                  <SummaryItem label={internalCounselLabel}>{caseData?.internal_counsel || '-'}</SummaryItem>
+                  <SummaryItem label="Outside counsel">{caseData?.outside_counsel || '-'}</SummaryItem>
+                  <SummaryItem label="Analyst">{analystName || '-'}</SummaryItem>
+                  <SummaryItem label="Requestors" wide><RequestorSummary caseData={caseData} /></SummaryItem>
+                  {caseData?.is_private && <SummaryItem label="Visibility">Private case</SummaryItem>}
+                </dl>
+              </div>
+
+              {customFields.length > 0 && (
+                <div className="case-detail-summary__group case-detail-summary__group--wide">
+                  <h3>Additional information</h3>
+                  <dl className="case-detail-summary__list case-detail-summary__list--custom">
+                    {customFields.map(([key, field]) => (
+                      <SummaryItem label={field?.label || key.replaceAll('_', ' ')} key={key}>
+                        {formatCustomFieldValue(field)}
+                      </SummaryItem>
+                    ))}
+                  </dl>
                 </div>
-              ))}
-            </div>
+              )}
+
+              {caseData?.description ? (
+                <div className="case-detail-summary__group case-detail-summary__group--wide">
+                  <h3>Additional notes / comments</h3>
+                  <p className="case-detail-summary__notes">{caseData.description}</p>
+                </div>
+              ) : null}
+            </section>
           )}
-          {!isTech && caseData?.description ? (
-            <div style={{ margin: '0 0 10px', padding: '8px 10px', borderLeft: '3px solid #94a3b8', background: 'var(--muted-bg,#f8fafc)', color: 'var(--text,#0f172a)', fontSize: '0.85rem', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-              <strong>Additional Notes / Comments:</strong> {caseData.description}
-            </div>
-          ) : null}
-          <p style={{ color: 'var(--muted,#6b7280)', fontSize: '0.85rem', marginTop: 0, marginBottom: 4 }}>
-            Analyst: {analystName || '-'}
-          </p>
-          <div style={{ color: 'var(--muted,#6b7280)', fontSize: '0.85rem', marginTop: 0, marginBottom: 4 }}>
-            Requestors:{' '}
-            {Array.isArray(caseData?.requestors) && caseData.requestors.length > 0 ? (
-              <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}>
-                {caseData.requestors.map((r, idx) => (
-                  <span
-                    key={`${r.email || idx}`}
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 6,
-                      padding: '2px 8px',
-                      borderRadius: 999,
-                      background: r.is_primary ? '#e0f2fe' : '#f3f4f6',
-                      color: '#0f172a',
-                      fontSize: 12,
-                    }}
-                  >
-                    {r.email || 'unknown'}
-                    {r.is_primary && <span style={{ fontWeight: 700, color: '#0f172a' }}>Primary</span>}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              (caseData?.requestor || '-')
-            )}
-          </div>
-          <p style={{ color: 'var(--muted,#6b7280)', fontSize: '0.85rem', marginTop: 0 }}>
-            Created: {caseData?.created_at ? formatDate(caseData.created_at) : '-'}
-          </p>
-          {caseData?.is_private ? (
-            <p style={{ color: '#0c4a6e', fontSize: '0.85rem', marginTop: 0, marginBottom: 0, fontWeight: 700 }}>
-              Private Case
-            </p>
-          ) : null}
+          {isTech && (
+            <section className="case-detail-summary case-detail-summary--compact" aria-label="Case summary">
+              <div className="case-detail-summary__group">
+                <h3>Case information</h3>
+                <dl className="case-detail-summary__list">
+                  <SummaryItem label="Analyst">{analystName || '-'}</SummaryItem>
+                  <SummaryItem label="Created">{caseData?.created_at ? formatDate(caseData.created_at) : '-'}</SummaryItem>
+                  <SummaryItem label="Requestors" wide><RequestorSummary caseData={caseData} /></SummaryItem>
+                </dl>
+              </div>
+            </section>
+          )}
           {isRequestor && (
             <div style={{ display:'flex', flexDirection:'column', gap:12, marginTop:12 }}>
               <p style={{ color: '#fbbf24', background:'rgba(251,191,36,.12)', border:'1px solid rgba(251,191,36,.4)', padding:'6px 10px', borderRadius: 8, margin:0 }}>

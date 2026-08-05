@@ -384,7 +384,7 @@ export function useCaseDetailConsents({
 
   const voidConsent = async (consent) => {
     if (!consent?.id) return
-    const reason = window.prompt('Enter a reason for voiding this request (optional):', 'Cancelled') ?? null
+    const reason = window.prompt('Enter a reason for voiding this request:', 'Cancelled') ?? null
     setConsentActionBusy({ id: consent.id, type: 'void' })
     try {
       const res = await fetch(`${apiBase}/cases/${caseId}/consents/${consent.id}/void`, {

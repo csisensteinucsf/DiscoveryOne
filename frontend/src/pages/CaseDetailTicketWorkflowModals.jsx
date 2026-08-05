@@ -242,7 +242,7 @@ export default function CaseDetailTicketWorkflowModals({
                 readOnly={isRequestor}
                 disabled={isRequestor}
                 rows={3}
-                placeholder="Optional details about dates, times, or specific request context"
+                placeholder="Add dates, times, or specific request context"
                 style={{ border: '1px solid #d1d5db', borderRadius: 8, padding: '8px 10px', fontSize: 13, color: '#111827', resize: 'vertical' }}
               />
               <span style={{ fontSize: 12, color: '#6b7280' }}>
@@ -298,7 +298,7 @@ export default function CaseDetailTicketWorkflowModals({
               <span>Document NTP release (logged)</span>
             </label>
             <label>
-              <div style={{ fontSize: 13, color: '#334155', marginBottom: 6 }}>Approval note (optional)</div>
+              <div style={{ fontSize: 13, color: '#334155', marginBottom: 6 }}>Approval note</div>
               <textarea
                 rows={3}
                 value={removeCustodianModal.note}

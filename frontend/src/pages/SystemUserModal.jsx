@@ -1,4 +1,5 @@
 import Modal from '../components/Modal.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import { ADMIN_USERNAME, ROLE_OPTIONS } from './systemUtils.js'
 
 export default function SystemUserModal({
@@ -7,7 +8,6 @@ export default function SystemUserModal({
   closeModal,
   userSaveBusy,
   saveUser,
-  userModalSaveDisabled,
   editingSeedAdmin,
   form,
   setForm,
@@ -18,6 +18,12 @@ export default function SystemUserModal({
   employeeIdLabel,
   user,
 }) {
+  const editingSelfOnly = Boolean(editingId && editingId === user?.id && !canManageUsers)
+  const passwordRequired = editingSeedAdmin || (!editingId && (!ssoEnabled || form.local_auth_only))
+  const employeeIdRequired = !isRequestor
+    && ['analyst', 'sys_admin'].includes(form.role || 'analyst')
+    && (form.email || '').trim().toLowerCase() !== ADMIN_USERNAME
+  const groupRequired = !isRequestor && form.role === 'tech'
   return (
 <Modal
         open={open}
@@ -25,36 +31,35 @@ export default function SystemUserModal({
         onClose={closeModal}
         footer={(
           <>
-            <button className="btn" onClick={closeModal} disabled={userSaveBusy}>Cancel</button>
-            <button className="btn secondary" onClick={saveUser}
-              disabled={userModalSaveDisabled}>
+            <button type="button" className="btn" onClick={closeModal} disabled={userSaveBusy}>Cancel</button>
+            <button type="submit" form="system-user-form" className="btn secondary" disabled={userSaveBusy}>
               {userSaveBusy ? (editingId ? 'Saving...' : 'Creating...') : (editingId ? 'Save' : 'Create User')}
             </button>
           </>
         )}
       >
-        <div className="form-grid">
+        <form id="system-user-form" className="form-grid" onSubmit={event => { event.preventDefault(); saveUser() }}>
           {editingSeedAdmin ? (
             <>
               <label>Name<input value={ADMIN_USERNAME} readOnly /></label>
-              <label>Password<input type="password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} required /></label>
-              <label>Confirm Password<input type="password" value={form.confirm} onChange={e=>setForm({...form, confirm:e.target.value})} required /></label>
+              <label><RequiredFieldLabel>Password</RequiredFieldLabel><input type="password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} required /></label>
+              <label><RequiredFieldLabel>Confirm Password</RequiredFieldLabel><input type="password" value={form.confirm} onChange={e=>setForm({...form, confirm:e.target.value})} required /></label>
             </>
           ) : (
             <>
-              <label>First Name<input value={form.first_name} onChange={e=>setForm({...form, first_name:e.target.value})} required /></label>
-              <label>Last Name<input value={form.last_name} onChange={e=>setForm({...form, last_name:e.target.value})} required /></label>
+              <label><RequiredFieldLabel>First Name</RequiredFieldLabel><input value={form.first_name} onChange={e=>setForm({...form, first_name:e.target.value})} required /></label>
+              <label><RequiredFieldLabel>Last Name</RequiredFieldLabel><input value={form.last_name} onChange={e=>setForm({...form, last_name:e.target.value})} required /></label>
               {(!ssoEnabled || editingId || form.local_auth_only) ? (
                 <>
-                  <label>Password<input type="password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} /></label>
-                  <label>Confirm Password<input type="password" value={form.confirm} onChange={e=>setForm({...form, confirm:e.target.value})} /></label>
+                  <label><RequiredFieldLabel required={passwordRequired}>Password</RequiredFieldLabel><input type="password" value={form.password} onChange={e=>setForm({...form, password:e.target.value})} required={passwordRequired} /></label>
+                  <label><RequiredFieldLabel required={passwordRequired}>Confirm Password</RequiredFieldLabel><input type="password" value={form.confirm} onChange={e=>setForm({...form, confirm:e.target.value})} required={passwordRequired} /></label>
                 </>
               ) : (
                 <div className="local-auth-toggle__help" style={{ gridColumn: '1 / -1' }}>
                   New users sign in with {ssoDisplayName}. No DiscoveryOne password is needed.
                 </div>
               )}
-              <label>Email<input type="email" value={form.email} onChange={e=>setForm({...form, email:e.target.value})} placeholder="user@domain" required disabled={!canManageUsers} /></label>
+              <label><RequiredFieldLabel required={!editingSelfOnly}>Email</RequiredFieldLabel><input type="email" value={form.email} onChange={e=>setForm({...form, email:e.target.value})} placeholder="user@domain" required={!editingSelfOnly} disabled={!canManageUsers} /></label>
               {!isRequestor && (
                 <>
                   <label>Role
@@ -62,19 +67,22 @@ export default function SystemUserModal({
                       {ROLE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </label>
-                  <label>{employeeIdLabel} (required by some ticket workflows)
+                  <label><RequiredFieldLabel required={employeeIdRequired}>{employeeIdLabel}</RequiredFieldLabel>
                     <input
                       value={form.employee_id}
                       onChange={e=>setForm({...form, employee_id:e.target.value})}
                       placeholder={`Enter ${employeeIdLabel}`}
+                      required={employeeIdRequired}
                     />
+                    <span className="form-help">Needed for analyst and system-admin ticket workflows.</span>
                   </label>
-                  <label>Group / Department {form.role === 'tech' ? '(a configured ticket workflow group required)' : '(optional)'}
+                  <label><RequiredFieldLabel required={groupRequired}>Group / Department</RequiredFieldLabel>
                     <input
                       value={form.requestor_group}
                       onChange={e=>setForm({...form, requestor_group:e.target.value})}
                       placeholder={form.role === 'tech' ? 'a configured ticket workflow group' : 'Risk, HR, etc.'}
                       disabled={!canManageUsers}
+                      required={groupRequired}
                     />
                   </label>
                   {editingId && canManageUsers && (
@@ -113,7 +121,7 @@ export default function SystemUserModal({
               )}
             </>
           )}
-        </div>
+        </form>
       </Modal>
   )
 }
