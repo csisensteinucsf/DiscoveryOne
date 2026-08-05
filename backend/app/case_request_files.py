@@ -305,6 +305,7 @@ async def upload_case_consent_proof(
             uploaded_by_id=actor.id,
         )
         db.add(proof)
+        db.flush()
         set_membership_consent_status(db, hold_membership, "awoc" if proof_type == "awoc" else "received")
         db.commit()
         _sync_case_documentation_counters(db, case_id)

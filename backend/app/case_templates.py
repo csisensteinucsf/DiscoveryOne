@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from datetime import date
+import math
+import re
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -44,6 +46,7 @@ def _template_response(row: models.CaseTemplate) -> dict:
         "sort_order": int(row.sort_order or 0),
         "defaults": row.defaults,
         "field_rules": row.field_rules,
+        "custom_fields": row.custom_fields,
         "created_at": row.created_at,
         "updated_at": row.updated_at,
     }
@@ -105,6 +108,174 @@ def _normalize_rules(values: dict[str, Any] | None) -> dict[str, dict[str, bool]
     return normalized
 
 
+CUSTOM_FIELD_TYPES = {"text", "textarea", "number", "date", "checkbox", "select"}
+CUSTOM_FIELD_KEY_RE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+
+
+def _normalize_custom_value(definition: dict[str, Any], value: Any) -> Any:
+    if isinstance(value, dict) and "value" in value:
+        value = value.get("value")
+    field_type = definition["field_type"]
+    if value is None or value == "":
+        return None
+    if field_type in {"text", "textarea"}:
+        return str(value).strip()
+    if field_type == "number":
+        if isinstance(value, bool):
+            raise HTTPException(status_code=422, detail=f'{definition["label"]} must be a number')
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=f'{definition["label"]} must be a number') from exc
+        if not math.isfinite(number):
+            raise HTTPException(status_code=422, detail=f'{definition["label"]} must be a finite number')
+        return int(number) if number.is_integer() else number
+    if field_type == "date":
+        try:
+            return date.fromisoformat(str(value).strip()).isoformat()
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=f'{definition["label"]} must be a valid date') from exc
+    if field_type == "checkbox":
+        if isinstance(value, bool):
+            return value
+        normalized = str(value).strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True
+        if normalized in {"false", "0", "no", "off"}:
+            return False
+        raise HTTPException(status_code=422, detail=f'{definition["label"]} must be true or false')
+    if field_type == "select":
+        normalized = str(value).strip()
+        if normalized not in definition["options"]:
+            raise HTTPException(status_code=422, detail=f'Unsupported value for {definition["label"]}')
+        return normalized
+    raise HTTPException(status_code=422, detail=f"Unsupported custom field type: {field_type}")
+
+
+def _normalize_custom_fields(values: list[Any] | None) -> list[dict[str, Any]]:
+    raw_fields = values or []
+    if not isinstance(raw_fields, list):
+        raise HTTPException(status_code=422, detail="custom_fields must be a list")
+    if len(raw_fields) > 25:
+        raise HTTPException(status_code=422, detail="A case template can define at most 25 custom fields")
+
+    normalized: list[dict[str, Any]] = []
+    keys: set[str] = set()
+    labels: set[str] = set()
+    for value in raw_fields:
+        if isinstance(value, schemas.CaseTemplateCustomField):
+            value = value.model_dump()
+        if not isinstance(value, dict):
+            raise HTTPException(status_code=422, detail="Each custom field must be an object")
+
+        key = str(value.get("key") or "").strip().lower()
+        label = str(value.get("label") or "").strip()
+        field_type = str(value.get("field_type") or "text").strip().lower()
+        if not CUSTOM_FIELD_KEY_RE.fullmatch(key):
+            raise HTTPException(status_code=422, detail=f"Invalid custom field key: {key or '(blank)'}")
+        if key in keys:
+            raise HTTPException(status_code=422, detail=f"Duplicate custom field key: {key}")
+        if not label:
+            raise HTTPException(status_code=422, detail="Custom field labels are required")
+        if label.casefold() in labels:
+            raise HTTPException(status_code=422, detail=f"Duplicate custom field label: {label}")
+        if field_type not in CUSTOM_FIELD_TYPES:
+            raise HTTPException(status_code=422, detail=f"Unsupported custom field type: {field_type}")
+
+        options: list[str] = []
+        if field_type == "select":
+            source_options = value.get("options") or []
+            if not isinstance(source_options, list):
+                raise HTTPException(status_code=422, detail=f"Options for {label} must be a list")
+            for option in source_options:
+                cleaned = str(option or "").strip()
+                if cleaned and cleaned not in options:
+                    options.append(cleaned)
+            if not options:
+                raise HTTPException(status_code=422, detail=f"Dropdown field {label} requires at least one option")
+
+        definition = {
+            "key": key,
+            "label": label,
+            "field_type": field_type,
+            "required": bool(value.get("required", False)),
+            "options": options,
+            "default_value": None,
+        }
+        default_value = value.get("default_value")
+        if default_value is not None and default_value != "":
+            definition["default_value"] = _normalize_custom_value(definition, default_value)
+
+        keys.add(key)
+        labels.add(label.casefold())
+        normalized.append(definition)
+    return normalized
+
+
+def _normalize_case_custom_fields(
+    definitions: list[Any] | None,
+    values: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    normalized_definitions = _normalize_custom_fields(definitions)
+    raw_values = values or {}
+    if not isinstance(raw_values, dict):
+        raise HTTPException(status_code=422, detail="Case custom_fields must be an object")
+
+    allowed = {definition["key"] for definition in normalized_definitions}
+    unknown = sorted(set(raw_values) - allowed)
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Unsupported custom case fields", "fields": unknown},
+        )
+
+    result: dict[str, dict[str, Any]] = {}
+    missing: list[str] = []
+    for definition in normalized_definitions:
+        key = definition["key"]
+        source = raw_values[key] if key in raw_values else definition.get("default_value")
+        if source is None and definition["field_type"] == "checkbox":
+            source = False
+        normalized_value = _normalize_custom_value(definition, source)
+        if definition["required"] and (normalized_value is None or normalized_value == ""):
+            missing.append(f"custom_fields.{key}")
+        result[key] = {
+            "label": definition["label"],
+            "field_type": definition["field_type"],
+            "required": definition["required"],
+            "options": list(definition["options"]),
+            "value": normalized_value,
+        }
+    if missing:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Required case template fields are missing", "fields": missing},
+        )
+    return result
+
+
+def normalize_existing_case_custom_fields(
+    existing: dict[str, Any] | None,
+    values: dict[str, Any] | None,
+) -> dict[str, dict[str, Any]]:
+    existing = existing or {}
+    definitions: list[dict[str, Any]] = []
+    merged_values: dict[str, Any] = {}
+    for key, entry in existing.items():
+        if not isinstance(entry, dict):
+            continue
+        definitions.append({
+            "key": key,
+            "label": entry.get("label") or key.replace("_", " ").title(),
+            "field_type": entry.get("field_type") or "text",
+            "required": bool(entry.get("required", False)),
+            "options": entry.get("options") or [],
+        })
+        merged_values[key] = entry.get("value")
+    if values:
+        merged_values.update(values)
+    return _normalize_case_custom_fields(definitions, merged_values)
+
 def _set_default(db: Session, row: models.CaseTemplate, enabled: bool) -> None:
     if enabled:
         db.query(models.CaseTemplate).filter(models.CaseTemplate.id != row.id).update(
@@ -117,6 +288,8 @@ def _set_default(db: Session, row: models.CaseTemplate, enabled: bool) -> None:
 def apply_case_template(db: Session, payload: schemas.CaseCreate) -> tuple[schemas.CaseCreate, models.CaseTemplate | None]:
     template_id = getattr(payload, "case_template_id", None)
     if template_id is None:
+        if getattr(payload, "custom_fields", None):
+            raise HTTPException(status_code=422, detail="Custom fields require a case template")
         return payload, None
     template = db.get(models.CaseTemplate, int(template_id))
     if template is None or not template.enabled:
@@ -125,8 +298,10 @@ def apply_case_template(db: Session, payload: schemas.CaseCreate) -> tuple[schem
     defaults = _normalize_defaults(template.defaults)
     rules = _normalize_rules(template.field_rules)
     fields_set = set(getattr(payload, "model_fields_set", set()))
+    custom_definitions = _normalize_custom_fields(template.custom_fields)
     updates: dict[str, Any] = {}
 
+    updates["custom_fields"] = _normalize_case_custom_fields(custom_definitions, payload.custom_fields)
     if defaults.get("start_date_mode") == "today" and "start_date" not in fields_set:
         updates["start_date"] = date.today().isoformat()
 
@@ -193,6 +368,7 @@ def create_case_template(
     )
     row.defaults = _normalize_defaults(payload.defaults)
     row.field_rules = _normalize_rules(payload.field_rules)
+    row.custom_fields = _normalize_custom_fields(payload.custom_fields)
     db.add(row)
     try:
         db.flush()
@@ -240,6 +416,8 @@ def update_case_template(
         row.defaults = _normalize_defaults(payload.defaults)
     if "field_rules" in changed:
         row.field_rules = _normalize_rules(payload.field_rules)
+    if "custom_fields" in changed:
+        row.custom_fields = _normalize_custom_fields(payload.custom_fields)
     if "is_default" in changed and payload.is_default is not None:
         if payload.is_default and not row.enabled:
             raise HTTPException(status_code=422, detail="A disabled template cannot be the default")

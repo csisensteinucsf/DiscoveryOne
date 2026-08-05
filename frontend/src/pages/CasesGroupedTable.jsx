@@ -12,7 +12,7 @@ const SORT_OPTIONS = [
   { key: 'attorney', label: 'Internal counsel' },
   { key: 'analyst', label: 'Analyst' },
   { key: 'requestor', label: 'Requestor' },
-  { key: 'hold', label: 'Preservation count' },
+  { key: 'hold', label: 'Hold count' },
   { key: 'notes', label: 'Notes' },
 ]
 
@@ -122,7 +122,7 @@ export default function CasesGroupedTable({
         <div className="cases-table-toolbar__controls">
           <label className="cases-sort-select">
             <span>Sort by</span>
-            <select
+            <select className="cases-sort-select__input"
               value={caseSort.key}
               onChange={event => setCaseSort(current => ({ ...current, key: event.target.value }))}
             >
@@ -133,12 +133,12 @@ export default function CasesGroupedTable({
           </label>
           <button
             type="button"
-            className="icon-button"
+            className="icon-button cases-sort-direction"
             title={caseSort.dir === 'desc' ? 'Descending; switch to ascending' : 'Ascending; switch to descending'}
             aria-label={caseSort.dir === 'desc' ? 'Descending; switch to ascending' : 'Ascending; switch to descending'}
             onClick={() => setCaseSort(current => ({ ...current, dir: current.dir === 'desc' ? 'asc' : 'desc' }))}
           >
-            <DirectionIcon size={18} aria-hidden="true" />
+            <DirectionIcon size={16} aria-hidden="true" />
           </button>
           <label className="cases-group-toggle">
             <input
@@ -148,12 +148,12 @@ export default function CasesGroupedTable({
             />
             <span>Group by year</span>
           </label>
-          <button className="btn ghost" type="button" onClick={resetCaseFilters}>Reset</button>
+          <button className="btn ghost compact" type="button" onClick={resetCaseFilters}>Reset</button>
         </div>
       </div>
 
       <div className="table-scroll">
-        <table style={{ ...tableStyles.table, minWidth: Math.max(560, caseTableColumnCount * 125) }}>
+        <table style={{ ...tableStyles.table, minWidth: Math.max(720, caseTableColumnCount * 118) }}>
           <TableColumns />
           <thead>
             <tr>
@@ -220,14 +220,14 @@ export default function CasesGroupedTable({
                 style={{ ...tableStyles.headerCell, ...tableStyles.stateCell }}
               />}
               {columnVisible('holds') && <DataTableHeader
-                label="Preservation"
+                label="Holds"
                 sortKey="hold"
                 sort={caseSort}
                 onSort={toggleSort}
                 style={{ ...tableStyles.headerCell, ...tableStyles.statusCell }}
               />}
               {columnVisible('notes') && <DataTableHeader
-                label="Additional Notes / Comments"
+                label="Notes"
                 sortKey="notes"
                 sort={caseSort}
                 onSort={toggleSort}

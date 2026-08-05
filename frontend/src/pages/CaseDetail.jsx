@@ -474,7 +474,6 @@ export default function CaseDetail() {
   const [blockedConsent, setBlockedConsent] = useState(null)
   // bulk apply
   const [bulk, setBulk] = useState({ holds:false, ntp:false, consent:false })
-  const [releasingHolds, setReleasingHolds] = useState(false)
   // people
   const [users, setUsers] = useState([])
   const analystOptions = useMemo(
@@ -853,13 +852,12 @@ export default function CaseDetail() {
     ntpAutoNaReason,
     showToast,
   })
-  const { setAllTechPendingCompleted, applyTechHoldChanges, releaseAllHolds } = useCaseDetailTechHoldActions({
+  const { setAllTechPendingCompleted, applyTechHoldChanges } = useCaseDetailTechHoldActions({
     apiBase,
     caseId,
     custodians,
     setCustodians,
     isTech,
-    isReadOnly,
     techHoldsApplying,
     setTechHoldsApplying,
     holdsDirty,
@@ -867,18 +865,14 @@ export default function CaseDetail() {
     holdState,
     holdPatchForState,
     holdMetaByKey,
-    holdMetaForView,
     techHoldKeySet,
     savedHoldMap,
     holdsBaselineReady,
     setHoldBaseline,
     buildHoldState,
     submitCustodianBulkUpdate,
-    setReleasingHolds,
     confirmDialog,
     showToast,
-    preservationAutomationEnabled,
-    preservationProvider,
   })
 
   // resolve analyst name
@@ -983,8 +977,6 @@ export default function CaseDetail() {
               custodians={custodians}
               applyTechHoldChanges={applyTechHoldChanges}
               holdsDirty={holdsDirty}
-              releaseAllHolds={releaseAllHolds}
-              releasingHolds={releasingHolds}
               navigate={navigate}
               caseId={caseId}
               bulk={bulk}
@@ -1213,7 +1205,6 @@ export default function CaseDetail() {
         removeCustodianModal={removeCustodianModal}
         setRemoveCustodianModal={setRemoveCustodianModal}
         removeCustodian={removeCustodian}
-        releasingHolds={releasingHolds}
       />
       <CaseDetailAddDocModal
         open={showAddDocModal}

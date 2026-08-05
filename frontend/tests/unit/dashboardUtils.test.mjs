@@ -7,6 +7,7 @@ import {
   dashboardWidgetTitle,
   dashboardWidgetTypeLabel,
   mergePreservationDrilldownItems,
+  shouldCompactDashboardDrilldown,
 } from '../../src/pages/dashboardUtils.js'
 
 test('preservation widget keeps internal keys but uses user-facing wording', () => {
@@ -47,6 +48,12 @@ test('drilldown modal width shrinks for empty content and expands for tables', (
   assert.equal(dashboardDrilldownWidth('searches_list', 0), 480)
   assert.equal(dashboardDrilldownWidth('searches_list', 3), 1080)
   assert.equal(dashboardDrilldownWidth('unknown', 1), 760)
+})
+
+test('drilldown modal compacts only after loading confirms there are no items', () => {
+  assert.equal(shouldCompactDashboardDrilldown(false, 0), true)
+  assert.equal(shouldCompactDashboardDrilldown(true, 0), false)
+  assert.equal(shouldCompactDashboardDrilldown(false, 1), false)
 })
 
 test('custodian detail target prefers email and falls back to name', () => {

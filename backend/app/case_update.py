@@ -88,7 +88,7 @@ def update_case_record(
     case_core.ensure_case_editable(user)
     payload_fields = set(getattr(payload, "model_fields_set", set()) or set())
 
-    tracked_fields = ("name","legal_case_name","is_ler_hr","servicenow_inc_number","claimant","ler_representative","internal_counsel","outside_counsel","matter_number","requestor","closed","closed_at","is_private","color","description","analyst_id","start_date","rubrik_restore_ticket","box_hold_ticket","is_active_case","closure_nag_days")
+    tracked_fields = ("name","legal_case_name","is_ler_hr","servicenow_inc_number","claimant","ler_representative","internal_counsel","outside_counsel","matter_number","requestor","closed","closed_at","is_private","color","description","analyst_id","start_date","rubrik_restore_ticket","box_hold_ticket","is_active_case","closure_nag_days","custom_fields")
     _before = {k: getattr(case, k, None) for k in tracked_fields}
     _before["request_ticket_entries"] = getattr(case, "request_ticket_entries", []) or []
     was_closed = bool(case.closed)
@@ -200,6 +200,11 @@ def update_case_record(
                 sync_custodian_not_required_policy_to_memberships(db, cust)
     except Exception as exc:
         case_core._debug_suppressed("suppressed exception in cases.py:1753", exc)
+    if "custom_fields" in payload_fields:
+        from .case_templates import normalize_existing_case_custom_fields
+
+        case.custom_fields = normalize_existing_case_custom_fields(case.custom_fields, payload.custom_fields)
+
     entries_payload = getattr(payload, "request_ticket_entries", None)
     if entries_payload is not None:
         normalized_entries = case_core._normalize_request_ticket_entries(entries_payload, case) or []

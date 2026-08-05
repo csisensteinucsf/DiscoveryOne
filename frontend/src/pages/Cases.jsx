@@ -12,6 +12,11 @@ import CasesGroupedTable from './CasesGroupedTable.jsx'
 import { CasesTableRow, tableStyles } from './CasesTableRow.jsx'
 import { useCasesGrouping } from './useCasesGrouping.js'
 import {
+  customFieldsFromDefinitions,
+  customFieldValues,
+  normalizeStoredCustomFields,
+} from './caseCustomFields.js'
+import {
   defaultCaseForm,
   displayNameFromEmail,
   firstToken,
@@ -59,6 +64,7 @@ function formFromCaseTemplate(template, closureNagDays, current = {}) {
       .map(item => item.email)
       .join(', ')
   }
+  next.custom_fields = customFieldsFromDefinitions(template.custom_fields)
   next.case_template_id = String(template.id)
   next.name = current.name || next.name || ''
   next.legal_case_name = current.legal_case_name || next.legal_case_name || ''
@@ -303,6 +309,7 @@ export default function Cases({ apiBase }) {
       additional_requestors: extras,
       closure_nag_days: c.closure_nag_days ?? defaultClosureNagDays,
       case_template_id: c.case_template_id ? String(c.case_template_id) : '',
+      custom_fields: normalizeStoredCustomFields(c.custom_fields),
       closed: !!c.closed,
       is_private: !!c.is_private,
     })
@@ -488,6 +495,7 @@ export default function Cases({ apiBase }) {
       start_date: form.start_date,
       closure_nag_days: Number.isFinite(closureDays) ? closureDays : undefined,
       case_template_id: !editingId && form.case_template_id ? Number(form.case_template_id) : undefined,
+      custom_fields: customFieldValues(form.custom_fields),
     }
     const url = editingId ? `${apiBase}/cases/${editingId}` : `${apiBase}/cases`
     const method = editingId ? 'PUT' : 'POST'
@@ -669,7 +677,7 @@ export default function Cases({ apiBase }) {
     />
   )
   return (
-    <div>
+    <div className="cases-page">
       <div className="page-header">
         <h2>{casesPageTitle}</h2>
         <div className="cases-page-actions">
@@ -696,7 +704,7 @@ export default function Cases({ apiBase }) {
                       analyst: 'Analyst',
                       requestor: 'Requestor',
                       state: 'State',
-                      holds: 'Preservation',
+                      holds: 'Holds',
                       notes: 'Additional Notes / Comments',
                     })[key]}</span>
                   </label>

@@ -382,7 +382,7 @@ export default function CaseDetailNamedHoldsTab({
                             title={normalizeConsentStatus(member.consent_status) === 'awoc' ? 'AWOC is managed by the uploaded AWOC consent document.' : undefined}
                           >
                             {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            {normalizeConsentStatus(member.consent_status) === 'awoc' ? <option value="awoc">AWOC (document uploaded)</option> : null}
+                            {normalizeConsentStatus(member.consent_status) === 'awoc' ? <option value="awoc">AWOC</option> : null}
                           </select>
                         )}
                       </td>

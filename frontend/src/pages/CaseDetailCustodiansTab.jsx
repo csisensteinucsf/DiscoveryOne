@@ -1,4 +1,4 @@
-import { Badge, Button, InlineSpinner, Select } from './caseDetailControls.jsx'
+import { Badge, Button, Select } from './caseDetailControls.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
 import {
   CONSENT_STATUS_OPTIONS,
@@ -44,8 +44,6 @@ export default function CaseDetailCustodiansTab({
   custodians,
   applyTechHoldChanges,
   holdsDirty,
-  releaseAllHolds,
-  releasingHolds,
   navigate,
   caseId,
   bulk,
@@ -126,32 +124,6 @@ export default function CaseDetailCustodiansTab({
                     {!isTech && (
                       <button className="btn secondary" type="button" onClick={openSendNtp} disabled={sendingNtp || ntpButtonDisabled}>
                         {sendingNtp ? 'Sending...' : 'NTPs'}
-                      </button>
-                    )}
-                    {!isReadOnly && (
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => releaseAllHolds()}
-                        disabled={releasingHolds}
-                        aria-busy={releasingHolds}
-                        style={{
-                          background: 'var(--brand,#0f172a)',
-                          color: 'var(--brand-contrast,#fff)',
-                          border: '1px solid transparent',
-                          borderRadius: 999,
-                          padding: '8px 18px',
-                          fontWeight: 600,
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.25)',
-                          opacity: releasingHolds ? 0.7 : 1,
-                        }}
-                      >
-                        {releasingHolds ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                            <InlineSpinner size={12} color="rgba(255,255,255,0.95)" />
-                            Releasing Preservation...
-                          </span>
-                        ) : 'Release All Preservation'}
                       </button>
                     )}
                     {isRequestor && (
@@ -419,7 +391,7 @@ export default function CaseDetailCustodiansTab({
                                 title={normalizeConsentStatus(c.consent_status) === 'awoc' ? 'AWOC is managed by the uploaded AWOC consent document.' : undefined}
                               >
                                 {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                                {normalizeConsentStatus(c.consent_status) === 'awoc' ? <option value="awoc">AWOC (document uploaded)</option> : null}
+                                {normalizeConsentStatus(c.consent_status) === 'awoc' ? <option value="awoc">AWOC</option> : null}
                               </Select>
                             </td>
                           )}

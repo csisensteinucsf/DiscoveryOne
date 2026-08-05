@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { readFile } from 'node:fs/promises'
 
 import {
   CONSENT_STATUS_OPTIONS,
@@ -46,4 +47,26 @@ test('AWOC satisfies consent only as a recognized completed status', () => {
   assert.equal(isConsentComplete('implied'), true)
   assert.equal(isConsentComplete('sent'), false)
   assert.equal(CONSENT_STATUS_OPTIONS.some(option => option.value === 'awoc'), false)
+})
+
+test('AWOC consent selectors omit redundant uploaded-document wording', async () => {
+  const sources = await Promise.all([
+    readFile(new URL('../../src/pages/CaseDetailCustodiansTab.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/pages/CaseDetailNamedHoldsTab.jsx', import.meta.url), 'utf8'),
+  ])
+
+  for (const source of sources) {
+    assert.match(source, /<option value="awoc">AWOC<\/option>/)
+    assert.doesNotMatch(source, /AWOC \(document uploaded\)/)
+  }
+})
+
+test('custodians panel omits the case-wide preservation release control', async () => {
+  const source = await readFile(
+    new URL('../../src/pages/CaseDetailCustodiansTab.jsx', import.meta.url),
+    'utf8',
+  )
+
+  assert.doesNotMatch(source, /Release All Preservation/)
+  assert.doesNotMatch(source, /releaseAllHolds/)
 })

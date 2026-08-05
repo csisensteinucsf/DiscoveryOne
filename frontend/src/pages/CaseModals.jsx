@@ -1,4 +1,5 @@
 import Modal from '../components/Modal.jsx'
+import CaseCustomFieldsEditor from './CaseCustomFieldsEditor.jsx'
 
 export function CaseEditorModal({
   open,
@@ -231,6 +232,10 @@ export function CaseEditorModal({
             }}
           />
         </label>}
+        <CaseCustomFieldsEditor
+          customFields={form.custom_fields}
+          onChange={custom_fields => setForm(current => ({ ...current, custom_fields }))}
+        />
       </form>
     </Modal>
   )

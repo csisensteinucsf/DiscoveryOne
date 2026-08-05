@@ -120,6 +120,7 @@ class Case(Base):
     last_search_delivery_reminder_at = Column(DateTime(timezone=True), nullable=True)
     closure_nag_days = Column(Integer, nullable=False, default=180)
     case_template_id = Column(Integer, ForeignKey("case_templates.id", ondelete="SET NULL"), nullable=True, index=True)
+    custom_fields_raw = Column("custom_fields", Text, nullable=False, default="{}")
 
 
 
@@ -129,6 +130,23 @@ class Case(Base):
     requestors = relationship("CaseRequestor", back_populates="case", cascade="all, delete-orphan")
     holds = relationship("CaseHold", back_populates="case", cascade="all, delete-orphan", order_by="CaseHold.sort_order")
     case_template = relationship("CaseTemplate", back_populates="cases")
+
+    @property
+    def custom_fields(self):
+        raw = self.custom_fields_raw
+        if isinstance(raw, dict):
+            return raw
+        if isinstance(raw, (bytes, str)) and raw:
+            try:
+                value = json.loads(raw)
+                return value if isinstance(value, dict) else {}
+            except Exception:
+                return {}
+        return {}
+
+    @custom_fields.setter
+    def custom_fields(self, value):
+        self.custom_fields_raw = json.dumps(value or {})
 
     @property
     def request_ticket_entries(self):
@@ -190,6 +208,7 @@ class CaseTemplate(Base):
     defaults_raw = Column("defaults", Text, nullable=False, default="{}")
     field_rules_raw = Column("field_rules", Text, nullable=False, default="{}")
     created_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    custom_fields_raw = Column("custom_fields", Text, nullable=False, default="[]")
     updated_by_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -225,6 +244,23 @@ class CaseTemplate(Base):
     @field_rules.setter
     def field_rules(self, value):
         self.field_rules_raw = json.dumps(value or {})
+
+    @property
+    def custom_fields(self):
+        raw = self.custom_fields_raw
+        if isinstance(raw, list):
+            return raw
+        if isinstance(raw, (bytes, str)) and raw:
+            try:
+                value = json.loads(raw)
+                return value if isinstance(value, list) else []
+            except Exception:
+                return []
+        return []
+
+    @custom_fields.setter
+    def custom_fields(self, value):
+        self.custom_fields_raw = json.dumps(value or [])
 
 class Custodian(Base):
     __tablename__ = "custodians"

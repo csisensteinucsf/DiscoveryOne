@@ -887,6 +887,7 @@ def create_case(payload: schemas.CaseCreate, db: Session = Depends(get_db), requ
             start_date=sd,
             case_template_id=case_template.id if case_template else None,
         )
+        case.custom_fields = payload.custom_fields
         entries_payload = getattr(payload, "request_ticket_entries", None)
         if entries_payload is not None:
             normalized_entries = _normalize_request_ticket_entries(entries_payload, case) or []

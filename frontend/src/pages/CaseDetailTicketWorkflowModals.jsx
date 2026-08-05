@@ -1,5 +1,4 @@
 import Modal from '../components/Modal.jsx'
-import LoadingOverlay from '../components/LoadingOverlay.jsx'
 import { Badge } from './caseDetailControls.jsx'
 import { REQUEST_TICKET_CATEGORY_LOOKUP } from './ticketWorkflowCatalog.js'
 import { workflowUsesAccessLogDetailsStatic, entryAccessLogTimeWindows } from './caseDetailUtils.js'
@@ -36,7 +35,6 @@ export default function CaseDetailTicketWorkflowModals({
   removeCustodianModal,
   setRemoveCustodianModal,
   removeCustodian,
-  releasingHolds,
 }) {
   return (
     <>
@@ -319,11 +317,6 @@ export default function CaseDetailTicketWorkflowModals({
           </div>
         </Modal>
       )}
-      <LoadingOverlay
-        visible={releasingHolds}
-        title="Releasing holds"
-        subtitle="This can take a few minutes. Please do not close the window."
-      />
     </>
   )
 }

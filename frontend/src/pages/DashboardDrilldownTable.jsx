@@ -38,7 +38,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
     ].map(x => String(x || '').toLowerCase()).join(' ')
     return hay.includes(q)
   })
-  if (!filtered.length) return <div className="empty">No matching results.</div>
+  if (!filtered.length) return <div className="empty dashboard-drilldown-empty">No matching results.</div>
 
   if (kind === 'cases_list') {
     return (

@@ -603,6 +603,11 @@ label, .form-check-label { white-space: normal; }
   color: var(--muted,#64748b);
 }
 
+.dashboard-drilldown-empty {
+  padding: 12px 16px;
+  border-radius: 10px;
+}
+
 table {
   color: var(--text);
   width: 100%;
@@ -1642,6 +1647,118 @@ body.theme-dark .nav a[aria-current="page"] {
   width: 100%;
 }
 
+.case-template-options {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.form-grid .case-template-option,
+.case-template-custom-field .case-template-option {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  width: max-content;
+  font-weight: 500;
+}
+
+.case-template-option input {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.case-template-custom-fields {
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #dbe3ec;
+}
+
+.case-template-custom-fields__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.case-template-custom-fields__heading p {
+  margin: 3px 0 0;
+  color: var(--muted, #6b7280);
+  font-size: 13px;
+}
+
+.case-template-custom-field {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.1fr) 140px 110px minmax(180px, 1fr) 36px;
+  align-items: end;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.case-template-custom-field > label:not(.case-template-option) {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-weight: 500;
+}
+
+.case-template-custom-field .case-template-option {
+  align-self: end;
+  min-height: 38px;
+}
+
+.case-template-custom-field input:not([type='checkbox']),
+.case-template-custom-field select,
+.case-template-custom-field textarea {
+  width: 100%;
+}
+
+.case-template-custom-field__options {
+  grid-column: 1 / -2;
+}
+
+.custom-case-fields {
+  margin-top: 4px;
+  padding-top: 14px;
+  border-top: 1px solid #dbe3ec;
+}
+
+.custom-case-fields h4 {
+  margin: 0 0 10px;
+}
+
+.custom-case-fields__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.custom-case-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.custom-case-field--wide {
+  grid-column: 1 / -1;
+}
+
+.custom-case-field__checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+}
+
+.custom-case-field__checkbox input {
+  margin: 0;
+}
+
 .system-view-nav {
   display: flex;
   align-items: center;
@@ -1948,4 +2065,105 @@ body.theme-dark .nav a[aria-current="page"] {
 
 .named-hold-related-table {
   margin-bottom: 8px;
+}
+/* Cases use the available workspace width while other pages retain the standard measure. */
+.wrap.wrap--wide {
+  max-width: 1760px;
+  padding-inline: 18px;
+}
+
+.cases-page .page-header {
+  margin-bottom: 12px;
+}
+
+.cases-page-actions .btn {
+  padding: 0.4rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.cases-table-card {
+  width: 100%;
+  padding: 12px;
+}
+/* Compact Cases controls and allow complete column labels to wrap. */
+.cases-table-card .data-table-header {
+  gap: 2px;
+  min-height: 24px;
+}
+
+.cases-table-card .data-table-header__sort {
+  gap: 3px;
+  padding: 2px 0;
+  line-height: 1.15;
+}
+
+.cases-table-card .data-table-header__sort span,
+.cases-table-card .data-table-header__label {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.cases-table-card .data-table-header__filter {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  flex: 0 0 24px;
+}
+
+.cases-table-card .data-table-header svg {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+}
+
+.cases-table-card .cases-table-toolbar {
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cases-table-card .cases-table-toolbar h3 {
+  font-size: 17px;
+}
+
+.cases-table-card .cases-table-toolbar__controls {
+  gap: 5px;
+}
+
+.cases-table-card .cases-sort-select {
+  gap: 5px;
+  font-size: 12px;
+}
+
+.cases-table-card .cases-sort-select__input {
+  min-width: 132px;
+  height: 30px;
+  padding: 4px 28px 4px 8px;
+  font-size: 12px;
+}
+
+.cases-table-card .cases-sort-direction {
+  width: 28px;
+  height: 28px;
+}
+
+.cases-table-card .cases-group-toggle {
+  gap: 5px;
+  min-height: 28px;
+  font-size: 12px;
+}
+
+.cases-table-card .cases-table-toolbar .btn.compact {
+  padding: 0.3rem 0.55rem;
+  font-size: 12px;
+}
+
+.cases-table-card tbody .btn.compact {
+  padding: 0.25rem 0.45rem;
+  font-size: 12px;
+}
+@media (max-width: 1100px) {
+  .wrap.wrap--wide {
+    padding-inline: 12px;
+  }
 }

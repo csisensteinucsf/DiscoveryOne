@@ -408,6 +408,7 @@ class CaseBase(BaseModel):
     is_active_case: bool = False
     start_date: Optional[date] = None
     closure_nag_days: Optional[int] = Field(default=None, ge=1, le=3650, description="Days between closure reminders")
+    custom_fields: Dict[str, Any] = Field(default_factory=dict)
 
 class CaseCreate(CaseBase):
     case_template_id: Optional[int] = Field(default=None, ge=1)
@@ -434,6 +435,14 @@ class CaseTemplateFieldRule(BaseModel):
     required: bool = False
 
 
+class CaseTemplateCustomField(BaseModel):
+    key: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=120)
+    field_type: Literal["text", "textarea", "number", "date", "checkbox", "select"] = "text"
+    required: bool = False
+    options: List[str] = Field(default_factory=list)
+    default_value: Any = None
+
 class CaseTemplateBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: Optional[str] = Field(default=None, max_length=2000)
@@ -443,6 +452,7 @@ class CaseTemplateBase(BaseModel):
     defaults: Dict[str, Any] = Field(default_factory=dict)
     field_rules: Dict[str, CaseTemplateFieldRule] = Field(default_factory=dict)
 
+    custom_fields: List[CaseTemplateCustomField] = Field(default_factory=list)
 
 class CaseTemplateCreate(CaseTemplateBase):
     pass
@@ -457,6 +467,7 @@ class CaseTemplateUpdate(BaseModel):
     defaults: Optional[Dict[str, Any]] = None
     field_rules: Optional[Dict[str, CaseTemplateFieldRule]] = None
 
+    custom_fields: Optional[List[CaseTemplateCustomField]] = None
 
 class CaseTemplateRead(CaseTemplateBase):
     id: int
@@ -487,6 +498,7 @@ class CaseUpdate(BaseModel):
     is_active_case: Optional[bool] = None
     start_date: Optional[str] = None
     closure_nag_days: Optional[int] = Field(default=None, ge=1, le=3650)
+    custom_fields: Optional[Dict[str, Any]] = None
     model_config = ConfigDict(from_attributes=True)
 
 

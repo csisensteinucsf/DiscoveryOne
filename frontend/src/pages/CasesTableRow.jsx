@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
 
-function PreservationCountBadge({ count }) {
+function HoldCountBadge({ count }) {
   const total = Number(count || 0)
   const title = total === 1
-    ? '1 custodian with active preservation'
-    : `${total} custodians with active preservation`
+    ? '1 Hold in this case'
+    : `${total} Holds in this case`
   return (
     <span
       className={total > 0 ? 'case-hold-count is-active' : 'case-hold-count'}
@@ -18,42 +18,43 @@ function PreservationCountBadge({ count }) {
 export const tableStyles = {
   table: {
     width: '100%',
-    minWidth: 1350,
+    minWidth: 1180,
     borderCollapse: 'collapse',
-    fontSize: 14,
+    fontSize: 13,
     tableLayout: 'fixed',
   },
   headerCell: {
-    whiteSpace: 'nowrap',
-    fontSize: 12,
+    whiteSpace: 'normal',
+    fontSize: 11,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0,
+    lineHeight: 1.15,
     color: 'var(--muted,#475467)',
-    padding: '8px 10px',
+    padding: '6px 7px',
     background: '#eef2f6',
     borderBottom: '1px solid #e5e7eb',
   },
   row: { borderBottom: '1px solid var(--border,#1f2937)' },
-  cell: { padding: '10px', verticalAlign: 'middle' },
-  caseNameCell: { width: 160 },
+  cell: { padding: '8px 7px', verticalAlign: 'middle' },
+  caseNameCell: { width: 190 },
   legalCaseCell: { width: 180 },
-  matterCell: { width: 120 },
-  counselCell: { width: 145 },
-  analystCell: { width: 95 },
-  requestorCell: { width: 145 },
-  stateCell: { width: 90, textAlign: 'center' },
-  statusCell: { width: 95, textAlign: 'center' },
+  matterCell: { width: 135 },
+  counselCell: { width: 170 },
+  analystCell: { width: 105 },
+  requestorCell: { width: 155 },
+  stateCell: { width: 80, textAlign: 'center' },
+  statusCell: { width: 75, textAlign: 'center' },
   notesCell: { width: 220 },
   actionsCell: {
-    padding: '10px',
-    width: 235,
+    padding: '7px',
+    width: 160,
     whiteSpace: 'nowrap',
     textAlign: 'right',
   },
   actionsInner: {
     display: 'inline-flex',
     justifyContent: 'flex-end',
-    gap: '0.4rem',
+    gap: '0.25rem',
     alignItems: 'center',
   },
 }
@@ -74,7 +75,7 @@ export function CasesTableRow({
 }) {
   const columnVisible = key => visibleColumns.includes(key)
   const caseStats = stats[c.id] || stats[String(c.id)] || {}
-  const preservationCount = caseStats.hold ?? 0
+  const holdCount = caseStats.namedHoldCount ?? caseStats.holdCount ?? 0
   const primaryCaseName = useLegalCaseNameAsPrimary
     ? (c.legal_case_name || c.name || '')
     : (c.name || c.legal_case_name || '')
@@ -109,7 +110,7 @@ export function CasesTableRow({
         </span>
       </td>}
       {columnVisible('holds') && <td style={{ ...tableStyles.cell, ...tableStyles.statusCell }}>
-        <PreservationCountBadge count={preservationCount} />
+        <HoldCountBadge count={holdCount} />
       </td>}
       {columnVisible('notes') && <td style={{ ...tableStyles.cell, ...tableStyles.notesCell }}>
         <span className="case-notes-preview" title={notes}>{notes || '-'}</span>

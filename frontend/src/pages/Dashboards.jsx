@@ -10,6 +10,7 @@ import {
   custodianDetailPath,
   dashboardDrilldownWidth,
   mergePreservationDrilldownItems,
+  shouldCompactDashboardDrilldown,
 } from './dashboardUtils.js'
 
 function makeId(prefix = 'id') {
@@ -394,6 +395,8 @@ export default function Dashboards({ apiBase = '/api' }) {
     setDrillOpen(true)
   }
 
+  const compactDrilldown = shouldCompactDashboardDrilldown(drillLoading, drillItems.length)
+
   if (loading) return <div className="card" style={{ marginTop: 24 }}>Loading…</div>
 
   const dashboards = cfg?.dashboards || []
@@ -536,6 +539,7 @@ export default function Dashboards({ apiBase = '/api' }) {
           title={drillTitle || 'Details'}
           onClose={() => setDrillOpen(false)}
           width={dashboardDrilldownWidth(drillKind, drillItems.length)}
+          bodyStyle={compactDrilldown ? { paddingBlock: 12, flex: '0 1 auto' } : undefined}
           footer={(
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, width: '100%' }}>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -545,10 +549,12 @@ export default function Dashboards({ apiBase = '/api' }) {
             </div>
           )}
         >
+          {!compactDrilldown && (
           <div className="field">
             <label>Filter</label>
             <input value={drillFilter} onChange={(e) => setDrillFilter(e.target.value)} placeholder="Search case, custodian, status…" />
           </div>
+          )}
           <DrilldownTable
             kind={drillKind}
             items={drillItems}

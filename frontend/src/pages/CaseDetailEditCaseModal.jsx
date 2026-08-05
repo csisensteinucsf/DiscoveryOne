@@ -1,5 +1,6 @@
 import { EditCaseModal } from './CaseDetailModals.jsx'
 import { isValidEmail } from './caseDetailUtils.js'
+import { customFieldValues, normalizeStoredCustomFields } from './caseCustomFields.js'
 
 export default function CaseDetailEditCaseModal({
   open,
@@ -34,6 +35,7 @@ export default function CaseDetailEditCaseModal({
         closed: !!caseData?.closed,
         is_private: !!caseData?.is_private,
         closure_nag_days: caseData?.closure_nag_days ?? defaultClosureNagDays,
+        custom_fields: normalizeStoredCustomFields(caseData?.custom_fields),
       }}
       analysts={analystOptions}
       requestorOptions={requestorOptions}
@@ -86,6 +88,7 @@ export default function CaseDetailEditCaseModal({
             closed: !!form.closed,
             is_private: !!form.is_private,
             closure_nag_days: Number.isFinite(closureDays) ? closureDays : undefined,
+            custom_fields: customFieldValues(form.custom_fields),
           }
           const updated = await updateCase(patch)
           onClose()

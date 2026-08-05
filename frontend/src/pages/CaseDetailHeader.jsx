@@ -1,4 +1,5 @@
 import { Badge } from './caseDetailControls.jsx'
+import { formatCustomFieldValue } from './caseCustomFields.js'
 
 export default function CaseDetailHeader({
   caseData,
@@ -90,6 +91,11 @@ export default function CaseDetailHeader({
               <div><strong style={{ color: 'var(--text,#0f172a)' }}>Claimant:</strong> {caseData?.claimant || '-'}</div>
               <div><strong style={{ color: 'var(--text,#0f172a)' }}>Start Date:</strong> {caseData?.start_date ? formatDate(caseData.start_date) : '-'}</div>
               <div><strong style={{ color: 'var(--text,#0f172a)' }}>Last Updated:</strong> {caseData?.updated_at ? formatDate(caseData.updated_at) : '-'}</div>
+              {Object.entries(caseData?.custom_fields || {}).map(([key, field]) => (
+                <div key={key}>
+                  <strong style={{ color: 'var(--text,#0f172a)' }}>{field?.label || key.replaceAll('_', ' ')}:</strong> {formatCustomFieldValue(field)}
+                </div>
+              ))}
             </div>
           )}
           {!isTech && caseData?.description ? (

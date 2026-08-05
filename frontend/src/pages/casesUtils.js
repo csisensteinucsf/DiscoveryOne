@@ -17,6 +17,7 @@ export const defaultCaseForm = (closureNagDays = 180) => ({
   closure_nag_days: closureNagDays,
   closed: false,
   is_private: false,
+  custom_fields: {},
 })
 
 export const looksLikeEmail = (value) => EMAIL_REGEX.test((value || '').trim())

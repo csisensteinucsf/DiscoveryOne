@@ -52,6 +52,10 @@ export function dashboardDrilldownWidth(kind, itemCount) {
   return widths[kind] || 760
 }
 
+export function shouldCompactDashboardDrilldown(loading, itemCount) {
+  return !loading && Number(itemCount || 0) === 0
+}
+
 export function custodianDetailPath(item) {
   const params = new URLSearchParams()
   const email = String(item?.custodian_email || '').trim()

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from io import BytesIO
 from types import SimpleNamespace
@@ -16,6 +17,7 @@ from app import (
     case_holds,
     case_import,
     case_request_approval_mutation,
+    case_request_files,
     case_templates,
     case_update,
     cases,
@@ -217,6 +219,122 @@ def test_case_template_today_start_date_round_trips_through_case_create(db_sessi
         _user=admin,
     )
     assert result.start_date is not None
+
+
+def test_case_template_custom_fields_are_validated_snapshotted_and_editable(db_session):
+    admin = _user(db_session, username="custom-fields-admin")
+
+    with pytest.raises(HTTPException, match="requires at least one option"):
+        case_templates.create_case_template(
+            schemas.CaseTemplateCreate(
+                name="Invalid Custom Fields",
+                custom_fields=[
+                    {
+                        "key": "business_unit",
+                        "label": "Business unit",
+                        "field_type": "select",
+                        "options": [],
+                    }
+                ],
+            ),
+            request=None,
+            db=db_session,
+            user=admin,
+        )
+
+    template = case_templates.create_case_template(
+        schemas.CaseTemplateCreate(
+            name="Organization Matter",
+            custom_fields=[
+                {
+                    "key": "business_unit",
+                    "label": "Business unit",
+                    "field_type": "select",
+                    "required": True,
+                    "options": ["Legal", "HR"],
+                },
+                {
+                    "key": "estimated_volume",
+                    "label": "Estimated volume",
+                    "field_type": "number",
+                    "default_value": 12.5,
+                },
+                {
+                    "key": "urgent",
+                    "label": "Urgent",
+                    "field_type": "checkbox",
+                },
+            ],
+        ),
+        request=None,
+        db=db_session,
+        user=admin,
+    )
+    assert template["custom_fields"][1]["default_value"] == 12.5
+
+    with pytest.raises(HTTPException) as missing_required:
+        case_templates.apply_case_template(
+            db_session,
+            schemas.CaseCreate(name="Missing Business Unit", case_template_id=template["id"]),
+        )
+    assert missing_required.value.detail["fields"] == ["custom_fields.business_unit"]
+
+    created = cases.create_case(
+        schemas.CaseCreate(
+            name="Custom Field Matter",
+            case_template_id=template["id"],
+            custom_fields={"business_unit": "Legal"},
+        ),
+        db=db_session,
+        request=None,
+        _user=admin,
+    )
+    assert created.custom_fields["business_unit"]["value"] == "Legal"
+    assert created.custom_fields["estimated_volume"]["value"] == 12.5
+    assert created.custom_fields["urgent"]["value"] is False
+
+    updated = case_update.update_case_record(
+        case_id=created.id,
+        payload=schemas.CaseUpdate(custom_fields={"business_unit": "HR", "urgent": True}),
+        db=db_session,
+        request=None,
+        user=admin,
+    )
+    assert updated.custom_fields["business_unit"]["value"] == "HR"
+    assert updated.custom_fields["estimated_volume"]["value"] == 12.5
+    assert updated.custom_fields["urgent"]["value"] is True
+
+    case_templates.update_case_template(
+        template["id"],
+        schemas.CaseTemplateUpdate(
+            custom_fields=[
+                {
+                    "key": "business_unit",
+                    "label": "Department",
+                    "field_type": "select",
+                    "required": True,
+                    "options": ["Legal", "HR", "Finance"],
+                }
+            ]
+        ),
+        request=None,
+        db=db_session,
+        user=admin,
+    )
+    stored = db_session.get(models.Case, created.id)
+    assert stored.custom_fields["business_unit"]["label"] == "Business unit"
+    assert "estimated_volume" in stored.custom_fields
+
+    with pytest.raises(HTTPException) as unknown_field:
+        case_update.update_case_record(
+            case_id=created.id,
+            payload=schemas.CaseUpdate(custom_fields={"not_in_snapshot": "value"}),
+            db=db_session,
+            request=None,
+            user=admin,
+        )
+    assert unknown_field.value.detail["fields"] == ["not_in_snapshot"]
+
 
 
 def test_used_case_template_cannot_be_deleted(db_session):
@@ -485,3 +603,67 @@ def test_silent_implied_and_awoc_status_rules(db_session):
     hold_workflows.set_membership_consent_status(db_session, membership, "awoc")
     assert membership.consent_status == "awoc"
     assert db_session.get(models.Custodian, custodian.id).consent_status == "awoc"
+
+
+def test_awoc_upload_flushes_proof_before_status_gate(db_session, monkeypatch):
+    actor = _user(db_session, username="awoc-admin")
+    case = _case(db_session, name="AWOC Upload Matter")
+    custodian = models.Custodian(
+        case_id=case.id,
+        name="AWOC Person",
+        email="awoc.person@example.edu",
+    )
+    hold = models.CaseHold(case_id=case.id, name="Hold A", status="active")
+    db_session.add_all([custodian, hold])
+    db_session.flush()
+    membership = models.HoldCustodian(hold_id=hold.id, custodian_id=custodian.id)
+    db_session.add(membership)
+    db_session.commit()
+    db_session.autoflush = False
+
+    async def fake_read_blob(*_args, **_kwargs):
+        return {
+            "filename": "awoc-consent.pdf",
+            "content_type": "application/pdf",
+            "size": 100,
+            "data": b"awoc",
+        }
+
+    monkeypatch.setattr(case_request_files, "_read_consent_proof_blob", fake_read_blob)
+    monkeypatch.setattr(case_request_files, "_write_consent_proof_file", lambda _blob: "stored-awoc-consent.pdf")
+    monkeypatch.setattr(case_request_files, "_cleanup_consent_proof_file", lambda *_args: None)
+    monkeypatch.setattr(case_request_files, "_sync_case_documentation_counters", lambda *_args: None)
+    monkeypatch.setattr(case_request_files, "log_event", lambda *_args, **_kwargs: None)
+
+    class UploadRequest:
+        async def form(self):
+            return {
+                "file": SimpleNamespace(filename="awoc-consent.pdf"),
+                "case_hold_id": str(hold.id),
+                "custodian_id": str(custodian.id),
+                "custodian_name": custodian.name,
+                "custodian_email": custodian.email,
+                "proof_type": "awoc",
+            }
+
+    result = asyncio.run(
+        case_request_files.upload_case_consent_proof(
+            case.id,
+            UploadRequest(),
+            db=db_session,
+            actor=actor,
+        )
+    )
+
+    db_session.refresh(membership)
+    proof = (
+        db_session.query(models.CaseRequestConsentProof)
+        .filter(
+            models.CaseRequestConsentProof.hold_custodian_id == membership.id,
+            models.CaseRequestConsentProof.proof_type == "awoc",
+        )
+        .one()
+    )
+    assert membership.consent_status == "awoc"
+    assert proof.id is not None
+    assert result["proof_type"] == "awoc"

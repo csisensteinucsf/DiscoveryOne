@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import Modal from '../components/Modal.jsx'
 import { Field, TextInput, Select, Button } from './caseDetailControls.jsx'
 import { displayUserName } from './caseDetailUtils.js'
+import CaseCustomFieldsEditor from './CaseCustomFieldsEditor.jsx'
 export function EditCaseModal({ initial, analysts, requestorOptions, onClose, onSave, useLegalCaseNameAsPrimary = false, internalCounselLabel = 'Internal Counsel' }) {
   const [form, setForm] = useState({ ...initial, additional_requestors: '' })
   useEffect(() => {
@@ -134,6 +135,10 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
           placeholder="180"
         />
       </Field>
+      <CaseCustomFieldsEditor
+        customFields={form.custom_fields}
+        onChange={custom_fields => setForm({ ...form, custom_fields })}
+      />
     </Modal>
   )
 }

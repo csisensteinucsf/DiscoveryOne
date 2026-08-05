@@ -320,7 +320,7 @@ function Shell() {
       <main id="main-content" style={{ flex: 1 }}>
         <HelpButton />
         {showSidebar && <AccountMenu user={user} onLogout={doLogout} />}
-        <div className="wrap">
+        <div className={loc.pathname === '/cases' ? 'wrap wrap--wide' : 'wrap'}>
           {needsEmployeeId && (
             <div className="card" style={{ marginBottom: 16, borderLeft: '4px solid #f97316' }}>
               <p style={{ margin: 0, fontWeight: 600, color: '#b45309' }}>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
+import SystemCaseTemplateCustomFields from './SystemCaseTemplateCustomFields.jsx'
 
 const TEMPLATE_FIELDS = [
   ['legal_case_name', 'Case name', 'text'],
@@ -26,6 +27,7 @@ const emptyEditor = () => ({
   sort_order: 100,
   defaults: {},
   field_rules: Object.fromEntries(TEMPLATE_FIELDS.map(([key]) => [key, { visible: true, required: false }])),
+  custom_fields: [],
 })
 
 const normalizeEditor = template => ({
@@ -36,6 +38,10 @@ const normalizeEditor = template => ({
     key,
     { visible: true, required: false, ...(template?.field_rules?.[key] || {}) },
   ])),
+  custom_fields: (template?.custom_fields || []).map(field => ({
+    ...field,
+    options: [...(field.options || [])],
+  })),
 })
 
 const responseError = async response => {
@@ -86,6 +92,14 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
       setStatus('Template name is required.')
       return
     }
+    if ((editor.custom_fields || []).some(field => !field.label?.trim())) {
+      setStatus('Every custom field needs a label.')
+      return
+    }
+    if ((editor.custom_fields || []).some(field => field.field_type === 'select' && !field.options?.length)) {
+      setStatus('Every dropdown custom field needs at least one option.')
+      return
+    }
     setBusy(true)
     setStatus('')
     const defaults = { ...editor.defaults }
@@ -101,6 +115,11 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
       sort_order: Number(editor.sort_order || 0),
       defaults,
       field_rules: editor.field_rules,
+      custom_fields: (editor.custom_fields || []).map(field => ({
+        ...field,
+        label: field.label.trim(),
+        options: field.field_type === 'select' ? field.options : [],
+      })),
     }
     const response = await fetch(`${apiBase}/case-templates${editor.id ? `/${editor.id}` : ''}`, {
       method: editor.id ? 'PUT' : 'POST',
@@ -185,8 +204,10 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
           <label>Template name<input value={editor.name} onChange={event => setEditor(current => ({ ...current, name: event.target.value }))} required /></label>
           <label>Display order<input type="number" value={editor.sort_order} onChange={event => setEditor(current => ({ ...current, sort_order: Number(event.target.value) }))} /></label>
           <label style={{ gridColumn: '1 / -1' }}>Description<textarea rows={2} value={editor.description} onChange={event => setEditor(current => ({ ...current, description: event.target.value }))} /></label>
-          <label className="checkbox-row"><input type="checkbox" checked={editor.enabled} onChange={event => setEditor(current => ({ ...current, enabled: event.target.checked, is_default: event.target.checked ? current.is_default : false }))} /> Enabled</label>
-          <label className="checkbox-row"><input type="checkbox" checked={editor.is_default} disabled={!editor.enabled} onChange={event => setEditor(current => ({ ...current, is_default: event.target.checked }))} /> Use by default for new cases</label>
+          <div className="case-template-options" style={{ gridColumn: '1 / -1' }}>
+            <label className="case-template-option"><input type="checkbox" checked={editor.enabled} onChange={event => setEditor(current => ({ ...current, enabled: event.target.checked, is_default: event.target.checked ? current.is_default : false }))} /><span>Enabled</span></label>
+            <label className="case-template-option"><input type="checkbox" checked={editor.is_default} disabled={!editor.enabled} onChange={event => setEditor(current => ({ ...current, is_default: event.target.checked }))} /><span>Default</span></label>
+          </div>
         </div>
         <div className="case-template-fields" style={{ marginTop: 18 }}>
           <div className="case-template-fields__header"><strong>Field</strong><strong>Show</strong><strong>Require</strong><strong>Default value</strong></div>
@@ -195,6 +216,7 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
             return <div className="case-template-fields__row" key={field}><span>{label}</span><input type="checkbox" aria-label={`Show ${label}`} checked={rule.visible} onChange={event => updateRule(field, 'visible', event.target.checked)} /><input type="checkbox" aria-label={`Require ${label}`} checked={rule.required} disabled={!rule.visible} onChange={event => updateRule(field, 'required', event.target.checked)} /><div>{defaultInput(field, type)}</div></div>
           })}
         </div>
+        <SystemCaseTemplateCustomFields editor={editor} setEditor={setEditor} />
       </Modal>}
     </div>
   )
