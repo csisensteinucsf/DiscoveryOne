@@ -47,6 +47,7 @@ export default function CaseRequestModal({
   const autofillNonce = useMemo(() => Math.random().toString(36).slice(2), [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showMissingRequired, setShowMissingRequired] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
   const [caseNamingMode, setCaseNamingMode] = useState('legal_case_name')
   const [configuredHoldOptions, setConfiguredHoldOptions] = useState(() => holdOptionsFromPreservationSources(null))
@@ -61,6 +62,7 @@ export default function CaseRequestModal({
     claimant: '',
     description: '',
     is_private: false,
+    is_test_case: false,
     additional_requestors: '',
     custodianMode: isSearch ? 'none' : 'manual',
     custodians: [makeCustodian()],
@@ -237,6 +239,7 @@ export default function CaseRequestModal({
     setAdditionalVersaSearches([])
     setSearchRequestsFinalized(false)
     setCustodianProofFiles({})
+    setShowMissingRequired(false)
     setStep(1)
     setHoldOpen({})
     resetLookupState()
@@ -403,6 +406,12 @@ export default function CaseRequestModal({
     return true
   }, [custodianInputSatisfied, effectiveRequestCaseName, isNewCase, loading, missingProofs, searchIncluded, step, totalSearchCount, useWizard])
 
+  useEffect(() => {
+    if (!showMissingRequired) return
+    const currentStepIsValid = step === 1 ? canAdvanceFromStep1 : step === 2 ? canAdvanceFromStep2 : canSubmit
+    if (currentStepIsValid) setShowMissingRequired(false)
+  }, [canAdvanceFromStep1, canAdvanceFromStep2, canSubmit, showMissingRequired, step])
+
   const submit = async ({ searchesOverride } = {}) => {
     setError('')
     setLoading(true)
@@ -427,6 +436,7 @@ export default function CaseRequestModal({
         claimant: form.claimant?.trim() || undefined,
         description: form.description?.trim() || undefined,
         is_private: isNewCase ? !!form.is_private : undefined,
+        is_test_case: isNewCase ? !!form.is_test_case : undefined,
         custodian_entry_mode: form.custodianMode === 'upload' ? 'manual' : form.custodianMode,
         custodians: custodianPayload,
         ntp_all_sent: !!form.ntpAllSent,
@@ -533,14 +543,24 @@ export default function CaseRequestModal({
       return
     }
     if (step === 1) {
-      if (!canAdvanceFromStep1) return
+      if (!canAdvanceFromStep1) {
+        setError('')
+        setShowMissingRequired(true)
+        return
+      }
+      setShowMissingRequired(false)
       const locked = lockCustodiansForWizard()
       setStep(2)
       runCustodianLookup(locked)
       return
     }
     if (step === 2) {
-      if (!canAdvanceFromStep2) return
+      if (!canAdvanceFromStep2) {
+        setError('')
+        setShowMissingRequired(true)
+        return
+      }
+      setShowMissingRequired(false)
       setStep(3)
       return
     }
@@ -548,6 +568,7 @@ export default function CaseRequestModal({
   }
   const handleBack = () => {
     if (!useWizard) return
+    setShowMissingRequired(false)
     setStep((prev) => Math.max(1, prev - 1))
   }
   const handleFormSubmit = async (e) => {
@@ -556,7 +577,10 @@ export default function CaseRequestModal({
       handleNext()
       return
     }
-    if (!canSubmit) return
+    if (!canSubmit) {
+      setShowMissingRequired(true)
+      return
+    }
     if (searchRequestFlowActive && !searchRequestsFinalized) {
       await handleSearchRequestSubmit()
       return
@@ -581,14 +605,14 @@ export default function CaseRequestModal({
         useWizard={useWizard}
         step={step}
         handleBack={handleBack}
-        canAdvanceFromStep1={canAdvanceFromStep1}
-        canAdvanceFromStep2={canAdvanceFromStep2}
-        canSubmit={canSubmit}
         primaryActionLabel={primaryActionLabel}
         handleFormSubmit={handleFormSubmit}
         autofillNonce={autofillNonce}
         error={error}
-      >        <CaseRequestIntakeStep
+        loading={loading}
+        showMissingRequired={showMissingRequired}
+      >
+        <CaseRequestIntakeStep
           useWizard={useWizard}
           step={step}
           caseContext={caseContext}

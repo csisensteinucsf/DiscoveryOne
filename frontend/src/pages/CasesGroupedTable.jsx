@@ -43,6 +43,7 @@ export default function CasesGroupedTable({
   toggleLetter,
   letterKey,
   RowComponent,
+  toolbarExtra = null,
   style,
 }) {
   const columnVisible = key => visibleColumns.includes(key)
@@ -148,6 +149,7 @@ export default function CasesGroupedTable({
             />
             <span>Group by year</span>
           </label>
+          {toolbarExtra}
           <button className="btn ghost compact" type="button" onClick={resetCaseFilters}>Reset</button>
         </div>
       </div>

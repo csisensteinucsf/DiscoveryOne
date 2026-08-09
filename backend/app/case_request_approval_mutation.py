@@ -154,6 +154,7 @@ def apply_approval_request_mutation(
             description=payload.get("description"),
             requestor=record.requestor_email,
             is_private=bool(payload.get("is_private")),
+            is_test_case=bool(payload.get("is_test_case")),
             color=case_color,
             analyst_id=analyst.id,
         )

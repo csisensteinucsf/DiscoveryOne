@@ -91,6 +91,7 @@ export function CasesTableRow({
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <Link to={'/cases/' + c.id} style={{ textDecoration: 'none', color: 'inherit' }}>{primaryCaseName}</Link>
           {c.is_private ? <span className="case-private-badge" title="Private case">P</span> : null}
+          {c.is_test_case ? <span className="case-test-badge" title="Test case">TEST</span> : null}
         </span>
       </td>
       {showSecondaryCaseNameColumn && (

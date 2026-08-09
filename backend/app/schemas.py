@@ -400,6 +400,7 @@ class CaseBase(BaseModel):
     analyst_id: Optional[int] = None
     closed: bool = False
     is_private: bool = False
+    is_test_case: bool = False
     color: Optional[str] = None
     description: Optional[str] = None
     rubrik_restore_ticket: Optional[str] = None
@@ -497,6 +498,7 @@ class CaseUpdate(BaseModel):
     analyst_id: Optional[int] = None
     closed: Optional[bool] = None
     is_private: Optional[bool] = None
+    is_test_case: Optional[bool] = None
     color: Optional[str] = None
     description: Optional[str] = None
     rubrik_restore_ticket: Optional[str] = None

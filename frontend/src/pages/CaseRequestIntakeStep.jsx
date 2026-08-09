@@ -1,3 +1,5 @@
+import { Minus, Plus } from 'lucide-react'
+import FileDropZone from '../components/FileDropZone.jsx'
 import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import {
   CASE_REQUEST_MAX_MB,
@@ -39,6 +41,7 @@ export default function CaseRequestIntakeStep({
                 )}
                 {isNewCase && (
                   <div className="form-grid">
+                    {!(isRequestor && caseNamingMode === 'legal_case_name') && (
                     <label className="field">
                       <span>eDiscovery Case Name</span>
                       <input
@@ -59,6 +62,7 @@ export default function CaseRequestIntakeStep({
                         </small>
                       ) : null}
                     </label>
+                    )}
                     <label className="field">
                       <RequiredFieldLabel required={caseNamingMode === 'legal_case_name'}>{secondaryCaseNameLabel}</RequiredFieldLabel>
                       <input type="text" value={form.legal_case_name} onChange={(e) => updateLegalCaseName(e.target.value)} required={caseNamingMode === 'legal_case_name'} />
@@ -96,18 +100,23 @@ export default function CaseRequestIntakeStep({
                   </div>
                   {form.custodianMode === 'manual' && (
                     <div className="custodian-grid" role="group" aria-label="Manual custodian entries">
+                      <p className="request-custodian-help">
+                        Enter a full name, email address, or employee ID.
+                      </p>
                       {form.custodians.map((c) => (
                         <div key={c.id} className="custodian-card">
                           <div className="custodian-card__header">
                             <div className="custodian-card__grid">
                               <label className="sr-only" htmlFor={`cust-lookup-${c.id}`}>Custodian lookup</label>
-                              <input id={`cust-lookup-${c.id}`} type="text" placeholder={lookupInputPlaceholder || DEFAULT_LOOKUP_INPUT_PLACEHOLDER} autoComplete="off" name={`field-${autofillNonce}-${c.id}-lookup`} value={c.name} onChange={(e) => updateCustodian(c.id, { name: e.target.value, email: '' })} />
+                              <input id={`cust-lookup-${c.id}`} type="text" placeholder={lookupInputPlaceholder || DEFAULT_LOOKUP_INPUT_PLACEHOLDER} autoComplete="off" name={`field-${autofillNonce}-${c.id}-lookup`} value={c.name} onChange={(e) => updateCustodian(c.id, { name: e.target.value, email: '' })} required />
                             </div>
-                            <button className="btn ghost" type="button" onClick={() => removeCustodianRow(c.id)} disabled={form.custodians.length === 1}>Remove</button>
+                            <div className="request-custodian-row-actions">
+                              <button className="icon-button" type="button" onClick={addCustodianRow} title="Add another custodian" aria-label="Add another custodian"><Plus size={17} aria-hidden="true" /></button>
+                              <button className="icon-button" type="button" onClick={() => removeCustodianRow(c.id)} disabled={form.custodians.length === 1} title="Remove custodian" aria-label="Remove custodian"><Minus size={17} aria-hidden="true" /></button>
+                            </div>
                           </div>
                         </div>
                       ))}
-                      <button className="btn secondary" type="button" onClick={addCustodianRow}>Add another custodian</button>
                     </div>
                   )}
                   {form.custodianMode === 'paste' && (
@@ -116,21 +125,31 @@ export default function CaseRequestIntakeStep({
                       <textarea
                         id="paste-custodians"
                         rows={6}
-                        placeholder={'Jane Doe jane@example.com\nJohn Smith john@company.com'}
+                        placeholder={'Jane Doe, jane@example.com\nJohn Smith, john@company.com'}
                         value={form.pasteText}
                         onChange={(e) => setForm((prev) => ({ ...prev, pasteText: e.target.value }))}
+                        required
                       />
-                      <p>Enter one custodian per line. The email can be separated by spaces, commas, or angle brackets.</p>
+                      <p>Enter one custodian per line with a comma between the name and email, for example: Jane Doe, jane@example.com.</p>
                     </div>
                   )}
                   {form.custodianMode === 'upload' && (
                     <div className="upload-panel">
+                      <FileDropZone
+                        disabled={custodianFileBusy}
+                        onFiles={(files) => {
+                          const file = files[0] || null
+                          if (!file) return
+                          loadCustodiansFromUpload(file)
+                        }}
+                      >
                       <label className="field field--full">
                         <span>Upload custodian file (CSV/TSV/XLSX)</span>
                         <input
                           type="file"
                           accept=".csv,.tsv,.txt,.xlsx"
                           disabled={custodianFileBusy}
+                          required
                           onChange={(e) => {
                             const f = e.target.files?.[0] || null
                             if (!f) {
@@ -140,6 +159,7 @@ export default function CaseRequestIntakeStep({
                             loadCustodiansFromUpload(f)
                           }} />
                       </label>
+                      </FileDropZone>
                       {form.custodianFile && (
                         <div style={{ fontSize: 12, color: '#475569', marginTop: 6 }}>
                           Selected: {form.custodianFile.name} ({Math.max(1, Math.round(form.custodianFile.size / 1024))} KB)
@@ -160,18 +180,8 @@ export default function CaseRequestIntakeStep({
             {isNewCase && isRequestor && (
               <div className="form-section">
                 <div className="form-section__body">
-                  <label
-                    className="field field--full"
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 10,
-                      padding: '12px 14px',
-                      border: '2px solid #0f766e',
-                      borderRadius: 12,
-                      background: '#f0fdfa',
-                    }}
-                  >
+                  <div className="case-editor-flags request-intake-flags">
+                  <label className="case-editor-flag request-intake-private-flag">
                     <span style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                       <input
                         type="checkbox"
@@ -199,6 +209,14 @@ export default function CaseRequestIntakeStep({
                       </span>
                     )}
                   </label>
+                  <label className="case-editor-flag case-editor-flag--test request-intake-test-flag">
+                    <input type="checkbox" checked={!!form.is_test_case} onChange={(e) => setForm((prev) => ({ ...prev, is_test_case: e.target.checked }))} />
+                    <span>
+                      <strong>Test case</strong>
+                      <small>Marks this case as designated test data.</small>
+                    </span>
+                  </label>
+                  </div>
                 </div>
               </div>
             )}

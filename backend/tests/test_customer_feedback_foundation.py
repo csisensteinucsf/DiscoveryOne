@@ -221,6 +221,40 @@ def test_case_template_today_start_date_round_trips_through_case_create(db_sessi
     assert result.start_date is not None
 
 
+def test_test_case_flag_round_trips_through_template_create_and_case_update(db_session):
+    admin = _user(db_session, username="test-case-admin")
+    template = case_templates.create_case_template(
+        schemas.CaseTemplateCreate(
+            name="Test Matter",
+            defaults={"is_test_case": True},
+            field_rules={"is_test_case": {"visible": True, "required": False}},
+        ),
+        request=None,
+        db=db_session,
+        user=admin,
+    )
+
+    created = cases.create_case(
+        schemas.CaseCreate(name="Designated Test Case", case_template_id=template["id"]),
+        db=db_session,
+        request=None,
+        _user=admin,
+    )
+    stored = db_session.get(models.Case, created.id)
+    assert stored.is_test_case is True
+    assert created.is_test_case is True
+
+    updated = case_update.update_case_record(
+        case_id=created.id,
+        payload=schemas.CaseUpdate(is_test_case=False),
+        db=db_session,
+        request=None,
+        user=admin,
+    )
+    assert updated.is_test_case is False
+    assert db_session.get(models.Case, created.id).is_test_case is False
+
+
 def test_case_create_schema_treats_blank_optional_start_date_as_none():
     payload = schemas.CaseCreate(name="Blank Start Date", start_date="")
 

@@ -50,11 +50,14 @@ export default function CaseRequestDetailBody({ request: req, apiBase, caseLooku
   const consentProofs = Array.isArray(req.consent_proofs)
     ? req.consent_proofs
     : (Array.isArray(payload.consent_proofs) ? payload.consent_proofs : [])
+  const eDiscoveryName = requestCaseName(req, caseLookup)
+  const legalCaseName = String(payload.legal_case_name || '').trim()
+  const showEDiscoveryName = !legalCaseName || eDiscoveryName.trim().toLocaleLowerCase() !== legalCaseName.toLocaleLowerCase()
 
   return (
     <div style={{ display: 'grid', gap: 14 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10, padding: 12, border: '1px solid var(--border,#e5e7eb)', borderRadius: 12, background: 'var(--card,#f8fafc)' }}>
-        <div><strong>eDiscovery Name:</strong><br />{requestCaseName(req, caseLookup)}</div>
+        {showEDiscoveryName ? <div><strong>eDiscovery Name:</strong><br />{eDiscoveryName}</div> : null}
         <div><strong>Requestor:</strong><br />{requestorLabel(req) || '-'}</div>
         <div><strong>Submitted:</strong><br />{ISODate(req.created_at) || '-'}</div>
         <div><strong>Status:</strong><br /><Badge status={req.status} /></div>
@@ -64,7 +67,7 @@ export default function CaseRequestDetailBody({ request: req, apiBase, caseLooku
 
       {(payload.legal_case_name || payload.claimant || payload.description || req.note || req.decline_reason) && (
         <div style={{ display: 'grid', gap: 6 }}>
-          {payload.legal_case_name ? <div><strong>Legal Case Name:</strong> {payload.legal_case_name}</div> : null}
+          {legalCaseName ? <div><strong>Legal Case Name:</strong> {legalCaseName}</div> : null}
           {payload.claimant ? <div><strong>Claimant:</strong> {payload.claimant}</div> : null}
           {payload.description ? <div><strong>Description:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{payload.description}</span></div> : null}
           {req.note ? <div><strong>Note:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{req.note}</span></div> : null}

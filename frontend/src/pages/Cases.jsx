@@ -314,6 +314,7 @@ export default function Cases({ apiBase }) {
       custom_fields: normalizeStoredCustomFields(c.custom_fields),
       closed: !!c.closed,
       is_private: !!c.is_private,
+      is_test_case: !!c.is_test_case,
     })
     setShowModal(true)
   }
@@ -492,6 +493,7 @@ export default function Cases({ apiBase }) {
       analyst_id: form.analyst_id ? Number(form.analyst_id) : null,
       closed: editingId ? !!form.closed : false,
       is_private: !!form.is_private,
+      is_test_case: !!form.is_test_case,
       color: form.color,
       description: form.description,
       start_date: optionalDateValue(form.start_date),
@@ -678,44 +680,44 @@ export default function Cases({ apiBase }) {
       onDelete={remove}
     />
   )
+  const columnPicker = (
+    <details className="column-picker column-picker--compact">
+      <summary className="btn ghost compact">
+        <Columns3 size={14} aria-hidden="true" />
+        Columns
+      </summary>
+      <div className="column-picker__menu">
+        <div className="column-picker__locked">Case Name and Actions are always shown.</div>
+        {DEFAULT_CASE_COLUMNS
+          .filter(key => key !== 'secondary_case_name' || showSecondaryCaseNameColumn)
+          .map(key => (
+            <label key={key}>
+              <input
+                type="checkbox"
+                checked={isColumnVisible(key)}
+                onChange={() => toggleCaseColumn(key)}
+              />
+              <span>{({
+                secondary_case_name: secondaryCaseNameLabel,
+                matter_number: 'Matter Number',
+                internal_counsel: internalCounselLabel,
+                analyst: 'Analyst',
+                requestor: 'Requestor',
+                state: 'State',
+                holds: 'Holds',
+                notes: 'Additional Notes / Comments',
+              })[key]}</span>
+            </label>
+          ))}
+      </div>
+    </details>
+  )
   return (
     <div className="cases-page">
       <div className="page-header">
         <h2>{casesPageTitle}</h2>
-        <div className="cases-page-actions">
-          <details className="column-picker">
-            <summary className="btn secondary">
-              <Columns3 size={16} aria-hidden="true" />
-              Columns
-            </summary>
-            <div className="column-picker__menu">
-              <div className="column-picker__locked">Case Name and Actions are always shown.</div>
-              {DEFAULT_CASE_COLUMNS
-                .filter(key => key !== 'secondary_case_name' || showSecondaryCaseNameColumn)
-                .map(key => (
-                  <label key={key}>
-                    <input
-                      type="checkbox"
-                      checked={isColumnVisible(key)}
-                      onChange={() => toggleCaseColumn(key)}
-                    />
-                    <span>{({
-                      secondary_case_name: secondaryCaseNameLabel,
-                      matter_number: 'Matter Number',
-                      internal_counsel: internalCounselLabel,
-                      analyst: 'Analyst',
-                      requestor: 'Requestor',
-                      state: 'State',
-                      holds: 'Holds',
-                      notes: 'Additional Notes / Comments',
-                    })[key]}</span>
-                  </label>
-                ))}
-            </div>
-          </details>
-          {!isReadOnly && <button className="btn" onClick={openNewCase}>New Case</button>}
-        </div>
       </div>
+      {!isReadOnly && <div className="cases-primary-actions"><button className="btn" onClick={openNewCase}>New Case</button></div>}
 
       {isRequestor && (
         <div className="card" style={{ marginBottom: '1rem', background: '#fefce8', border: '1px solid #fde68a' }}>
@@ -766,6 +768,7 @@ export default function Cases({ apiBase }) {
         toggleLetter={toggleLetter}
         letterKey={letterKey}
         RowComponent={Row}
+        toolbarExtra={columnPicker}
         style={{ marginBottom: '1rem' }}
       />
       <CasesGroupedTable
@@ -834,6 +837,13 @@ export default function Cases({ apiBase }) {
           setClosureReadiness(null)
         }}
         onConfirm={confirmCloseCase}
+        onOpenHold={(hold) => {
+          if (!closureTarget?.id || !hold?.hold_id) return
+          const targetCaseId = closureTarget.id
+          setClosureTarget(null)
+          setClosureReadiness(null)
+          navigate(`/cases/${targetCaseId}?tab=holds&hold_id=${hold.hold_id}`)
+        }}
       />
       <RequestorGroupInviteModal
         inviteGroupModal={inviteGroupModal}

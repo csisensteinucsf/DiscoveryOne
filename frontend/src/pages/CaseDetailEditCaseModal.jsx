@@ -34,6 +34,7 @@ export default function CaseDetailEditCaseModal({
         requestors: caseData?.requestors || [],
         closed: !!caseData?.closed,
         is_private: !!caseData?.is_private,
+        is_test_case: !!caseData?.is_test_case,
         closure_nag_days: caseData?.closure_nag_days ?? defaultClosureNagDays,
         custom_fields: normalizeStoredCustomFields(caseData?.custom_fields),
       }}
@@ -87,6 +88,7 @@ export default function CaseDetailEditCaseModal({
             analyst_id: form.analyst_id ?? null,
             closed: !!form.closed,
             is_private: !!form.is_private,
+            is_test_case: !!form.is_test_case,
             closure_nag_days: Number.isFinite(closureDays) ? closureDays : undefined,
             custom_fields: customFieldValues(form.custom_fields),
           }

@@ -88,20 +88,28 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
           <TextInput value={form.legal_case_name} onChange={e => setForm({ ...form, legal_case_name: e.target.value })} />
         </Field>
       )}
-      <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '12px 14px', border: '2px solid #0f766e', borderRadius: 12, background: '#f0fdfa', marginBottom: 8, color: '#0f172a', fontSize: 14 }}>
-        <input
-          type="checkbox"
-          checked={!!form.is_private}
-          onChange={e => setForm({ ...form, is_private: e.target.checked })}
-          style={{ marginTop: 3 }}
-        />
-        <span>
-          <strong>Make case private</strong>
-          <small style={{ display: 'block', color: '#0f766e', marginTop: 3 }}>
-            Only requestors on this case, admins, and analysts can see it.
-          </small>
-        </span>
-      </label>
+      <div className="case-editor-flags">
+        <label className="case-editor-flag">
+          <input type="checkbox" checked={!!form.is_private} onChange={e => setForm({ ...form, is_private: e.target.checked })} />
+          <span>
+            <strong>Make case private</strong>
+            <small>
+              Only requestors on this case, admins, and analysts can see it.
+            </small>
+          </span>
+        </label>
+        <label className="case-editor-flag case-editor-flag--test">
+          <input
+            type="checkbox"
+            checked={!!form.is_test_case}
+            onChange={e => setForm({ ...form, is_test_case: e.target.checked })}
+          />
+          <span>
+            <strong>Test case</strong>
+            <small>Marks this case as designated test data.</small>
+          </span>
+        </label>
+      </div>
       <Field label="Claimant">
         <TextInput value={form.claimant || ''} onChange={e => setForm({ ...form, claimant: e.target.value })} />
       </Field>

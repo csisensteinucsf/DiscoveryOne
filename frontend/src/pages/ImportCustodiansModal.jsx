@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import Modal from '../components/Modal.jsx'
+import FileDropZone from '../components/FileDropZone.jsx'
 import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
 import { Field, TextInput, Button, Badge } from './caseDetailControls.jsx'
 import {
@@ -245,13 +246,15 @@ export function ImportCustodiansModal({
           />
         </Field>
       ) : (
-        <Field label="Upload CSV">
-          <label style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:8 }}>
-            <input type="checkbox" checked={firstRowHeader} onChange={e => setFirstRowHeader(e.target.checked)} />
-            First row is a header
-          </label>
-          <input type="file" accept=".csv,text/csv" onChange={onFile} />
-        </Field>
+        <FileDropZone onFiles={(files) => onFile({ target: { files } })} prompt="Drag and drop a CSV file here">
+          <Field label="Upload CSV">
+            <label style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:8 }}>
+              <input type="checkbox" checked={firstRowHeader} onChange={e => setFirstRowHeader(e.target.checked)} />
+              First row is a header
+            </label>
+            <input type="file" accept=".csv,text/csv" onChange={onFile} />
+          </Field>
+        </FileDropZone>
       )}
       {error && <div style={{ color:'#b91c1c', marginBottom: 10 }}>{error}</div>}
       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap' }}>

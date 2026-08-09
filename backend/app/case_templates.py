@@ -27,11 +27,12 @@ TEMPLATE_FIELDS = {
     "requestors",
     "analyst_id",
     "is_private",
+    "is_test_case",
     "description",
     "start_date",
     "closure_nag_days",
 }
-BOOLEAN_FIELDS = {"is_private"}
+BOOLEAN_FIELDS = {"is_private", "is_test_case"}
 LIST_FIELDS = {"requestors"}
 INTEGER_FIELDS = {"analyst_id", "closure_nag_days"}
 

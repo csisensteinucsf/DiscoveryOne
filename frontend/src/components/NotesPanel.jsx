@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Paperclip, X } from 'lucide-react';
+import FileDropZone from './FileDropZone.jsx';
 import { DeleteIconButton, EditIconButton } from './RowActionIconButton.jsx';
 import {
   ATTACH_ACCEPT,
@@ -391,18 +392,26 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
               </div>
             )}
             {!readOnly && (
-              <div className="row" style={{ gap: 6, marginTop: 8, justifyContent: "flex-end" }}>
-                <button
-                  className="btn secondary"
-                  onClick={triggerAttachmentPicker}
-                  style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}
-                  disabled={uploadingAttachment}
-                >
-                  {uploadingAttachment ? "Uploading..." : <><Paperclip size={14} aria-hidden="true" /> Attach</>}
-                </button>
-                <EditIconButton label="Edit note" onClick={() => setEditing(true)} />
-                <DeleteIconButton label="Delete note" onClick={() => deleteNote(note.id)} />
-              </div>
+              <FileDropZone
+                multiple
+                disabled={uploadingAttachment}
+                onFiles={(files) => handleAttachmentChange({ target: { files } })}
+                prompt="Drop files to attach to this note"
+                className="file-drop-zone--compact"
+              >
+                <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                  <button
+                    className="btn secondary"
+                    onClick={triggerAttachmentPicker}
+                    style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}
+                    disabled={uploadingAttachment}
+                  >
+                    {uploadingAttachment ? "Uploading..." : <><Paperclip size={14} aria-hidden="true" /> Attach</>}
+                  </button>
+                  <EditIconButton label="Edit note" onClick={() => setEditing(true)} />
+                  <DeleteIconButton label="Delete note" onClick={() => deleteNote(note.id)} />
+                </div>
+              </FileDropZone>
             )}
           </div>
         ) : (
@@ -418,18 +427,26 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
                 {attachments.map(att => renderAttachment(att, `${note.id}-edit-${att.id}`))}
               </div>
             )}
-            <div className="row" style={{ gap: 6, marginTop: 8, justifyContent: "flex-end" }}>
-              <button
-                className="btn secondary"
-                onClick={triggerAttachmentPicker}
-                style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}
-                disabled={uploadingAttachment}
-              >
-                {uploadingAttachment ? "Uploading..." : <><Paperclip size={14} aria-hidden="true" /> Attach</>}
-              </button>
-              <button className="btn" onClick={() => { setEditing(false); setText(note.body || ""); }} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Cancel</button>
-              <button className="btn secondary" onClick={async () => { await updateNote(note.id, text); setEditing(false); }} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Save</button>
-            </div>
+            <FileDropZone
+              multiple
+              disabled={uploadingAttachment}
+              onFiles={(files) => handleAttachmentChange({ target: { files } })}
+              prompt="Drop files to attach to this note"
+              className="file-drop-zone--compact"
+            >
+              <div className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                <button
+                  className="btn secondary"
+                  onClick={triggerAttachmentPicker}
+                  style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}
+                  disabled={uploadingAttachment}
+                >
+                  {uploadingAttachment ? "Uploading..." : <><Paperclip size={14} aria-hidden="true" /> Attach</>}
+                </button>
+                <button className="btn" onClick={() => { setEditing(false); setText(note.body || ""); }} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Cancel</button>
+                <button className="btn secondary" onClick={async () => { await updateNote(note.id, text); setEditing(false); }} style={{ padding: "4px 8px", borderRadius: 10, fontSize: 12 }}>Save</button>
+              </div>
+            </FileDropZone>
           </div>
         )}
       </div>
@@ -479,13 +496,21 @@ export default function NotesPanel({ caseId, apiSuffix = "notes", notify, readOn
               onChange={handleDraftAttachmentChange}
               disabled={saving}
             />
-            <div className="row" style={{ justifyContent: "flex-end", marginTop: 8, gap: 8 }}>
-              {draftControlsBeforeAttach}
-              <button className="btn secondary" type="button" onClick={() => draftFileInputRef.current?.click()} disabled={saving}>
-                <Paperclip size={16} aria-hidden="true" /> Attach
-              </button>
-              <button className="btn secondary" onClick={addNote} disabled={!draft || saving}>{saving ? "Saving..." : "Add Note"}</button>
-            </div>
+            <FileDropZone
+              multiple
+              disabled={saving}
+              onFiles={(files) => handleDraftAttachmentChange({ target: { files } })}
+              prompt="Drop note attachments here"
+              className="file-drop-zone--compact"
+            >
+              <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+                {draftControlsBeforeAttach}
+                <button className="btn secondary" type="button" onClick={() => draftFileInputRef.current?.click()} disabled={saving}>
+                  <Paperclip size={16} aria-hidden="true" /> Attach
+                </button>
+                <button className="btn secondary" onClick={addNote} disabled={!draft || saving}>{saving ? "Saving..." : "Add Note"}</button>
+              </div>
+            </FileDropZone>
           </div>
         ) : (
           <p style={{ fontSize: 13, color: "#6b7280", marginBottom: 0 }}>Notes are read-only for this role.</p>

@@ -1,4 +1,5 @@
 import Modal from '../components/Modal.jsx'
+import FileDropZone from '../components/FileDropZone.jsx'
 
 export default function SystemImportsPanel({
   isSysAdmin,
@@ -34,38 +35,45 @@ export default function SystemImportsPanel({
         Upload individual eDiscovery case workbooks or select an entire folder. Supported files must be .xlsx or a .zip that contains spreadsheets.
         A detailed report is written to the server for every import.
       </p>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button type="button" className="btn secondary" onClick={() => importInputRef.current && importInputRef.current.click()}>
-          Choose file
-        </button>
-        <button type="button" className="btn secondary" onClick={() => importFolderInputRef.current && importFolderInputRef.current.click()}>
-          Choose folder
-        </button>
-        <input
-          type="file"
-          accept=".xlsx"
-          ref={importInputRef}
-          style={{ display: 'none' }}
-          onChange={onSelectImportFiles}
-        />
-        <input
-          type="file"
-          multiple
-          ref={importFolderInputRef}
-          style={{ display: 'none' }}
-          onChange={onSelectImportFolder}
-          webkitdirectory="true"
-          directory=""
-        />
-        <span style={{ color: 'var(--muted,#6b7280)' }}>
-          {importFiles.length
-            ? `${importFiles.length} item${importFiles.length === 1 ? '' : 's'} selected`
-            : 'No files selected'}
-        </span>
-        {importFiles.length > 0 && (
-          <button className="btn" onClick={clearImportSelection}>Clear Selection</button>
-        )}
-      </div>
+      <FileDropZone
+        multiple
+        disabled={importing}
+        onFiles={(files) => onSelectImportFiles({ target: { files } })}
+        prompt="Drag and drop case workbooks here"
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <button type="button" className="btn secondary" onClick={() => importInputRef.current && importInputRef.current.click()}>
+            Choose file
+          </button>
+          <button type="button" className="btn secondary" onClick={() => importFolderInputRef.current && importFolderInputRef.current.click()}>
+            Choose folder
+          </button>
+          <input
+            type="file"
+            accept=".xlsx"
+            ref={importInputRef}
+            style={{ display: 'none' }}
+            onChange={onSelectImportFiles}
+          />
+          <input
+            type="file"
+            multiple
+            ref={importFolderInputRef}
+            style={{ display: 'none' }}
+            onChange={onSelectImportFolder}
+            webkitdirectory="true"
+            directory=""
+          />
+          <span style={{ color: 'var(--muted,#6b7280)' }}>
+            {importFiles.length
+              ? `${importFiles.length} item${importFiles.length === 1 ? '' : 's'} selected`
+              : 'No files selected'}
+          </span>
+          {importFiles.length > 0 && (
+            <button className="btn" onClick={clearImportSelection}>Clear Selection</button>
+          )}
+        </div>
+      </FileDropZone>
       <div style={{ marginTop: 12 }}>
         <button className="btn secondary" onClick={runImport} disabled={!importFiles.length || importing}>
           {importing ? 'Importing...' : 'Import Selected'}

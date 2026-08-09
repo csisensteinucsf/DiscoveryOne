@@ -382,7 +382,8 @@ def run_startup_maintenance_once() -> None:
         with engine.begin() as _conn:
             _conn.exec_driver_sql("""
                 ALTER TABLE cases
-                  ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE;
+                  ADD COLUMN IF NOT EXISTS is_private BOOLEAN NOT NULL DEFAULT FALSE,
+                  ADD COLUMN IF NOT EXISTS is_test_case BOOLEAN NOT NULL DEFAULT FALSE;
             """)
             _conn.exec_driver_sql("""
                 CREATE TABLE IF NOT EXISTS requestor_groups (

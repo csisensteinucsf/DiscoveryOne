@@ -100,6 +100,13 @@ export default function CaseDetail() {
   const cachedProofs = proofCache.get(caseId)
   const reloadCustodiansRef = useRef(null)
   const [activeTab, setActiveTab] = useState('custodians')
+  const linkedHoldId = useMemo(() => {
+    try {
+      return new URLSearchParams(location.search || '').get('hold_id')
+    } catch {
+      return null
+    }
+  }, [location.search])
   const [caseData, setCaseData] = useState(() => cachedCase || null)
   const [evidenceTrackingCount, setEvidenceTrackingCount] = useState(0)
   const [finalReportCount, setFinalReportCount] = useState(0)
@@ -306,6 +313,17 @@ export default function CaseDetail() {
       : ['custodians', 'holds', 'preservation', 'searches', 'requests', 'documentation', 'sla', 'notes'])
     if (!allowedTabs.has(activeTab)) setActiveTab(isTech ? 'requests' : 'custodians')
   }, [activeTab, isTech])
+  useEffect(() => {
+    try {
+      const requestedTab = new URLSearchParams(location.search || '').get('tab')
+      const allowedTabs = new Set(isTech
+        ? ['custodians', 'holds', 'preservation', 'requests']
+        : ['custodians', 'holds', 'preservation', 'searches', 'requests', 'documentation', 'sla', 'notes'])
+      if (requestedTab && allowedTabs.has(requestedTab)) setActiveTab(requestedTab)
+    } catch {
+      // Ignore malformed query strings.
+    }
+  }, [isTech, location.search])
   useEffect(() => {
     if (!isRequestor) return
     try {
@@ -1022,6 +1040,7 @@ export default function CaseDetail() {
               isReadOnly={isReadOnly}
               showToast={showToast}
               requestEntries={requestEntries}
+              initialHoldId={linkedHoldId}
             />
           )}
           {activeTab === 'preservation' && (

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
 import CaseDetailHoldSelector from './CaseDetailHoldSelector.jsx'
@@ -150,6 +150,7 @@ export default function CaseDetailNamedHoldsTab({
   isReadOnly,
   showToast,
   requestEntries,
+  initialHoldId = null,
 }) {
   const holds = useCaseDetailNamedHolds({ apiBase, caseId, showToast })
   const [createOpen, setCreateOpen] = useState(false)
@@ -161,6 +162,10 @@ export default function CaseDetailNamedHoldsTab({
   const [selectedSearches, setSelectedSearches] = useState([])
   const [statusReasonRequest, setStatusReasonRequest] = useState(null)
   const [selectedHoldId, setSelectedHoldId] = useState(null)
+
+  useEffect(() => {
+    if (initialHoldId) setSelectedHoldId(initialHoldId)
+  }, [initialHoldId])
 
   const custodianById = useMemo(
     () => new Map((custodians || []).map(custodian => [Number(custodian.id), custodian])),

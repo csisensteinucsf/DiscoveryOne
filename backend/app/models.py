@@ -99,6 +99,7 @@ class Case(Base):
     analyst_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     closed = Column(Boolean, nullable=False, default=False)
     is_private = Column(Boolean, nullable=False, default=False)
+    is_test_case = Column(Boolean, nullable=False, default=False)
     color = Column(String, nullable=True)
     description = Column(Text, nullable=True)
     rubrik_restore_ticket = Column(String(64), nullable=True)

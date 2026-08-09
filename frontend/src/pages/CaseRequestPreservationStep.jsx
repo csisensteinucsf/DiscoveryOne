@@ -1,5 +1,6 @@
 ﻿import { CASE_REQUEST_CONSENT_MAX_MB, lookupPersonName, lookupPersonId } from './caseRequestsUtils.js'
 
+import FileDropZone from '../components/FileDropZone.jsx'
 export default function CaseRequestPreservationStep({
   useWizard,
   isSearch,
@@ -267,11 +268,13 @@ export default function CaseRequestPreservationStep({
                         )}
 
                         {c.consent_received && (
+                          <FileDropZone onFiles={(files) => handleProofFile(c.id, files[0] || null)}>
                           <label className="field field--full custodian-card__proof">
                             <span>Attach consent proof (MSG/EML or PDF)</span>
                             <input
                               type="file"
                               accept=".msg,.eml,.pdf"
+                              required
                               onChange={(e) => handleProofFile(c.id, e.target.files?.[0] || null)}
                             />
                             <p style={{ margin: '4px 0', color: '#475467', fontSize: 12 }}>
@@ -287,6 +290,7 @@ export default function CaseRequestPreservationStep({
                               <p style={{ margin: 0, color: '#b91c1c', fontSize: 12 }}>Proof required for this custodian.</p>
                             )}
                           </label>
+                          </FileDropZone>
                         )}
                       </div>
                     )

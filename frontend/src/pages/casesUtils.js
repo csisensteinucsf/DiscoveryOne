@@ -17,6 +17,7 @@ export const defaultCaseForm = (closureNagDays = 180) => ({
   closure_nag_days: closureNagDays,
   closed: false,
   is_private: false,
+  is_test_case: false,
   custom_fields: {},
 })
 const formControls = (formElement) => Array.from(formElement?.elements || [])

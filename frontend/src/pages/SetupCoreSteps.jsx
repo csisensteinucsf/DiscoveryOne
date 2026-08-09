@@ -1,4 +1,5 @@
 import BrandLogo from '../components/BrandLogo.jsx'
+import FileDropZone from '../components/FileDropZone.jsx'
 import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import { CASE_NAMING_OPTIONS } from './setupCatalog.js'
 
@@ -51,16 +52,20 @@ export function DeploymentStep({
         <input className="input" value={form.tls_common_name} onChange={e => update('tls_common_name', e.target.value)} placeholder="discoveryone.example.edu" />
         <FieldHelp>This should match the DNS name users type in the browser, and it should also appear in the uploaded certificate subject or subject alternative names.</FieldHelp>
       </label>
-      <label>
-        TLS Certificate
-        <input className="input" type="file" accept=".crt,.cer,.pem" onChange={e => setTlsCertificateFile(e.target.files?.[0] || null)} />
-        <FieldHelp>Upload the public certificate or PEM certificate chain when using a trusted certificate; the setup wizard stores it with the deployment settings.</FieldHelp>
-      </label>
-      <label>
-        TLS Private Key
-        <input className="input" type="file" accept=".key,.pem" onChange={e => setTlsPrivateKeyFile(e.target.files?.[0] || null)} />
-        <FieldHelp>Upload the matching PEM private key for the certificate; keep this file private because it proves control of the HTTPS identity.</FieldHelp>
-      </label>
+      <FileDropZone onFiles={(files) => setTlsCertificateFile(files[0] || null)} prompt="Drop the TLS certificate here">
+        <label>
+          TLS Certificate
+          <input className="input" type="file" accept=".crt,.cer,.pem" onChange={e => setTlsCertificateFile(e.target.files?.[0] || null)} />
+          <FieldHelp>Upload the public certificate or PEM certificate chain when using a trusted certificate; the setup wizard stores it with the deployment settings.</FieldHelp>
+        </label>
+      </FileDropZone>
+      <FileDropZone onFiles={(files) => setTlsPrivateKeyFile(files[0] || null)} prompt="Drop the TLS private key here">
+        <label>
+          TLS Private Key
+          <input className="input" type="file" accept=".key,.pem" onChange={e => setTlsPrivateKeyFile(e.target.files?.[0] || null)} />
+          <FieldHelp>Upload the matching PEM private key for the certificate; keep this file private because it proves control of the HTTPS identity.</FieldHelp>
+        </label>
+      </FileDropZone>
     </div>
   )
 }
@@ -154,20 +159,22 @@ export function BrandingStep({ form, update, logoFile, logoPreview, setLogoFile 
           <FieldHelp>This short description appears under the app name in the sidebar and can be changed later in System.</FieldHelp>
         </label>
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
-      <label className="btn secondary" style={{ display: 'inline-block', cursor: 'pointer' }}>
-        Choose Logo
-        <input
-          type="file"
-          accept="image/png,image/jpeg"
-          onChange={e => setLogoFile(e.target.files?.[0] || null)}
-          style={{ display: 'none' }}
-        />
-      </label>
-      <span style={{ color: 'var(--muted,#6b7280)' }}>{logoFile?.name || 'Using default D1 logo'}</span>
-      <img src={logoPreview || '/img/D1_Logo.png'} alt="Logo preview" style={{ height: 72, maxWidth: 240, objectFit: 'contain' }} />
-      <div style={{ ...fieldHelpStyle, flexBasis: '100%' }}>This logo appears in the app shell and login/setup surfaces; if no file is uploaded, DiscoveryOne uses the default D1 logo.</div>
-      </div>
+      <FileDropZone onFiles={(files) => setLogoFile(files[0] || null)} prompt="Drag and drop a logo here">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+          <label className="btn secondary" style={{ display: 'inline-block', cursor: 'pointer' }}>
+            Choose Logo
+            <input
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={e => setLogoFile(e.target.files?.[0] || null)}
+              style={{ display: 'none' }}
+            />
+          </label>
+          <span style={{ color: 'var(--muted,#6b7280)' }}>{logoFile?.name || 'Using default D1 logo'}</span>
+          <img src={logoPreview || '/img/D1_Logo.png'} alt="Logo preview" style={{ height: 72, maxWidth: 240, objectFit: 'contain' }} />
+          <div style={{ ...fieldHelpStyle, flexBasis: '100%' }}>This logo appears in the app shell and login/setup surfaces; if no file is uploaded, DiscoveryOne uses the default D1 logo.</div>
+        </div>
+      </FileDropZone>
     </div>
   )
 }

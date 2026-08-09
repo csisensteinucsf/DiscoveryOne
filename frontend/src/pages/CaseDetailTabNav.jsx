@@ -10,7 +10,7 @@ export default function CaseDetailTabNav({
   requestorNoteCount,
 }) {
   return (
-<div className="row" style={{ gap: 8, margin: '12px 0' }}>
+<div className="row case-detail-tab-nav" role="tablist">
             <button
               className={activeTab === 'custodians' ? 'btn' : 'btn secondary'}
               onClick={() => setActiveTab('custodians')}
@@ -128,6 +128,7 @@ export default function CaseDetailTabNav({
               <button
                 className={activeTab === 'notes' ? 'btn' : 'btn secondary'}
                 onClick={() => setActiveTab('notes')}
+                aria-pressed={activeTab === 'notes'}
                 style={{ position:'relative' }}
                 aria-label={`Notes (${isRequestor ? requestorNoteCount : (noteCount + requestorNoteCount)})`}
               >

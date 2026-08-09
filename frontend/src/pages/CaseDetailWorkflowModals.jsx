@@ -1,4 +1,5 @@
 import Modal from '../components/Modal.jsx'
+import FileDropZone from '../components/FileDropZone.jsx'
 import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 import { Button, Field, Select, TextInput } from './caseDetailControls.jsx'
 
@@ -86,19 +87,25 @@ export function CaseDetailAddDocModal({
             disabled
           />
         </Field>
-        <Field label="Consent document" hint="Accepted file types: PDF, MSG, or EML (5 MB max). Uploading an AWOC form records the consent status as AWOC.">
-          <input
-            type="file"
-            accept=".pdf,.msg,.eml"
-            onChange={(event) => setDocFile(event.target.files?.[0] || null)}
-            disabled={docUploading}
-          />
-          {docFile ? (
-            <div style={{ fontSize: 12, color: '#475467', marginTop: 4 }}>
-              Selected file: {docFile.name}
-            </div>
-          ) : null}
-        </Field>
+        <FileDropZone
+          disabled={docUploading}
+          onFiles={(files) => setDocFile(files[0] || null)}
+          prompt="Drag and drop a consent document here"
+        >
+          <Field label="Consent document" hint="Accepted file types: PDF, MSG, or EML (5 MB max). Uploading an AWOC form records the consent status as AWOC.">
+            <input
+              type="file"
+              accept=".pdf,.msg,.eml"
+              onChange={(event) => setDocFile(event.target.files?.[0] || null)}
+              disabled={docUploading}
+            />
+            {docFile ? (
+              <div style={{ fontSize: 12, color: '#475467', marginTop: 4 }}>
+                Selected file: {docFile.name}
+              </div>
+            ) : null}
+          </Field>
+        </FileDropZone>
         {docUploadError && (
           <p style={{ color: '#b91c1c', fontSize: 13 }}>{docUploadError}</p>
         )}

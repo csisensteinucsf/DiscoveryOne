@@ -57,28 +57,8 @@ export default function CaseDetailHeader({
             <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, color: 'var(--sidebar-fg)', display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <span>{caseData ? primaryCaseName : 'Case'}</span>
-                {caseData?.is_private ? (
-                  <span
-                    title="Private Case"
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: 18,
-                      height: 18,
-                      padding: '0 6px',
-                      borderRadius: 999,
-                      background: '#e0f2fe',
-                      border: '1px solid #7dd3fc',
-                      color: '#0c4a6e',
-                      fontSize: 11,
-                      fontWeight: 800,
-                      lineHeight: 1,
-                    }}
-                  >
-                    P
-                  </span>
-                ) : null}
+                {caseData?.is_private ? <span className="case-private-badge" title="Private case">P</span> : null}
+                {caseData?.is_test_case ? <span className="case-test-badge" title="Test case">TEST</span> : null}
               </h2>
               {caseData?.closed ? <Badge variant="danger">INACTIVE</Badge> : <Badge variant="success">ACTIVE</Badge>}
             </div>
@@ -132,6 +112,7 @@ export default function CaseDetailHeader({
                   <SummaryItem label="Analyst">{analystName || '-'}</SummaryItem>
                   <SummaryItem label="Requestors" wide><RequestorSummary caseData={caseData} /></SummaryItem>
                   {caseData?.is_private && <SummaryItem label="Visibility">Private case</SummaryItem>}
+                  {caseData?.is_test_case && <SummaryItem label="Case type">Test case</SummaryItem>}
                 </dl>
               </div>
 

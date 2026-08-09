@@ -21,6 +21,7 @@ const TEMPLATE_FIELDS = [
   ['requestors', 'Additional requestor emails', 'requestors'],
   ['analyst_id', 'Analyst', 'analyst'],
   ['is_private', 'Private case', 'boolean'],
+  ['is_test_case', 'Test case', 'boolean'],
   ['description', 'Additional notes / comments', 'textarea'],
   ['start_date', 'Start date', 'date'],
   ['closure_nag_days', 'Case status notification interval', 'number'],
@@ -334,7 +335,7 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
         </table>
       </div>
 
-      {editor && <Modal open title={editor.id ? 'Edit New Case Template' : 'New Case Template'} onClose={() => setEditor(null)} width={900} bodyStyle={{ maxHeight: '72vh', overflowY: 'auto' }} footer={<><button type="button" className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button type="submit" form="case-template-form" className="btn" disabled={busy}>{busy ? 'Saving' : 'Save Template'}</button></>}>
+      {editor && <Modal open title={editor.id ? 'Edit New Case Template' : 'New Case Template'} onClose={() => setEditor(null)} width={900} bodyStyle={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto', overscrollBehavior: 'contain' }} footer={<><button type="button" className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button type="submit" form="case-template-form" className="btn" disabled={busy}>{busy ? 'Saving' : 'Save Template'}</button></>}>
         <form id="case-template-form" onSubmit={event => { event.preventDefault(); save() }}>
         <div className="form-grid">
           <label style={{ gridColumn: '1 / -1' }}>

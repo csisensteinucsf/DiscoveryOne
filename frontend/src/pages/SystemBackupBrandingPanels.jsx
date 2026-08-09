@@ -1,3 +1,5 @@
+import FileDropZone from '../components/FileDropZone.jsx'
+
 export function SystemBackupsPanel({
   active,
   isSysAdmin,
@@ -145,21 +147,27 @@ export function SystemBackupsPanel({
         <p style={{ color: 'var(--muted,#6b7280)', marginBottom: 8 }}>
           Upload an encrypted backup. Restoring immediately replaces the entire current database.
         </p>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-          <label className="btn secondary" style={{ cursor: 'pointer' }}>
-            Choose Backup
-            <input
-              type="file"
-              ref={restoreInputRef}
-              style={{ display: 'none' }}
-              onChange={onRestoreFileChange}
-            />
-          </label>
-          <button className="btn danger" onClick={runRestore} disabled={restoreBusy || !restoreFile}>
-            {restoreBusy ? 'Restoring' : 'Restore Now'}
-          </button>
-          {restoreStatus && <span style={{ color: 'var(--muted,#6b7280)' }}>{restoreStatus}</span>}
-        </div>
+        <FileDropZone
+          disabled={restoreBusy}
+          onFiles={(files) => onRestoreFileChange({ target: { files } })}
+          prompt="Drag and drop an encrypted backup here"
+        >
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <label className="btn secondary" style={{ cursor: 'pointer' }}>
+              Choose Backup
+              <input
+                type="file"
+                ref={restoreInputRef}
+                style={{ display: 'none' }}
+                onChange={onRestoreFileChange}
+              />
+            </label>
+            <button className="btn danger" onClick={runRestore} disabled={restoreBusy || !restoreFile}>
+              {restoreBusy ? 'Restoring' : 'Restore Now'}
+            </button>
+            {restoreStatus && <span style={{ color: 'var(--muted,#6b7280)' }}>{restoreStatus}</span>}
+          </div>
+        </FileDropZone>
         <div style={{ marginTop: 12, maxWidth: 360 }}>
           <label style={{ display: 'block', marginBottom: 4 }}>Encryption Key</label>
           <input type="password" value={restoreKey} onChange={(e) => setRestoreKey(e.target.value)} placeholder="Base64 key" />
@@ -270,11 +278,17 @@ export function SystemBrandingPanel({
       </div>
 
       <div style={{ ...labelStyle, marginTop: 20 }}>Brand Logo</div>
-      <label className="btn secondary" style={{ display:'inline-block', cursor: canManageBranding ? 'pointer' : 'not-allowed', opacity: canManageBranding ? 1 : 0.6 }}>
-        Choose File
-        <input type="file" onChange={onUploadLogo} style={{ display:'none' }} disabled={!canManageBranding} />
-      </label>
-      <span style={{ marginLeft: 8, color:'var(--muted,#6b7280)' }}>{selectedFileName}</span>
+      <FileDropZone
+        disabled={!canManageBranding}
+        onFiles={(files) => onUploadLogo({ target: { files } })}
+        prompt="Drag and drop a brand logo here"
+      >
+        <label className="btn secondary" style={{ display:'inline-block', cursor: canManageBranding ? 'pointer' : 'not-allowed', opacity: canManageBranding ? 1 : 0.6 }}>
+          Choose File
+          <input type="file" onChange={onUploadLogo} style={{ display:'none' }} disabled={!canManageBranding} />
+        </label>
+        <span style={{ marginLeft: 8, color:'var(--muted,#6b7280)' }}>{selectedFileName}</span>
+      </FileDropZone>
 
       <div style={{ display:'flex', gap:32, alignItems:'center', marginTop:16, flexWrap:'wrap' }}>
         <div key="default-logo" style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:8 }}>

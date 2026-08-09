@@ -68,6 +68,7 @@ export function CaseEditorModal({
       title={editingId ? 'Edit Case' : 'New Case'}
       onClose={onClose}
       width={560}
+      bodyStyle={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto' }}
       footer={(
         <div className="case-editor-footer">
           {showMissingRequired ? (
@@ -142,17 +143,8 @@ export function CaseEditorModal({
           </>
         )}
 
-        {showField('is_private') && <label
-          style={{
-            display: 'flex',
-            gap: 10,
-            alignItems: 'flex-start',
-            padding: '12px 14px',
-            border: '2px solid #0f766e',
-            borderRadius: 12,
-            background: '#f0fdfa',
-          }}
-        >
+        <div className="case-editor-flags">
+        {showField('is_private') && <label className="case-editor-flag">
           <input
             type="checkbox"
             checked={!!form.is_private}
@@ -166,6 +158,22 @@ export function CaseEditorModal({
             </small>
           </span>
         </label>}
+        {showField('is_test_case') && (
+          <label className="case-editor-flag case-editor-flag--test">
+            <input
+              type="checkbox"
+              checked={!!form.is_test_case}
+              onChange={e => setForm(f => ({ ...f, is_test_case: e.target.checked }))}
+            />
+            <span>
+              <strong>{fieldLabel('Test case', fieldRequired('is_test_case'))}</strong>
+              <small>
+                Marks this case as designated test data.
+              </small>
+            </span>
+          </label>
+        )}
+        </div>
 
         <div className="form-grid case-editor-two-column">
           {showField('matter_number') && <label>
@@ -290,7 +298,7 @@ export function CaseEditorModal({
   )
 }
 
-export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm }) {
+export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm, onOpenHold }) {
   if (!target) return null
   const activeHolds = readiness?.active_holds || []
   const preservationBlockers = readiness?.preservation_blockers || []
@@ -305,9 +313,11 @@ export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm }
       footer={(
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>Cancel</button>
-          <button type="button" className="btn" onClick={onConfirm} disabled={busy || blocked}>
-            {busy ? 'Closing' : 'Close Case'}
-          </button>
+          {!blocked && (
+            <button type="button" className="btn" onClick={onConfirm} disabled={busy}>
+              {busy ? 'Closing' : 'Close Case'}
+            </button>
+          )}
         </div>
       )}
     >
@@ -318,7 +328,18 @@ export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm }
           {activeHolds.length > 0 && (
             <>
               <h4>Active Holds</h4>
-              <ul>{activeHolds.map(hold => <li key={hold.hold_id}>{hold.hold_name} ({hold.custodian_count} custodians)</li>)}</ul>
+              <ul>{activeHolds.map(hold => (
+                <li key={hold.hold_id}>
+                  <button
+                    type="button"
+                    className="case-closure-hold-link"
+                    onClick={() => onOpenHold?.(hold)}
+                  >
+                    {hold.hold_name}
+                  </button>{' '}
+                  ({hold.custodian_count} custodians)
+                </li>
+              ))}</ul>
             </>
           )}
           {preservationBlockers.length > 0 && (
