@@ -43,7 +43,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
 
   if (widget.type === 'case_counts') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+      <div className="dashboard-stat-grid">
         <Stat
           label="Open"
           value={data.open}
@@ -84,7 +84,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
     const rows = Object.entries(by).sort((a, b) => b[1] - a[1])
     return (
       <div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="dashboard-stat-grid">
           <Stat
             label="Pending"
             value={data.pending}
@@ -141,7 +141,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
     ]
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="dashboard-stat-grid">
           <Stat
             label="Total"
             value={data.total || 0}
@@ -216,7 +216,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
     const rows = Object.entries(by).sort((a, b) => b[1] - a[1])
     return (
       <div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="dashboard-stat-grid">
           <Stat
             label="Not sent"
             value={by['not sent'] || 0}
@@ -279,7 +279,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
     const nextDue = data.next_due_at ? String(data.next_due_at).slice(0, 19).replace('T', ' ') : 'None scheduled'
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="dashboard-stat-grid">
           <Stat
             label="Due now"
             value={data.due_now || 0}
@@ -320,7 +320,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
 
   if (widget.type === 'hold_status') {
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+      <div className="dashboard-stat-grid">
         <Stat
           label="Custodians"
           value={data.custodians}
@@ -367,7 +367,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
     const age = data.age_buckets || {}
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="dashboard-stat-grid">
           <Stat
             label="Pending"
             value={data.pending}
@@ -432,7 +432,7 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
     const top = categories.slice(0, 4)
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+        <div className="dashboard-stat-grid">
           <Stat
             label="Open"
             value={data.open}
@@ -490,8 +490,8 @@ function Stat({ label, value, onClick, tone = 'neutral' }) {
       onKeyDown={clickable ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick() } : undefined}
       title={clickable ? 'Click for details' : undefined}
     >
-      <div style={{ fontSize: 12, color: 'var(--muted,#64748b)' }}>{label}</div>
-      <div style={{ marginTop: 2, fontSize: 22, fontWeight: 800, color: 'var(--text,#0f172a)' }}>
+      <div className="dashboard-stat__label">{label}</div>
+      <div className="dashboard-stat__value">
         {value ?? '—'}
       </div>
     </div>
