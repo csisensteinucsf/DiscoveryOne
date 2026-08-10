@@ -111,10 +111,10 @@ def load_integration_settings() -> Dict[str, Any]:
         "search_export_provider": provider("search_export_provider", "SEARCH_EXPORT_PROVIDER", "none"),
     }
 
-    def flag(key: str, env_name: str, default: bool = False) -> bool:
+    def flag(key: str, env_name: str | None = None, default: bool = False) -> bool:
         if settings_ready:
             return bool(enabled.get(key, default))
-        raw = os.getenv(env_name)
+        raw = os.getenv(env_name) if env_name else None
         if raw is not None:
             return _truthy(raw)
         return bool(enabled.get(key, default))
@@ -134,6 +134,10 @@ def load_integration_settings() -> Dict[str, Any]:
         "crowdstrike": flag("crowdstrike", "CROWDSTRIKE_ENABLED"),
         "person_lookup": flag("person_lookup", "PERSON_LOOKUP_ENABLED"),
         "smtp": flag("smtp", "SMTP_ENABLED"),
+        "log_shipping": flag("log_shipping", "LOG_SHIP_ENABLED"),
+        "ai": flag("ai", "AI_ENABLED"),
+        "ntp_ack_bridge": flag("ntp_ack_bridge"),
+        "email_intake": flag("email_intake"),
     }
     return providers
 

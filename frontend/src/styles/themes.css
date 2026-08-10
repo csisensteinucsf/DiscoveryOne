@@ -487,3 +487,9 @@ body.theme-dark .integration-card__meta span,
 body.theme-dark .integration-status-pill { background: #2b323c; color: #cbd5e1; }
 body.theme-dark .integration-secret-notice { border-color: rgba(56, 189, 248, 0.3); background: rgba(3, 105, 161, 0.16); color: #7dd3fc; }
 body.theme-dark .integration-editor__info { background: rgba(146, 64, 14, 0.18); color: #fcd34d; }
+body.theme-dark .integration-card.is-enabled { border-color: rgba(74, 222, 128, 0.48); background: linear-gradient(180deg, rgba(20, 83, 45, 0.38) 0%, #1c2026 72%); }
+body.theme-dark .integration-card.is-enabled .integration-card__icon { background: rgba(34, 197, 94, 0.2); color: #86efac; }
+body.theme-dark .integration-enabled-switch__label { color: #cbd5e1; }
+body.theme-dark .integration-enabled-switch input:checked ~ .integration-enabled-switch__label { color: #86efac; }
+body.theme-dark .backend-restart-modal__icon { background: rgba(14, 116, 144, 0.22); }
+body.theme-dark .backend-restart-modal__note { background: rgba(146, 64, 14, 0.18); color: #fcd34d; }

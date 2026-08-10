@@ -743,7 +743,7 @@ def test_completed_setup_integration_settings_win_over_env(monkeypatch):
     monkeypatch.setenv("SEARCH_EXPORT_PROVIDER", "purview")
     settings_payload = {
         "initial_setup_completed": True,
-        "enabled_integrations": {"docusign": False, "servicenow": False},
+        "enabled_integrations": {"docusign": False, "servicenow": False, "email_intake": True},
         "integrations": {"esign_provider": "none", "ticket_provider": "none", "search_export_provider": "none"},
         "integration_configs": {},
     }
@@ -759,6 +759,7 @@ def test_completed_setup_integration_settings_win_over_env(monkeypatch):
     assert loaded["search_export_provider"] == "none"
     assert loaded["enabled_integrations"]["docusign"] is False
     assert loaded["enabled_integrations"]["servicenow"] is False
+    assert loaded["enabled_integrations"]["email_intake"] is True
 
 
 def test_env_integration_values_can_bootstrap_before_setup(monkeypatch):

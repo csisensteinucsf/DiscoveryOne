@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import threading
+import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
@@ -122,6 +125,15 @@ def _public_integration_admin_payload() -> dict[str, Any]:
     return payload
 
 
+def _backend_restart_allowed() -> bool:
+    return str(os.getenv("APP_RESTART_ENABLED") or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _restart_backend_after_delay() -> None:
+    time.sleep(1.25)
+    os._exit(0)
+
+
 @router.get("/system/institution", tags=["system"])
 def sys_get_institution(actor: models.User = Depends(get_current_user)):
     if not is_sys_admin(actor):
@@ -169,6 +181,38 @@ def sys_get_integrations(actor: models.User = Depends(get_current_user)):
     if not is_sys_admin(actor):
         raise HTTPException(status_code=403, detail="Admin privileges required")
     return _public_integration_admin_payload()
+
+
+@router.post("/system/restart-backend", status_code=202, tags=["system"])
+def sys_restart_backend(
+    actor: models.User = Depends(get_current_user),
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    if not is_sys_admin(actor):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    if not _backend_restart_allowed():
+        raise HTTPException(
+            status_code=409,
+            detail="In-app backend restart is disabled for this deployment. Restart the backend service through your deployment manager.",
+        )
+    try:
+        log_event(
+            db,
+            action="system_backend_restart",
+            actor_id=actor.id,
+            target_type="system",
+            details={"source": "system_integrations"},
+            request=request,
+        )
+    except Exception as exc:
+        _debug_suppressed("suppressed exception in system_admin.py:system_backend_restart", exc)
+    threading.Thread(
+        target=_restart_backend_after_delay,
+        daemon=True,
+        name="backend-restart",
+    ).start()
+    return {"ok": True, "message": "Backend restart requested. DiscoveryOne will reconnect automatically."}
 
 
 @router.post("/system/deployment", tags=["system"])

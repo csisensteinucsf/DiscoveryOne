@@ -1,4 +1,5 @@
 import { LockKeyhole, X } from 'lucide-react'
+import IntegrationEnabledSwitch from './IntegrationEnabledSwitch.jsx'
 import SystemEmailIntakeConfig from './SystemEmailIntakeConfig.jsx'
 import SystemIntegrationConfigSections from './SystemIntegrationConfigSections.jsx'
 import {
@@ -59,14 +60,11 @@ export default function SystemIntegrationEditorModal({
               <strong>{enabled ? 'Enabled' : 'Disabled'}</strong>
               <span>{enabled ? 'DiscoveryOne can use this integration.' : 'Settings can be saved before the integration is enabled.'}</span>
             </div>
-            <label className="integration-toggle">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={event => setSettings(prev => setIntegrationEnabled(prev, integration.key, event.target.checked))}
-              />
-              <span>{enabled ? 'On' : 'Off'}</span>
-            </label>
+            <IntegrationEnabledSwitch
+              enabled={enabled}
+              disabled={saving}
+              onChange={value => setSettings(prev => setIntegrationEnabled(prev, integration.key, value))}
+            />
           </section>
 
           {integration.key === 'person_lookup' && (
