@@ -677,6 +677,7 @@ def public_integration_admin_config() -> Dict[str, Any]:
             "docusign",
             "slack",
             "ai",
+            "email_intake",
         )
     }
     return payload

@@ -75,9 +75,6 @@ export default function System({ apiBase = '/api' }) {
     integrationSettings,
     integrationStatus,
     integrationSaving,
-    updateIntegrationEnabled,
-    updateIntegrationProvider,
-    updateIntegrationConfig,
     saveIntegrationSettings,
     loadIntegrations,
     preservationSourcePayload,
@@ -620,14 +617,12 @@ export default function System({ apiBase = '/api' }) {
           adminOnlyCard={adminOnlyCard}
           titleStyle={titleStyle}
           integrationSettings={integrationSettings}
-          updateIntegrationEnabled={updateIntegrationEnabled}
-          updateIntegrationProvider={updateIntegrationProvider}
-          updateIntegrationConfig={updateIntegrationConfig}
           saveIntegrationSettings={saveIntegrationSettings}
           integrationSaving={integrationSaving}
           integrationStatus={integrationStatus}
           apiBase={apiBase}
           showToast={showToast}
+          onOpenSmtp={() => selectSystemView('integrations', 'smtp')}
         />
       )}
 

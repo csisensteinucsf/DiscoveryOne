@@ -94,6 +94,7 @@ def test_requestor_custodian_request_remains_pending_for_review(db_session, monk
         return {}
 
     core = case_request_create.case_request_core
+    persisted_proofs = []
     monkeypatch.setattr(core, "ensure_case_request_access", lambda *_args: None)
     monkeypatch.setattr(core, "_enforce_pending_limits", lambda *_args: None)
     monkeypatch.setattr(core, "_extract_consent_proof_blobs", no_proofs)
@@ -103,7 +104,13 @@ def test_requestor_custodian_request_remains_pending_for_review(db_session, monk
     monkeypatch.setattr(core, "notify_case_request_submitted", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(core, "_serialize_request", lambda record, **_kwargs: {"status": record.status})
     monkeypatch.setattr(core, "MAX_PENDING_STORAGE_BYTES", 0)
-    monkeypatch.setattr(case_request_create, "_persist_consent_proofs", lambda *_args, **_kwargs: None, raising=False)
+    monkeypatch.setattr(
+        core,
+        "_persist_consent_proofs",
+        lambda _db, record, consents, blobs: persisted_proofs.append(
+            (record.id, consents, blobs)
+        ),
+    )
 
     result = asyncio.run(
         case_request_create.create_case_request(
@@ -116,6 +123,7 @@ def test_requestor_custodian_request_remains_pending_for_review(db_session, monk
     record = db_session.query(models.CaseRequest).one()
     assert result == {"status": "pending"}
     assert record.status == "pending"
+    assert persisted_proofs == [(record.id, [], {})]
     assert record.reviewed_at is None
     assert record.reviewed_by_id is None
     assert db_session.query(models.Custodian).count() == 0

@@ -137,7 +137,7 @@ async def create_case_request(
     db.refresh(record)
 
     consents = body.get("consents") or []
-    _persist_consent_proofs(db, record, consents, proof_blobs)
+    case_request_core._persist_consent_proofs(db, record, consents, proof_blobs)
 
     try:
         case_request_core.log_event(

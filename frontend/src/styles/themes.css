@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --brand: #1f2937;
   --brand-contrast: #ffffff;
   --accent: #3b82f6;
@@ -472,3 +472,18 @@ body.theme-dark .ai-chat-bubble.is-assistant {
   background: #21272f;
   border-color: #374250;
 }
+body.theme-dark .integrations-hub__header { border-color: rgba(255, 255, 255, 0.07); background: linear-gradient(135deg, #252b33 0%, #1d2229 100%); }
+body.theme-dark .integrations-hub__summary,
+body.theme-dark .integration-card,
+body.theme-dark .integration-icon-button,
+body.theme-dark .integration-toggle { border-color: rgba(255, 255, 255, 0.09); background: #1c2026; }
+body.theme-dark .integrations-hub__summary > div,
+body.theme-dark .integration-editor__fields h3,
+body.theme-dark .integration-editor__footer { border-color: rgba(255, 255, 255, 0.08); }
+body.theme-dark .integration-editor__state-card,
+body.theme-dark .integration-editor__roles { border-color: rgba(255, 255, 255, 0.09); background: #181d23; }
+body.theme-dark .integration-card__icon { background: rgba(14, 116, 144, 0.22); }
+body.theme-dark .integration-card__meta span,
+body.theme-dark .integration-status-pill { background: #2b323c; color: #cbd5e1; }
+body.theme-dark .integration-secret-notice { border-color: rgba(56, 189, 248, 0.3); background: rgba(3, 105, 161, 0.16); color: #7dd3fc; }
+body.theme-dark .integration-editor__info { background: rgba(146, 64, 14, 0.18); color: #fcd34d; }

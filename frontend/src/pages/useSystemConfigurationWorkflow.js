@@ -504,18 +504,19 @@ export function useSystemConfigurationWorkflow({ apiBase, isSysAdmin }) {
     }
   }, [apiBase, ticketWorkflows])
 
-  const saveIntegrationSettings = useCallback(async () => {
+  const saveIntegrationSettings = useCallback(async (settingsOverride = null) => {
     setIntegrationSaving(true)
     setIntegrationStatus(null)
+    const settingsToSave = settingsOverride || integrationSettings
     try {
       const res = await fetch(`${apiBase}/system/integrations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          enabled_integrations: integrationSettings.enabled || {},
-          providers: integrationSettings.providers || {},
-          configs: integrationSettings.configs || {},
+          enabled_integrations: settingsToSave.enabled || {},
+          providers: settingsToSave.providers || {},
+          configs: settingsToSave.configs || {},
         }),
       })
       if (!res.ok) throw new Error(await res.text())
@@ -523,9 +524,11 @@ export function useSystemConfigurationWorkflow({ apiBase, isSysAdmin }) {
       setIntegrationSettings(normalizeIntegrationSettings(data))
 
       setIntegrationStatus('Integration settings saved. Restart the backend if a long-running integration had already loaded old values.')
+      return true
     } catch (err) {
       console.error(err)
       setIntegrationStatus(err?.message || 'Unable to save integration settings.')
+      return false
     } finally {
       setIntegrationSaving(false)
     }

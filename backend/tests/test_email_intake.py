@@ -7,10 +7,38 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app import case_request_approval_mutation, case_requestors, email_intake_graph, email_intake_service, integration_settings, models
+from app import case_request_approval_mutation, case_requestors, email_intake_graph, email_intake_service, integration_settings, models, system_admin_config
 from app.case_requestors import normalize_requestor_entries
 from app.email_intake_graph import EmailIntakeSettings
 from app.email_intake_matching import extract_case_request_payload, normalize_graph_message, template_matches
+
+
+def test_email_intake_admin_config_is_editable_without_revealing_secret(monkeypatch):
+    monkeypatch.setattr(
+        integration_settings,
+        "load_system_settings",
+        lambda: {
+            "integration_configs": {
+                "email_intake": {
+                    "tenant_id": "tenant-id",
+                    "client_id": "client-id",
+                    "client_secret": "stored-secret",
+                    "mailbox": "intake@example.test",
+                }
+            }
+        },
+    )
+    monkeypatch.setattr(
+        system_admin_config,
+        "public_integration_config_summary",
+        lambda: {"providers": {}, "enabled": {"email_intake": True}},
+    )
+
+    payload = system_admin_config.public_integration_admin_config()
+
+    assert payload["configs"]["email_intake"]["tenant_id"] == "tenant-id"
+    assert payload["configs"]["email_intake"]["mailbox"] == "intake@example.test"
+    assert payload["configs"]["email_intake"]["client_secret"] == integration_settings.MASKED_SECRET_VALUE
 
 
 @pytest.fixture()

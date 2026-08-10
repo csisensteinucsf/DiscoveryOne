@@ -1,162 +1,164 @@
-import { INTEGRATION_FLAGS } from './systemUtils.js'
-import SystemIntegrationConfigSections from './SystemIntegrationConfigSections.jsx'
-import SystemEmailIntakeConfig from './SystemEmailIntakeConfig.jsx'
+import { CheckCircle2, Cloud, Mail, Pencil, Plus, Search, Settings, Shield, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import SystemEmailIntakeWorkspace from './SystemEmailIntakeWorkspace.jsx'
+import SystemIntegrationEditorModal from './SystemIntegrationEditorModal.jsx'
+import {
+  cloneIntegrationSettings,
+  INTEGRATION_CATALOG,
+  INTEGRATION_CATEGORIES,
+  integrationHasSavedDetails,
+  integrationIsEnabled,
+} from './integrationCatalog.js'
 
-const PROVIDER_LABELS = {
-  none: 'None',
-  local: 'Local accounts',
-  oidc: 'OIDC single sign-on',
-  csv: 'CSV/static directory file',
-  http: 'IDP/HR API',
-  servicenow: 'ServiceNow',
-  smtp: 'SMTP',
-  docusign: 'DocuSign',
-  purview: 'Microsoft Purview',
-  google_workspace: 'Google Workspace',
-}
-
-const PERSON_LOOKUP_ALIASES = new Set(['api', 'idp', 'hr', 'static'])
-
-const providerLabel = value => PROVIDER_LABELS[value] || String(value || '')
-  .split('_')
-  .filter(Boolean)
-  .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-  .join(' ')
-
-const providerChoices = (settings, key, fallback, { hideAliases = false } = {}) => {
-
-  const installed = Array.isArray(settings.providerOptions?.[key])
-    ? settings.providerOptions[key]
-    : fallback
-  const values = installed.map(value => String(value || '').trim()).filter(Boolean)
-  return [...new Set(values)].filter(value => !hideAliases || !PERSON_LOOKUP_ALIASES.has(value))
+const CATEGORY_ICONS = {
+  Identity: Users,
+  Communication: Mail,
+  'Legal workflows': Settings,
+  Preservation: Cloud,
+  'Security and devices': Shield,
+  Operations: Settings,
 }
 
 export default function SystemIntegrationsPanel({
   isSysAdmin,
   adminOnlyCard,
-  titleStyle,
   integrationSettings,
-  updateIntegrationEnabled,
-  updateIntegrationProvider,
-  updateIntegrationConfig,
   saveIntegrationSettings,
   integrationSaving,
   integrationStatus,
   apiBase,
   showToast,
+  onOpenSmtp,
 }) {
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('All')
+  const [editingKey, setEditingKey] = useState(null)
+  const [draftSettings, setDraftSettings] = useState(null)
+
+  const enabledCount = INTEGRATION_CATALOG.filter(item => integrationIsEnabled(integrationSettings, item.key)).length
+  const configuredCount = INTEGRATION_CATALOG.filter(item => integrationHasSavedDetails(integrationSettings, item)).length
+  const visibleIntegrations = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase()
+    return INTEGRATION_CATALOG.filter(item => {
+      if (category !== 'All' && item.category !== category) return false
+      if (!normalizedQuery) return true
+      return `${item.name} ${item.description} ${item.category}`.toLowerCase().includes(normalizedQuery)
+    })
+  }, [category, query])
+
+  if (!isSysAdmin) return adminOnlyCard('Only system administrators can configure integrations.')
+
+  const editingIntegration = INTEGRATION_CATALOG.find(item => item.key === editingKey)
+  const openEditor = integration => {
+    setDraftSettings(cloneIntegrationSettings(integrationSettings))
+    setEditingKey(integration.key)
+  }
+  const closeEditor = () => {
+    if (integrationSaving) return
+    setEditingKey(null)
+    setDraftSettings(null)
+  }
+  const saveEditor = async settings => {
+    const saved = await saveIntegrationSettings(settings)
+    if (saved) closeEditor()
+  }
+
   return (
     <>
-      {isSysAdmin ? (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div style={titleStyle}>Integration Settings</div>
-          <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-            Configure provider choices and connection values inside DiscoveryOne. Secrets entered here are encrypted before they are stored; existing saved secrets show as configured and are preserved unless you replace them.
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 10, marginBottom: 18 }}>
-            {INTEGRATION_FLAGS.map(([key, label]) => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700 }}>
-                <input
-                  type="checkbox"
-                  checked={!!integrationSettings.enabled?.[key]}
-                  onChange={e => updateIntegrationEnabled(key, e.target.checked)}
-                />
-                {label}
-              </label>
-            ))}
+      <div className="card integrations-hub">
+        <header className="integrations-hub__header">
+          <div>
+            <span className="integrations-hub__eyebrow">Connected systems</span>
+            <h2>Integrations</h2>
+            <p>Connect the services DiscoveryOne uses for identity, communication, preservation, legal workflows, and operations.</p>
           </div>
-
-          <div className="form-grid">
-            <label>
-              SSO Provider
-              <select className="input" value={integrationSettings.providers?.sso_provider || 'local'} onChange={e => updateIntegrationProvider('sso_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'sso_provider', ['local', 'oidc']).map(value => (
-                  <option key={value} value={value}>{providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Person Lookup Provider
-              <select className="input" value={integrationSettings.providers?.person_lookup_provider || 'none'} onChange={e => updateIntegrationProvider('person_lookup_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'person_lookup_provider', ['none', 'csv', 'http'], { hideAliases: true }).map(value => (
-                  <option key={value} value={value}>{value === 'none' ? 'Manual entry' : providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Ticket Provider
-              <select className="input" value={integrationSettings.providers?.ticket_provider || 'none'} onChange={e => updateIntegrationProvider('ticket_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'ticket_provider', ['none', 'servicenow']).map(value => (
-                  <option key={value} value={value}>{providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Mail Provider
-              <select className="input" value={integrationSettings.providers?.mail_provider || 'smtp'} onChange={e => updateIntegrationProvider('mail_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'mail_provider', ['none', 'smtp']).map(value => (
-                  <option key={value} value={value}>{providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              E-signature Provider
-              <select className="input" value={integrationSettings.providers?.esign_provider || 'none'} onChange={e => updateIntegrationProvider('esign_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'esign_provider', ['none', 'docusign']).map(value => (
-                  <option key={value} value={value}>{providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Preservation Automation Provider
-              <select className="input" value={integrationSettings.providers?.preservation_provider || 'none'} onChange={e => updateIntegrationProvider('preservation_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'preservation_provider', ['none', 'purview']).map(value => (
-                  <option key={value} value={value}>{providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Search Export Provider
-              <select className="input" value={integrationSettings.providers?.search_export_provider || 'none'} onChange={e => updateIntegrationProvider('search_export_provider', e.target.value)}>
-                {providerChoices(integrationSettings, 'search_export_provider', ['none', 'purview']).map(value => (
-                  <option key={value} value={value}>{providerLabel(value)}</option>
-                ))}
-              </select>
-            </label>          </div>
-
-          <SystemIntegrationConfigSections
-            integrationSettings={integrationSettings}
-            updateIntegrationConfig={updateIntegrationConfig}
-          />
-          {integrationSettings.enabled?.email_intake && (
-            <SystemEmailIntakeConfig
-              integrationSettings={integrationSettings}
-              updateIntegrationConfig={updateIntegrationConfig}
-            />
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18, flexWrap: 'wrap' }}>
-            <button className="btn secondary" onClick={saveIntegrationSettings} disabled={integrationSaving}>
-              {integrationSaving ? 'Saving' : 'Save Integration Settings'}
-            </button>
-            {integrationStatus && (
-              <span style={{ color: integrationStatus.toLowerCase().includes('unable') ? '#b91c1c' : 'var(--muted,#6b7280)' }}>
-                {integrationStatus}
-              </span>
-            )}
+          <div className="integrations-hub__summary" aria-label="Integration summary">
+            <div><strong>{enabledCount}</strong><span>Enabled</span></div>
+            <div><strong>{configuredCount}</strong><span>Set up</span></div>
+            <div><strong>{INTEGRATION_CATALOG.length}</strong><span>Available</span></div>
           </div>
-          {integrationSettings.enabled?.email_intake && (
-            <SystemEmailIntakeWorkspace
-              apiBase={apiBase}
-              enabled={!!integrationSettings.enabled?.email_intake}
-              showToast={showToast}
-              mode="operations"
-            />
-          )}
+        </header>
+
+        <div className="integrations-toolbar">
+          <label className="integrations-search">
+            <Search size={18} aria-hidden="true" />
+            <span className="sr-only">Search integrations</span>
+            <input value={query} onChange={event => setQuery(event.target.value)} placeholder="Search integrations" />
+          </label>
+          <label className="integrations-category-filter">
+            <span>Category</span>
+            <select value={category} onChange={event => setCategory(event.target.value)}>
+              {INTEGRATION_CATEGORIES.map(value => <option key={value} value={value}>{value}</option>)}
+            </select>
+          </label>
         </div>
-      ) : adminOnlyCard('Only system administrators can configure integrations.')}
+
+        {integrationStatus && !editingIntegration && (
+          <div className={`integrations-hub__status${integrationStatus.toLowerCase().includes('unable') ? ' is-error' : ''}`}>
+            {integrationStatus}
+          </div>
+        )}
+
+        <div className="integration-card-grid">
+          {visibleIntegrations.map(integration => {
+            const enabled = integrationIsEnabled(integrationSettings, integration.key)
+            const configured = integrationHasSavedDetails(integrationSettings, integration)
+            const Icon = CATEGORY_ICONS[integration.category] || Settings
+            return (
+              <article className="integration-card" key={integration.key}>
+                <div className="integration-card__topline">
+                  <span className="integration-card__icon"><Icon size={22} aria-hidden="true" /></span>
+                  <span className={`integration-status-pill${enabled ? ' is-enabled' : configured ? ' is-configured' : ''}`}>
+                    {enabled && <CheckCircle2 size={14} aria-hidden="true" />}
+                    {enabled ? 'Enabled' : configured ? 'Setup saved' : 'Not configured'}
+                  </span>
+                </div>
+                <div className="integration-card__content">
+                  <h3>{integration.name}</h3>
+                  <p>{integration.description}</p>
+                </div>
+                <div className="integration-card__meta">
+                  <span>{integration.category}</span>
+                  {integration.configurationOnly && <span>Configuration only</span>}
+                </div>
+                <button type="button" className="btn secondary integration-card__action" onClick={() => openEditor(integration)}>
+                  {configured ? <Pencil size={16} aria-hidden="true" /> : <Plus size={16} aria-hidden="true" />}
+                  {configured ? 'Edit' : 'Set up'}
+                </button>
+              </article>
+            )
+          })}
+        </div>
+
+        {visibleIntegrations.length === 0 && (
+          <div className="integrations-empty">No integrations match your search.</div>
+        )}
+      </div>
+
+      {integrationSettings.enabled?.email_intake && (
+        <div className="integrations-operations">
+          <SystemEmailIntakeWorkspace
+            apiBase={apiBase}
+            enabled={!!integrationSettings.enabled?.email_intake}
+            showToast={showToast}
+            mode="operations"
+          />
+        </div>
+      )}
+
+      <SystemIntegrationEditorModal
+        integration={editingIntegration}
+        settings={draftSettings}
+        setSettings={setDraftSettings}
+        onClose={closeEditor}
+        onSave={saveEditor}
+        saving={integrationSaving}
+        status={integrationStatus}
+        onOpenExternal={() => {
+          closeEditor()
+          onOpenSmtp?.()
+        }}
+      />
     </>
   )
 }
