@@ -48,6 +48,9 @@ export default function CaseDetailHeader({
   setShowCloseCaseModal,
   useLegalCaseNameAsPrimary = false,
   internalCounselLabel = 'Internal Counsel',
+  activeTab,
+  onOpenTickets,
+  requestsFilledCount = 0,
 }) {
   const primaryCaseName = useLegalCaseNameAsPrimary ? (caseData?.legal_case_name || caseData?.name) : caseData?.name
   const customFields = Object.entries(caseData?.custom_fields || {})
@@ -62,23 +65,34 @@ export default function CaseDetailHeader({
               </h2>
               {caseData?.closed ? <Badge variant="danger">INACTIVE</Badge> : <Badge variant="success">ACTIVE</Badge>}
             </div>
-            {!isReadOnly && (
-              <div className="row" style={{ gap: 12, flexWrap: 'wrap' }}>
-                <button className="btn secondary" onClick={() => setShowEdit(true)}>Edit Case</button>
-                <button className="btn secondary" onClick={onExportCustodians}>Export Case to CSV</button>
-                {preservationAutomationEnabled && (
-                  <button className="btn secondary" onClick={openPreservationAutomation}>
-                    {preservationProviderName}
+            <div className="row case-detail-header__actions" style={{ gap: 12, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`${activeTab === 'requests' ? 'btn' : 'btn secondary'} case-detail-header__tickets`}
+                onClick={onOpenTickets}
+                aria-pressed={activeTab === 'requests'}
+              >
+                Tickets
+                {requestsFilledCount > 0 && <span className="case-detail-header__ticket-count">{requestsFilledCount}</span>}
+              </button>
+              {!isReadOnly && (
+                <>
+                  <button className="btn secondary" onClick={() => setShowEdit(true)}>Edit Case</button>
+                  <button className="btn secondary" onClick={onExportCustodians}>Export Case to CSV</button>
+                  {preservationAutomationEnabled && (
+                    <button className="btn secondary" onClick={openPreservationAutomation}>
+                      {preservationProviderName}
+                    </button>
+                  )}
+                  <button className="btn secondary" onClick={openCaseSummary}>
+                    Case Summary
                   </button>
-                )}
-                <button className="btn secondary" onClick={openCaseSummary}>
-                  Case Summary
-                </button>
-                <button className={caseData?.closed ? 'btn' : 'btn danger'} onClick={toggleClosed}>
-                  {caseData?.closed ? 'Reopen Case' : 'Close Case'}
-                </button>
-              </div>
-            )}
+                  <button className={caseData?.closed ? 'btn' : 'btn danger'} onClick={toggleClosed}>
+                    {caseData?.closed ? 'Reopen Case' : 'Close Case'}
+                  </button>
+                </>
+              )}
+            </div>
           </div>
               <button
                 className="btn ghost"

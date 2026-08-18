@@ -4,7 +4,6 @@ export default function CaseDetailTabNav({
   isTech,
   isRequestor,
   searchCount,
-  requestsFilledCount,
   documentationBadgeCount,
   noteCount,
   requestorNoteCount,
@@ -60,31 +59,6 @@ export default function CaseDetailTabNav({
                 )}
               </button>
             )}
-            <button
-              className={activeTab === 'requests' ? 'btn' : 'btn secondary'}
-              onClick={() => setActiveTab('requests')}
-              aria-pressed={activeTab === 'requests'}
-              style={{ position: 'relative' }}
-            >
-              Tickets
-              {requestsFilledCount > 0 && (
-                <span
-                  style={{
-                    position:'absolute',
-                    top:-6, right:-8,
-                    minWidth:16, height:16, padding:'0 5px',
-                    borderRadius:9999,
-                    background:'var(--accent,#14b8a6)',
-                    color:'#fff',
-                    fontSize:11, lineHeight:'16px',
-                    fontWeight:600,
-                    boxShadow:'0 0 0 2px var(--card,#fff)'
-                  }}
-                >
-                  {requestsFilledCount}
-                </span>
-              )}
-            </button>
             {!isTech && (
               <button
                 type="button"

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { AUTH_EXPIRED_EVENT, AUTH_SYNC_CHANNEL, AUTH_SYNC_STORAGE_KEY } from './lib/apiClient.js'
+import { AUTH_ACTIVITY_EVENT, AUTH_EXPIRED_EVENT, AUTH_SYNC_CHANNEL, AUTH_SYNC_STORAGE_KEY } from './lib/apiClient.js'
+import { sessionExpiryDelayMs } from './lib/sessionExpiry.js'
 
 const BRANDING_EVENT = 'branding:update'
 const emitBrandingUpdate = () => {
@@ -54,16 +54,18 @@ const normalizeUser = (payload) => {
     ui_preferences: payload.ui_preferences && typeof payload.ui_preferences === 'object' ? payload.ui_preferences : {},
     auth_provider: payload.auth_provider || 'local',
     local_password_login_allowed: payload.local_password_login_allowed !== false,
+    session_expires_at: payload.session_expires_at || null,
+    session_idle_timeout_minutes: Number(payload.session_idle_timeout_minutes || 0),
   }
 }
 
 const AuthCtx = createContext(null)
 
 export function AuthProvider({ apiBase, children }) {
-  const navigate = useNavigate()
   const [user, setUser] = useState(null)
   const userRef = useRef(null)
   const expiryHandledRef = useRef(false)
+  const [sessionActivityAt, setSessionActivityAt] = useState(0)
   const [loading, setLoading] = useState(true)
   const [authConfig, setAuthConfig] = useState({
     sso_enabled: false,
@@ -93,6 +95,7 @@ export function AuthProvider({ apiBase, children }) {
   const clearBrowserAuth = useCallback((reason = 'logout', { broadcast = true, redirect = true } = {}) => {
     userRef.current = null
     setUser(null)
+    setSessionActivityAt(0)
     emitBrandingUpdate()
     if (broadcast) publishAuthClear(reason)
     if (!redirect || typeof window === 'undefined') return
@@ -101,18 +104,19 @@ export function AuthProvider({ apiBase, children }) {
     const target = expired ? '/login?reason=expired' : '/login'
     const currentPath = `${window.location.pathname}${window.location.search}`
     if (currentPath === target) return
-    const from = window.location.pathname !== '/login'
-      ? { pathname: window.location.pathname, search: window.location.search }
-      : undefined
-    navigate(target, { replace: true, state: from ? { from } : undefined })
-  }, [navigate])
+    window.location.replace(target)
+  }, [])
+
+  const expireCurrentSession = useCallback(() => {
+    if (!userRef.current || expiryHandledRef.current) return
+    expiryHandledRef.current = true
+    void fetch(`${apiBase}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
+    clearBrowserAuth('expired')
+  }, [apiBase, clearBrowserAuth])
 
   useEffect(() => {
-    const expireCurrentSession = () => {
-      if (!userRef.current || expiryHandledRef.current) return
-      expiryHandledRef.current = true
-      void fetch(`${apiBase}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
-      clearBrowserAuth('expired')
+    const recordActivity = () => {
+      if (userRef.current && !expiryHandledRef.current) setSessionActivityAt(Date.now())
     }
     const consumeSync = (payload) => {
       if (!payload || payload.type !== 'clear' || payload.source === AUTH_TAB_ID) return
@@ -129,6 +133,7 @@ export function AuthProvider({ apiBase, children }) {
     }
 
     window.addEventListener(AUTH_EXPIRED_EVENT, expireCurrentSession)
+    window.addEventListener(AUTH_ACTIVITY_EVENT, recordActivity)
     window.addEventListener('storage', onStorage)
     let channel = null
     if (typeof window.BroadcastChannel === 'function') {
@@ -141,10 +146,33 @@ export function AuthProvider({ apiBase, children }) {
     }
     return () => {
       window.removeEventListener(AUTH_EXPIRED_EVENT, expireCurrentSession)
+      window.removeEventListener(AUTH_ACTIVITY_EVENT, recordActivity)
       window.removeEventListener('storage', onStorage)
       channel?.close()
     }
-  }, [apiBase, clearBrowserAuth])
+  }, [clearBrowserAuth, expireCurrentSession])
+
+  useEffect(() => {
+    if (!user) return undefined
+    const delay = sessionExpiryDelayMs(user, sessionActivityAt)
+    if (delay === null) return undefined
+    if (delay <= 0) {
+      expireCurrentSession()
+      return undefined
+    }
+    const timer = window.setTimeout(expireCurrentSession, delay + 25)
+    const checkDeadline = () => {
+      const remaining = sessionExpiryDelayMs(user, sessionActivityAt)
+      if (remaining !== null && remaining <= 0) expireCurrentSession()
+    }
+    window.addEventListener('focus', checkDeadline)
+    document.addEventListener('visibilitychange', checkDeadline)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('focus', checkDeadline)
+      document.removeEventListener('visibilitychange', checkDeadline)
+    }
+  }, [expireCurrentSession, sessionActivityAt, user])
 
   const refreshSetupStatus = useCallback(async () => {
     try {
@@ -217,6 +245,7 @@ export function AuthProvider({ apiBase, children }) {
         userRef.current = normalized
         expiryHandledRef.current = false
         setUser(normalized)
+        setSessionActivityAt(Date.now())
         emitBrandingUpdate()
         return data
       }
@@ -266,6 +295,7 @@ export function AuthProvider({ apiBase, children }) {
       userRef.current = normalized
       expiryHandledRef.current = false
       setUser(normalized)
+      setSessionActivityAt(Date.now())
       emitBrandingUpdate()
     }
     return data
@@ -293,6 +323,7 @@ export function AuthProvider({ apiBase, children }) {
     userRef.current = normalized
     expiryHandledRef.current = false
     setUser(normalized)
+    setSessionActivityAt(Date.now())
     emitBrandingUpdate()
     return data
   }

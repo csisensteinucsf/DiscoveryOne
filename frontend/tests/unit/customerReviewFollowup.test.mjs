@@ -86,3 +86,29 @@ test('template editor scrolls within the viewport and case tabs expose active st
   assert.match(tabs, /aria-pressed={activeTab === 'custodians'}/)
   assert.match(tabs, /aria-pressed={activeTab === 'notes'}/)
 })
+test('Case Detail places Tickets before Edit Case and removes it from the tab row', () => {
+  const header = readSource('../../src/pages/CaseDetailHeader.jsx')
+  const tabs = readSource('../../src/pages/CaseDetailTabNav.jsx')
+  const detail = readSource('../../src/pages/CaseDetail.jsx')
+  const ticketsAction = header.indexOf('onClick={onOpenTickets}')
+  const editAction = header.indexOf('>Edit Case</button>')
+
+  assert.notEqual(ticketsAction, -1)
+  assert.notEqual(editAction, -1)
+  assert.equal(ticketsAction < editAction, true)
+  assert.equal(tabs.includes('Tickets'), false)
+  assert.equal(detail.includes("onOpenTickets={() => setActiveTab('requests')}"), true)
+  assert.equal(detail.includes('requestsFilledCount={requestsFilledCount}'), true)
+})
+
+test('Login keeps native required validation without displaying required asterisks', () => {
+  const login = readSource('../../src/pages/Login.jsx')
+  const identifierControl = login.slice(login.indexOf('id="login-identifier"'), login.indexOf('id="login-identifier"') + 250)
+  const passwordControl = login.slice(login.indexOf('id="login-password"'), login.indexOf('id="login-password"') + 250)
+
+  assert.equal(login.includes('RequiredFieldLabel'), false)
+  assert.equal(login.includes('<label htmlFor="login-identifier">Email or Username</label>'), true)
+  assert.equal(login.includes('<label htmlFor="login-password">Password</label>'), true)
+  assert.equal(identifierControl.includes('required'), true)
+  assert.equal(passwordControl.includes('required'), true)
+})

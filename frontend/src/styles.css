@@ -2929,3 +2929,19 @@ form[data-required-feedback='true']::after {
     grid-template-columns: 1fr;
   }
 }
+.case-detail-header__tickets { position: relative; }
+.case-detail-header__ticket-count {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: var(--accent, #14b8a6);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px var(--card, #fff);
+}

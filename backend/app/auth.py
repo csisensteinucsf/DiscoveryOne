@@ -425,6 +425,13 @@ def _serialize_user(user: models.User) -> dict:
     }
 
 
+def _serialize_authenticated_user(user: models.User, expires_at: Optional[datetime]) -> dict:
+    payload = _serialize_user(user)
+    payload["session_expires_at"] = _as_utc(expires_at).isoformat() if expires_at else None
+    payload["session_idle_timeout_minutes"] = SESSION_IDLE_TIMEOUT_MINUTES
+    return payload
+
+
 def _serialize_trusted_device(device: models.TrustedDevice) -> dict:
     if not device:
         return {}
@@ -1117,7 +1124,7 @@ def _complete_login(
         _debug_suppressed("login audit log skipped", exc)
     return {
         "token_type": "bearer",
-        "user": _serialize_user(user),
+        "user": _serialize_authenticated_user(user, expires_at),
     }
 
 
@@ -1442,7 +1449,7 @@ def _refresh_session_impl(
         max_age=REFRESH_TOKEN_DAYS * 24 * 60 * 60,
     )
 
-    return {"access_token": token, "token_type": "bearer", "user": _serialize_user(user)}
+    return {"access_token": token, "token_type": "bearer", "user": _serialize_authenticated_user(user, expires_at)}
 
 
 @router.post("/refresh")
@@ -1473,8 +1480,8 @@ def require_admin(user: models.User = Depends(current_user)):
     return user
 
 @router.get("/me")
-def me(user: models.User = Depends(current_user)):
-    return _serialize_user(user)
+def me(request: Request, user: models.User = Depends(current_user)):
+    return _serialize_authenticated_user(user, getattr(request.state, "session_expires_at", None))
 
 
 @router.post("/preferences")

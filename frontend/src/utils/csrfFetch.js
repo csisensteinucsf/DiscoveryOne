@@ -1,4 +1,4 @@
-import { notifyAuthExpired } from '../lib/apiClient.js'
+import { notifyAuthActivity, notifyAuthExpired } from '../lib/apiClient.js'
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
@@ -36,6 +36,7 @@ export function installCsrfFetch() {
     }
     const response = await originalFetch(input, nextInit)
     if (response.status === 401) notifyAuthExpired(input, response.status)
+    else notifyAuthActivity(input)
     return response
   }
 }

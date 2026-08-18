@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth.jsx'
 import { useBrandingSettings } from '../lib/useBrandingSettings.js'
-import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 
 export default function Login({ apiBase }) {
   const { login, verifyMfa, authConfig, beginSsoLogin } = useAuth()
@@ -183,9 +182,9 @@ export default function Login({ apiBase }) {
                 Local sign-in is reserved for local-only {appName} accounts and the break-glass admin account.
               </p>
             )}
-            <label htmlFor="login-identifier"><RequiredFieldLabel>Email or Username</RequiredFieldLabel></label>
+            <label htmlFor="login-identifier">Email or Username</label>
             <input id="login-identifier" className="input" value={email} onChange={e=>setEmail(e.target.value)} autoFocus required />
-            <label htmlFor="login-password"><RequiredFieldLabel>Password</RequiredFieldLabel></label>
+            <label htmlFor="login-password">Password</label>
             <input id="login-password" className="input" type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
             {displayError && <p role="alert" aria-live="assertive" style={{color:'#b91c1c'}}>{displayError}</p>}
             <div style={{marginTop:'.75rem', display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -205,7 +204,7 @@ export default function Login({ apiBase }) {
             <p style={{ color: 'var(--muted,#6b7280)' }}>
               Enter the current six-digit code from your authenticator app to finish signing in.
             </p>
-            <label htmlFor="login-mfa-code"><RequiredFieldLabel>Verification Code</RequiredFieldLabel></label>
+            <label htmlFor="login-mfa-code">Verification Code</label>
             <input
               id="login-mfa-code"
               className="input"
@@ -258,7 +257,7 @@ export default function Login({ apiBase }) {
             </p>
           )}
           <form onSubmit={submitRegistration}>
-            <label htmlFor="register-name"><RequiredFieldLabel>Full Name</RequiredFieldLabel></label>
+            <label htmlFor="register-name">Full Name</label>
             <input
               id="register-name"
               className="input"
@@ -267,7 +266,7 @@ export default function Login({ apiBase }) {
               placeholder="First Last"
               required
             />
-            <label htmlFor="register-email"><RequiredFieldLabel>Email</RequiredFieldLabel></label>
+            <label htmlFor="register-email">Email</label>
             <input
               id="register-email"
               className="input"

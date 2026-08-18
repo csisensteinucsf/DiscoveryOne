@@ -154,3 +154,33 @@ def test_login_succeeds_immediately_after_expired_logout_without_server_state_re
     )
     assert f"{auth.SESSION_COOKIE_NAME}=" in set_cookie
     assert db_session.query(models.SessionToken).filter(models.SessionToken.revoked_at.is_(None)).count() == 1
+
+def test_authenticated_user_payload_includes_session_deadlines(db_session, monkeypatch):
+    user = _user(db_session)
+    token, expires_at, jti = auth.create_access_token(user.username, expires_delta=timedelta(minutes=30))
+    _session(db_session, user, token=token, jti=jti, expires_at=expires_at)
+    monkeypatch.setattr(auth, "SESSION_IDLE_TIMEOUT_MINUTES", 17)
+    request = _request("/api/auth/me", access_token=token)
+
+    resolved_user = auth.current_user(request, db_session)
+    result = auth.me(request=request, user=resolved_user)
+
+    assert result["session_expires_at"] == request.state.session_expires_at.isoformat()
+    assert result["session_idle_timeout_minutes"] == 17
+
+
+def test_login_payload_includes_session_deadlines(db_session, monkeypatch):
+    user = _user(db_session)
+    monkeypatch.setattr(auth, "_oidc_enabled", lambda: False)
+    monkeypatch.setattr(auth, "_has_valid_trusted_device", lambda *_args: False)
+    monkeypatch.setattr(auth, "SESSION_IDLE_TIMEOUT_MINUTES", 23)
+
+    result = auth.login(
+        SimpleNamespace(username=user.username, password="CorrectPassword123"),
+        response=Response(),
+        db=db_session,
+        request=_request("/api/auth/token", method="POST"),
+    )
+
+    assert result["user"]["session_expires_at"]
+    assert result["user"]["session_idle_timeout_minutes"] == 23

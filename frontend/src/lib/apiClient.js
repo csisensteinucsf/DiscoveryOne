@@ -1,4 +1,5 @@
 export const AUTH_EXPIRED_EVENT = 'discoveryone:auth-expired'
+export const AUTH_ACTIVITY_EVENT = 'discoveryone:auth-activity'
 export const AUTH_SYNC_CHANNEL = 'discoveryone:auth-sync'
 export const AUTH_SYNC_STORAGE_KEY = 'discoveryone:auth-sync'
 
@@ -37,6 +38,13 @@ export function notifyAuthExpired(input, status = 401) {
   if (typeof window === 'undefined' || !isProtectedApiRequest(input)) return
   window.dispatchEvent(new CustomEvent(AUTH_EXPIRED_EVENT, {
     detail: { url: typeof input === 'string' ? input : input?.url || '', status },
+  }))
+}
+
+export function notifyAuthActivity(input) {
+  if (typeof window === 'undefined' || !isProtectedApiRequest(input)) return
+  window.dispatchEvent(new CustomEvent(AUTH_ACTIVITY_EVENT, {
+    detail: { url: typeof input === 'string' ? input : input?.url || '', at: Date.now() },
   }))
 }
 

@@ -982,6 +982,9 @@ export default function CaseDetail() {
             setShowCloseCaseModal={setShowCloseCaseModal}
             useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
             internalCounselLabel={internalCounselLabel}
+            activeTab={activeTab}
+            onOpenTickets={() => setActiveTab('requests')}
+            requestsFilledCount={requestsFilledCount}
           />
           <CaseDetailTabNav
             activeTab={activeTab}
@@ -989,7 +992,6 @@ export default function CaseDetail() {
             isTech={isTech}
             isRequestor={isRequestor}
             searchCount={searchCount}
-            requestsFilledCount={requestsFilledCount}
             documentationBadgeCount={documentationBadgeCount}
             noteCount={noteCount}
             requestorNoteCount={requestorNoteCount}
