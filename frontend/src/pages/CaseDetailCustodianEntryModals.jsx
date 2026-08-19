@@ -1,4 +1,5 @@
 import { AddCustodiansModal, ImportCustodiansModal } from './CaseDetailCustodianModals.jsx'
+import SelectD1CustodiansModal from './SelectD1CustodiansModal.jsx'
 
 export default function CaseDetailCustodianEntryModals({
   showCustodianModal,
@@ -20,12 +21,62 @@ export default function CaseDetailCustodianEntryModals({
   setImportWorking,
   submitCustodianBatch,
   setCustodians,
+  custodians,
   showToast,
   addCustodiansWorking,
   addCustodiansWorkingRef,
   setAddCustodiansWorking,
 }) {
   if (!showCustodianModal) return null
+
+
+  if (custodianModalMode === 'directory') {
+    return (
+      <SelectD1CustodiansModal
+        apiBase={apiBase}
+        caseId={caseId}
+        holds={namedHolds}
+        selectedHoldIds={targetHoldIds}
+        onSelectedHoldIdsChange={setTargetHoldIds}
+        onHoldCreated={reloadNamedHolds}
+        existingCustodians={custodians}
+        saving={addCustodiansWorking}
+        onClose={() => {
+          if (addCustodiansWorkingRef.current) return
+          setShowCustodianModal(false)
+          setCustodianModalMode('add')
+        }}
+        onSwitchToAdd={() => setCustodianModalMode('add')}
+        onSwitchToImport={() => setCustodianModalMode('import')}
+        onSave={async rows => {
+          if (addCustodiansWorkingRef.current) return
+          addCustodiansWorkingRef.current = true
+          setAddCustodiansWorking(true)
+          try {
+            const result = await submitCustodianBatch(rows)
+            if (result.created.length) {
+              setCustodians(previous => [...previous, ...result.created])
+              await reloadNamedHolds?.()
+            }
+            const totalDuplicates = result.localDuplicateCount + result.duplicateCount
+            if (result.failedCount > 0) {
+              const firstError = result.errors.find(Boolean)
+              showToast(firstError || 'One or more selected custodians could not be added.', { variant: 'error' })
+              return
+            }
+            showToast(`Added ${result.createdCount} custodian${result.createdCount === 1 ? '' : 's'}${totalDuplicates ? `; skipped ${totalDuplicates} duplicate${totalDuplicates === 1 ? '' : 's'}` : ''}.`)
+            setShowCustodianModal(false)
+            setCustodianModalMode('add')
+          } catch (error) {
+            showToast(error?.message || 'Failed to add selected custodians.', { variant: 'error' })
+          } finally {
+            addCustodiansWorkingRef.current = false
+            setAddCustodiansWorking(false)
+          }
+        }}
+      />
+    )
+  }
 
   if (custodianModalMode === 'import') {
     return (
@@ -41,6 +92,7 @@ export default function CaseDetailCustodianEntryModals({
         progress={{ working: importWorking, done: importDone, total: importTotal }}
         onClose={() => { setShowCustodianModal(false); setCustodianModalMode('add'); setImportWorking(false); }}
         onSwitchToAdd={() => setCustodianModalMode('add')}
+        onSwitchToDirectory={() => setCustodianModalMode('directory')}
         onImport={async (rows) => {
           setImportWorking(true)
           try {
@@ -93,6 +145,10 @@ export default function CaseDetailCustodianEntryModals({
       onSwitchToImport={() => {
         if (addCustodiansWorkingRef.current) return
         setCustodianModalMode('import')
+      }}
+      onSwitchToDirectory={() => {
+        if (addCustodiansWorkingRef.current) return
+        setCustodianModalMode('directory')
       }}
       onSave={async (rows) => {
         if (addCustodiansWorkingRef.current) return

@@ -1,6 +1,7 @@
 from typing import Optional, Dict, Any, Tuple, List, Set
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func, literal
 from .database import get_db
@@ -13,9 +14,30 @@ from .permissions import (
     is_tech,
     get_requestor_allowed_emails,
     get_tech_visible_case_ids,
+    ensure_not_requestor,
 )
+from .audit import log_event
 
 router = APIRouter(prefix="/api/custodians", tags=["custodians"])
+
+
+class DirectoryCustodianInput(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    email: str = Field(min_length=3, max_length=320)
+
+
+class DirectoryCustodianBatch(BaseModel):
+    custodians: List[DirectoryCustodianInput] = Field(min_length=1, max_length=500)
+
+
+def _normalize_directory_email(value: str) -> str:
+    email = (value or "").strip().lower()
+    if email.count("@") != 1 or " " in email:
+        raise HTTPException(status_code=422, detail=f"Invalid custodian email: {value}")
+    local, domain = email.split("@", 1)
+    if not local or "." not in domain or domain.startswith(".") or domain.endswith("."):
+        raise HTTPException(status_code=422, detail=f"Invalid custodian email: {value}")
+    return email
 
 
 def _custodian_key(name: str, email: Optional[str]) -> Tuple[str, str]:
@@ -209,6 +231,37 @@ def list_custodians(
     rows = query.all()
 
     grouped: Dict[Tuple[str, str], Dict[str, Any]] = {}
+    if not (is_requestor(actor) or is_tech(actor) or is_tester(actor)):
+        directory_query = db.query(models.CustodianDirectoryEntry)
+        if q:
+            like = f"%{q.strip()}%"
+            directory_query = directory_query.filter(or_(
+                models.CustodianDirectoryEntry.name.ilike(like),
+                models.CustodianDirectoryEntry.email.ilike(like),
+            ))
+        for entry in directory_query.all():
+            key = _custodian_key(entry.name, entry.email)
+            grouped[key] = {
+                "directory_id": entry.id,
+                "name": entry.name,
+                "email": entry.email,
+                "open_cases": [],
+                "closed_cases": [],
+                "active_holds": False,
+                "is_separated": False,
+                "employment_end_date": None,
+                "employment_status": None,
+                "external_id": None,
+                "employee_id": None,
+                "first_name": None,
+                "last_name": None,
+                "department_id": None,
+                "department": None,
+                "title": None,
+                "current_employee": None,
+                "person_lookup_last_at": None,
+                "_snapshot_score": -1,
+            }
     for cust, case_id, case_name, case_closed, case_claimant in rows:
         key = _custodian_key(cust.name or "", cust.email)
         bucket = grouped.get(key)
@@ -272,6 +325,59 @@ def list_custodians(
         item["closed_cases"] = [{"id": c["id"], "name": c["name"], "is_claimant": bool(c.get("is_claimant"))} for c in item["closed_cases"]]
         item.pop("_snapshot_score", None)
     return out
+
+
+@router.post("", summary="Add custodians to the reusable D1 directory")
+def add_directory_custodians(
+    payload: DirectoryCustodianBatch,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: models.User = Depends(get_current_user),
+):
+    ensure_not_requestor(actor)
+    normalized = []
+    seen = set()
+    for item in payload.custodians:
+        name = item.name.strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="Custodian name is required")
+        email = _normalize_directory_email(item.email)
+        if email in seen:
+            continue
+        seen.add(email)
+        normalized.append((name, email))
+
+    existing_rows = (
+        db.query(func.lower(models.CustodianDirectoryEntry.email))
+        .filter(func.lower(models.CustodianDirectoryEntry.email).in_([email for _, email in normalized]))
+        .all()
+        if normalized
+        else []
+    )
+    existing = {value for (value,) in existing_rows}
+    created = []
+    for name, email in normalized:
+        if email in existing:
+            continue
+        entry = models.CustodianDirectoryEntry(name=name, email=email)
+        db.add(entry)
+        db.flush()
+        created.append({"directory_id": entry.id, "name": entry.name, "email": entry.email})
+        log_event(
+            db,
+            action="custodian_directory_create",
+            actor_id=getattr(actor, "id", None),
+            target_type="custodian_directory",
+            target_id=entry.id,
+            details={"name": entry.name, "email": entry.email},
+            request=request,
+        )
+    db.commit()
+    return {
+        "created": created,
+        "created_count": len(created),
+        "duplicate_count": len(payload.custodians) - len(created),
+    }
 
 
 @router.get("/detail", summary="Get custodian detail by email or name")

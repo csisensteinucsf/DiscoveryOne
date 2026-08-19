@@ -127,7 +127,6 @@ export default function CaseDetail() {
     loadProofs,
     openDocModal,
     closeDocModal,
-    handleDocHoldSelect,
     handleDocCustodianSelect,
     handleDocFieldChange,
     submitConsentDocument,
@@ -613,9 +612,6 @@ export default function CaseDetail() {
     ticketSelfHealBusy,
     showBulkRequestModal,
     bulkCategory,
-    bulkHoldId,
-    setBulkHoldId,
-    activeTicketHolds,
     bulkSelection,
     bulkSearch,
     setBulkSearch,
@@ -654,7 +650,6 @@ export default function CaseDetail() {
     userRole,
     employeeIdLabel,
     custodians,
-    namedHolds: ntpHolds,
     custodianOptionLookup,
     techTicketCategorySet,
     ticketCategories,
@@ -678,9 +673,6 @@ export default function CaseDetail() {
   const {
     showConsentModal,
     setShowConsentModal,
-    consentHolds,
-    consentHoldId,
-    setConsentHoldId,
     consentCustodians,
     consentSelection,
     setConsentSelection,
@@ -1038,10 +1030,8 @@ export default function CaseDetail() {
               apiBase={apiBase}
               caseId={caseId}
               custodians={custodians}
-              searches={searches}
               isReadOnly={isReadOnly}
               showToast={showToast}
-              requestEntries={requestEntries}
               initialHoldId={linkedHoldId}
             />
           )}
@@ -1219,9 +1209,6 @@ export default function CaseDetail() {
         showBulkRequestModal={showBulkRequestModal}
         closeBulkModal={closeBulkModal}
         bulkCategory={bulkCategory}
-        namedHolds={activeTicketHolds}
-        bulkHoldId={bulkHoldId}
-        setBulkHoldId={setBulkHoldId}
         bulkSearch={bulkSearch}
         setBulkSearch={setBulkSearch}
         custodians={custodians}
@@ -1253,8 +1240,6 @@ export default function CaseDetail() {
         closeDocModal={closeDocModal}
         submitConsentDocument={submitConsentDocument}
         docForm={docForm}
-        namedHolds={ntpHolds}
-        handleDocHoldSelect={handleDocHoldSelect}
         handleDocCustodianSelect={handleDocCustodianSelect}
         handleDocFieldChange={handleDocFieldChange}
         custodianOptions={custodianOptions}
@@ -1339,9 +1324,6 @@ export default function CaseDetail() {
         onClose={() => setShowConsentModal(false)}
         consentFormInline={consentFormInline}
         setConsentFormInline={setConsentFormInline}
-        consentHolds={consentHolds}
-        consentHoldId={consentHoldId}
-        setConsentHoldId={setConsentHoldId}
         consentAutoSearches={consentAutoSearches}
         consentAutoSearchId={consentAutoSearchId}
         setConsentAutoSearchId={setConsentAutoSearchId}
@@ -1402,6 +1384,7 @@ export default function CaseDetail() {
         setImportWorking={setImportWorking}
         submitCustodianBatch={submitCustodianBatch}
         setCustodians={setCustodians}
+        custodians={custodians}
         showToast={showToast}
         addCustodiansWorking={addCustodiansWorking}
         addCustodiansWorkingRef={addCustodiansWorkingRef}

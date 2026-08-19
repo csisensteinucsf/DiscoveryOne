@@ -7,9 +7,6 @@ export default function CaseDetailTicketWorkflowModals({
   showBulkRequestModal,
   closeBulkModal,
   bulkCategory,
-  namedHolds = [],
-  bulkHoldId,
-  setBulkHoldId,
   bulkSearch,
   setBulkSearch,
   custodians,
@@ -46,13 +43,8 @@ export default function CaseDetailTicketWorkflowModals({
         >
           {(() => {
             const isAccessLogBulk = workflowUsesAccessLogDetails(bulkCategory)
-            const activeHolds = (namedHolds || []).filter(hold => hold?.status === 'active')
-            const selectedHold = activeHolds.find(hold => String(hold.id) === String(bulkHoldId))
-            const holdCustodianIds = new Set((selectedHold?.custodians || []).map(member => Number(member.custodian_id)))
-            const availableCustodians = selectedHold
-              ? (custodians || []).filter(custodian => holdCustodianIds.has(Number(custodian.id)))
-              : []
-            const requestKey = bulkCategory + ':' + String(bulkHoldId || 'none')
+            const availableCustodians = custodians || []
+            const requestKey = bulkCategory
             return (
           <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             <h3 style={{ margin:0 }}>{isAccessLogBulk ? 'Select custodian' : 'Add custodians in bulk'}</h3>
@@ -61,20 +53,6 @@ export default function CaseDetailTicketWorkflowModals({
                 ? `Select one custodian to start the ${requestTicketCategoryLookup?.[bulkCategory]?.label || 'access log'} request. You will enter the Employee ID and date/time details in the next step.`
                 : `Select custodians to add to ${requestTicketCategoryLookup?.[bulkCategory]?.label || 'this request'}. Custodians already added for this category are greyed out.`}
             </p>
-            <label style={{ display:'grid', gap:4 }}>
-              <span style={{ fontSize:12, color:'#475467', fontWeight:600 }}>Named Hold</span>
-              <select
-                className="input"
-                value={bulkHoldId}
-                onChange={event => { setBulkHoldId(event.target.value); setBulkSelection(new Set()) }}
-              >
-                <option value="">Select an active Hold</option>
-                {activeHolds.map(hold => <option key={hold.id} value={hold.id}>{hold.name}</option>)}
-              </select>
-            </label>
-            {!activeHolds.length && (
-              <div style={{ color:'#b45309', fontSize:12 }}>Create an active Hold before adding ticket work.</div>
-            )}
             <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
               <input
                 type="text"
@@ -134,12 +112,12 @@ export default function CaseDetailTicketWorkflowModals({
                 )
               })}
               {!availableCustodians.length && (
-                <p style={{ gridColumn:'1 / -1', color:'#9ca3af', fontSize:13 }}>No custodians are assigned to the selected hold.</p>
+                <p style={{ gridColumn:'1 / -1', color:'#9ca3af', fontSize:13 }}>No custodians are assigned to this case.</p>
               )}
             </div>
             <div className="row" style={{ justifyContent:'flex-end', gap:8 }}>
               <button className="btn ghost" type="button" onClick={closeBulkModal}>Cancel</button>
-              <button className="btn primary" type="button" onClick={submitBulkRequests} disabled={!bulkHoldId}>{isAccessLogBulk ? 'Continue' : 'Add selected'}</button>
+              <button className="btn primary" type="button" onClick={submitBulkRequests} disabled={!bulkSelection.size}>{isAccessLogBulk ? 'Continue' : 'Add selected'}</button>
             </div>
           </div>
             )

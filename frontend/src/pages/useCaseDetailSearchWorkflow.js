@@ -107,16 +107,11 @@ export function useCaseDetailSearchWorkflow({
     setShowSearchModal(true)
   }
 
-  async function createSearchesFromAiSuggestions(suggestions, selectedHoldIds = []) {
+  async function createSearchesFromAiSuggestions(suggestions) {
     if (isRequestor || !caseId) return
     const rows = Array.isArray(suggestions) ? suggestions.filter(Boolean) : []
     if (!rows.length) {
       showToast('No AI suggestions to create.', { variant: 'info' })
-      return
-    }
-    const explicitHoldIds = [...new Set((selectedHoldIds || []).map(Number).filter(Number.isFinite))]
-    if (!explicitHoldIds.length) {
-      showToast('Select at least one Hold before creating AI search suggestions.', { variant: 'warn' })
       return
     }
     let next = [...searches]
@@ -125,7 +120,6 @@ export function useCaseDetailSearchWorkflow({
     let skippedNoCustodianCount = 0
     for (const row of rows) {
       const draft = aiSuggestionToDraft(row)
-      draft.holdIds = explicitHoldIds
       const assignedIds = (draft.custodianIds || []).map(Number).filter(Number.isFinite)
       if (!assignedIds.length) {
         skippedNoCustodianCount += 1
@@ -188,10 +182,6 @@ export function useCaseDetailSearchWorkflow({
   async function saveSearchDraft(draft) {
     let next = [...searches]
     draft = { ...draft, ...normalizeSearchDraftFields(draft) }
-    if (!(draft.holdIds || draft.hold_ids || []).length) {
-      showToast('Select at least one Hold for this search.', { variant: 'warn' })
-      return
-    }
     if (!draft.id) {
       const n = nextSearchNumber(caseData?.name, next)
       draft.id = uuid()
@@ -251,17 +241,10 @@ export function useCaseDetailSearchWorkflow({
         dateFrom: search.dateFrom || search.date_from || '',
         dateTo: search.dateTo || search.date_to || '',
         custodianIds: assignedIds,
-        holdIds: (search.holdIds ?? search.hold_ids ?? []).map(Number),
         status_search: 'not performed',
         status_export: 'not performed',
         status_delivery: 'not performed',
         status: { search: 'not performed', export: 'not performed', delivery: 'not performed' },
-      }
-      if (!draft.holdIds.length) {
-        setEditingSearch(draft)
-        setShowSearchModal(true)
-        showToast('Select at least one Hold before creating the copied search.', { variant: 'warn' })
-        return
       }
       let entry = draft
       const created = await serverCreateSearch(caseId, draft)

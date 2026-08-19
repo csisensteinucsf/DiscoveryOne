@@ -18,8 +18,6 @@ export function useCaseDetailConsents({
   esignDisplayName = 'e-signature provider',
 }) {
   const [showConsentModal, setShowConsentModal] = useState(false)
-  const [consentHolds, setConsentHolds] = useState([])
-  const [consentHoldId, setConsentHoldId] = useState('')
   const [consentSelection, setConsentSelection] = useState(new Set())
   const [consentFormInline, setConsentFormInline] = useState(emptyConsentForm)
   const [consentSendBusy, setConsentSendBusy] = useState(false)
@@ -31,46 +29,9 @@ export function useCaseDetailConsents({
   const [consentActionBusy, setConsentActionBusy] = useState({ id: null, type: null })
   const [consentDownloadBusyId, setConsentDownloadBusyId] = useState(null)
 
-  useEffect(() => {
-    if (!showConsentModal || !caseId) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const response = await fetch(apiBase + '/cases/' + caseId + '/holds', { credentials: 'include' })
-        if (!response.ok) throw new Error(await response.text() || 'Unable to load holds')
-        const data = await response.json()
-        const next = (Array.isArray(data?.holds) ? data.holds : []).filter(hold => hold.status === 'active')
-        if (cancelled) return
-        setConsentHolds(next)
-        setConsentHoldId(current => {
-          if (next.some(hold => String(hold.id) === String(current))) return current
-          return ''
-        })
-      } catch (error) {
-        if (!cancelled) showToast(error?.message || 'Unable to load holds for consent.', { variant: 'error' })
-      }
-    })()
-    return () => { cancelled = true }
-  }, [apiBase, caseId, showConsentModal, showToast])
 
-  useEffect(() => {
-    setConsentSelection(new Set())
-  }, [consentHoldId])
 
-  const selectedConsentHold = useMemo(
-    () => consentHolds.find(hold => String(hold.id) === String(consentHoldId)) || null,
-    [consentHolds, consentHoldId],
-  )
-  const consentCustodians = useMemo(() => {
-    if (!selectedConsentHold) return []
-    const byId = new Map((custodians || []).map(custodian => [Number(custodian.id), custodian]))
-    return (selectedConsentHold.custodians || []).map(member => ({
-      ...(byId.get(Number(member.custodian_id)) || member),
-      id: Number(member.custodian_id),
-      consent_status: member.consent_status || 'not sent',
-      hold_membership_id: member.membership_id,
-    }))
-  }, [custodians, selectedConsentHold])
+  const consentCustodians = useMemo(() => custodians || [], [custodians])
 
   const loadConsents = useCallback(async () => {
     if (!caseId) return
@@ -94,7 +55,6 @@ export function useCaseDetailConsents({
   const consentReceivedIds = useMemo(() => {
     const ids = new Set()
     ;(consents || []).forEach(c => {
-      if (consentHoldId && String(c?.hold_id || '') !== String(consentHoldId)) return
       const status = String(c?.status || '').trim().toLowerCase()
       if (!['completed', 'received'].includes(status)) return
       const id = Number(c?.custodian_id)
@@ -106,12 +66,11 @@ export function useCaseDetailConsents({
       if (Number.isFinite(id) && isConsentUnavailableForRequest(status)) ids.add(id)
     })
     return ids
-  }, [consentCustodians, consentHoldId, consents])
+  }, [consentCustodians, consents])
 
   const consentReceivedEmails = useMemo(() => {
     const emails = new Set()
     ;(consents || []).forEach(c => {
-      if (consentHoldId && String(c?.hold_id || '') !== String(consentHoldId)) return
       const status = String(c?.status || '').trim().toLowerCase()
       if (!['completed', 'received'].includes(status)) return
       const email = (c?.custodian_email || '').trim().toLowerCase()
@@ -123,7 +82,7 @@ export function useCaseDetailConsents({
       if (isConsentUnavailableForRequest(status) && email) emails.add(email)
     })
     return emails
-  }, [consentCustodians, consentHoldId, consents])
+  }, [consentCustodians, consents])
 
   const consentRequestTracker = useMemo(() => {
     const byCustodian = new Map()
@@ -296,12 +255,7 @@ export function useCaseDetailConsents({
       }
       if (!ok) return
     }
-    if (!consentHoldId) {
-      showToast('Select an active hold before sending consent requests.', { variant: 'error' })
-      return
-    }
     const payload = {
-      case_hold_id: Number(consentHoldId),
       record_type: recordType,
       date_from: (consentFormInline.dateFrom || '').trim() || 'NA',
       date_to: (consentFormInline.dateTo || '').trim() || 'NA',
@@ -430,9 +384,6 @@ export function useCaseDetailConsents({
   return {
     showConsentModal,
     setShowConsentModal,
-    consentHolds,
-    consentHoldId,
-    setConsentHoldId,
     consentCustodians,
     consentSelection,
     setConsentSelection,

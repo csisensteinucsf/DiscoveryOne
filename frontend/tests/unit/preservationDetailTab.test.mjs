@@ -39,10 +39,11 @@ test('Preservation Detail includes every named Hold membership and the case-wide
   assert.equal(existsSync(new URL('../../src/pages/CaseDetailHoldsTab.jsx', import.meta.url)), false)
 })
 
-test('Hold workflow summary omits the redundant Hold completion badge', () => {
+test('Hold workflow summary contains only Hold-scoped NTP status', () => {
   const holdsSource = readSource('../../src/pages/CaseDetailNamedHoldsTab.jsx')
 
+  assert.match(holdsSource, /NTP: /)
   assert.doesNotMatch(holdsSource, /\['Hold', hold\.status/)
-  assert.match(holdsSource, /\['NTP', ntp\]/)
-  assert.match(holdsSource, /\['Consent', consent\]/)
+  assert.doesNotMatch(holdsSource, /\['Consent', consent\]/)
+  assert.doesNotMatch(holdsSource, /HoldSearchDetails|HoldTicketDetails|Assign searches/)
 })

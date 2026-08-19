@@ -157,12 +157,14 @@ def send_consent_request_route(
         if custodian_id <= 0:
             raise HTTPException(status_code=422, detail="Each consent recipient must be an existing case custodian")
         custodian_ids.append(custodian_id)
-    hold, membership_by_custodian = resolve_hold_memberships(
-        db,
-        case_id=case_id,
-        custodian_ids=custodian_ids,
-        case_hold_id=payload.get("case_hold_id"),
-    )
+    case_custodian_by_id = {
+        int(custodian.id): custodian
+        for custodian in db.query(models.Custodian)
+        .filter(models.Custodian.case_id == case_id, models.Custodian.id.in_(custodian_ids))
+        .all()
+    }
+    if len(case_custodian_by_id) != len(set(custodian_ids)):
+        raise HTTPException(status_code=404, detail="One or more custodians were not found for this case")
     combined_case_name = case.name
     if getattr(case, "legal_case_name", None):
         combined_case_name = f"{case.legal_case_name} - {case.name}"
@@ -174,14 +176,11 @@ def send_consent_request_route(
 
     for entry in custodians_payload:
         custodian_id = int(entry.get("custodian_id"))
-        hold_membership = membership_by_custodian[custodian_id]
         custodian_name = (entry.get("custodian_name") or "").strip()
         custodian_email = (entry.get("custodian_email") or "").strip()
         custodian_obj = None
         if custodian_id:
-            c = db.query(models.Custodian).filter_by(id=custodian_id, case_id=case_id).first()
-            if not c:
-                raise HTTPException(status_code=404, detail=f"Custodian {custodian_id} not found for this case")
+            c = case_custodian_by_id.get(custodian_id)
             custodian_obj = c
             custodian_name = custodian_name or (c.name or "")
             custodian_email = custodian_email or (c.email or "")
@@ -208,7 +207,7 @@ def send_consent_request_route(
         consent = models.CaseConsent(
             case_id=case_id,
             custodian_id=custodian_id,
-            hold_custodian_id=hold_membership.id,
+            hold_custodian_id=None,
             custodian_name=custodian_name,
             custodian_email=custodian_email,
             provider=provider,
@@ -223,8 +222,8 @@ def send_consent_request_route(
         )
         db.add(consent)
         created_consents.append(consent)
-        if (hold_membership.consent_status or "not sent").lower() != "received":
-            set_membership_consent_status(db, hold_membership, "sent")
+        if (custodian_obj.consent_status or "not sent").lower() not in {"received", "implied", "awoc"}:
+            custodian_obj.consent_status = "sent"
         try:
             log_event(
                 db,
@@ -239,9 +238,6 @@ def send_consent_request_route(
                     "request_id": request_id,
                     "envelope_id": request_id,
                     "custodian_id": custodian_id,
-                    "hold_id": hold.id,
-                    "hold_name": hold.name,
-                    "hold_custodian_id": hold_membership.id,
                     "custodian_name": custodian_name,
                     "custodian_email": custodian_email,
                 },

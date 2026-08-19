@@ -8,8 +8,6 @@ export function CaseDetailAddDocModal({
   closeDocModal,
   submitConsentDocument,
   docForm,
-  namedHolds,
-  handleDocHoldSelect,
   handleDocCustodianSelect,
   handleDocFieldChange,
   custodianOptions,
@@ -18,37 +16,19 @@ export function CaseDetailAddDocModal({
   docUploading,
   docUploadError,
 }) {
-  const selectedHold = (namedHolds || []).find(hold => Number(hold?.id) === Number(docForm.caseHoldId)) || null
-  const holdCustodianIds = new Set((selectedHold?.custodians || []).map(item => Number(item?.custodian_id)))
-  const availableCustodians = (custodianOptions || []).filter(option => holdCustodianIds.has(Number(option.id)))
+  const availableCustodians = custodianOptions || []
   if (!open) return null
   return (
     <Modal open title="Upload consent proof" onClose={closeDocModal}>
       <form onSubmit={submitConsentDocument}>
         <Field
-          label={<RequiredFieldLabel>Named hold</RequiredFieldLabel>}
-          hint="The proof completes consent only for this custodian's workflow in the selected hold."
-        >
-          <Select
-            value={docForm.caseHoldId}
-            onChange={(event) => handleDocHoldSelect(event.target.value)}
-            disabled={docUploading}
-            required
-          >
-            <option value="">Select an active hold</option>
-            {(namedHolds || []).filter(hold => hold?.status === 'active').map(hold => (
-              <option key={hold.id} value={hold.id}>{hold.name}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field
           label={<RequiredFieldLabel>Custodian</RequiredFieldLabel>}
-          hint="Only custodians assigned to the selected hold are available."
+          hint="The uploaded document updates consent for this custodian across the case."
         >
           <Select
             value={docForm.custodianId}
             onChange={(event) => handleDocCustodianSelect(event.target.value)}
-            disabled={docUploading || !docForm.caseHoldId}
+            disabled={docUploading}
             required
           >
             <option value="">Select a custodian</option>

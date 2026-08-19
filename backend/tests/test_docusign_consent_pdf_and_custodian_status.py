@@ -130,7 +130,7 @@ def test_custodian_views_include_per_case_consent_status():
         db.close()
         engine.dispose()
 
-def test_consent_send_and_completion_are_isolated_to_selected_hold(tmp_path, monkeypatch):
+def test_consent_send_and_completion_are_tracked_at_case_level(tmp_path, monkeypatch):
     engine, db = _session()
     try:
         actor = _admin(db)
@@ -186,10 +186,12 @@ def test_consent_send_and_completion_are_isolated_to_selected_hold(tmp_path, mon
 
         assert result["ok"] is True
         consent = db.query(models.CaseConsent).filter_by(envelope_id="env-hold-a").one()
-        assert consent.hold_custodian_id == first_membership.id
+        assert consent.hold_custodian_id is None
+        db.refresh(custodian)
         db.refresh(first_membership)
         db.refresh(second_membership)
-        assert first_membership.consent_status == "sent"
+        assert custodian.consent_status == "sent"
+        assert first_membership.consent_status == "not sent"
         assert second_membership.consent_status == "not sent"
 
         consent.status = "completed"
@@ -209,9 +211,11 @@ def test_consent_send_and_completion_are_isolated_to_selected_hold(tmp_path, mon
             request=None,
         )
 
+        db.refresh(custodian)
         db.refresh(first_membership)
         db.refresh(second_membership)
-        assert first_membership.consent_status == "received"
+        assert custodian.consent_status == "received"
+        assert first_membership.consent_status == "not sent"
         assert second_membership.consent_status == "not sent"
     finally:
         db.close()

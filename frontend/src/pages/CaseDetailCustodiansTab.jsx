@@ -1,6 +1,5 @@
-import { Badge, Button, Select } from './caseDetailControls.jsx'
+import { Badge } from './caseDetailControls.jsx'
 import DataTableHeader from '../components/DataTableHeader.jsx'
-import { DeleteIconButton, EditIconButton } from '../components/RowActionIconButton.jsx'
 import { formatNameRaw } from './caseDetailUtils.js'
 import {
   CONSENT_STATUS_OPTIONS,
@@ -8,6 +7,8 @@ import {
   isConsentComplete,
   normalizeConsentStatus,
   normalizeNtpStatus,
+  consentStatusLabel,
+  ntpStatusLabel,
 } from './custodianStatusCatalog.js'
 
 const PRESERVATION_FILTER_OPTIONS = [
@@ -88,26 +89,6 @@ export default function CaseDetailCustodiansTab({
                 </h3>
                 {(isTech || !isReadOnly || isRequestor) && (
                   <div className="row" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 8, marginLeft: 'auto' }}>
-                    {isTech && (
-                      <>
-                        <button
-                          className="btn secondary"
-                          type="button"
-                          onClick={setAllTechPendingCompleted}
-                          disabled={techHoldsApplying || !custodians.length}
-                        >
-                          Set all to completed
-                        </button>
-                        <button
-                          className="btn"
-                          type="button"
-                          onClick={applyTechHoldChanges}
-                          disabled={techHoldsApplying || !holdsDirty}
-                        >
-                          {techHoldsApplying ? 'Applying...' : 'Apply'}
-                        </button>
-                      </>
-                    )}
                     {!isReadOnly && !isTech && (
                       <button
                         className="btn secondary"
@@ -134,22 +115,9 @@ export default function CaseDetailCustodiansTab({
                   </div>
                 )}
               </div>
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop: 12, flexWrap:'wrap', gap:12 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
-                  {!isReadOnly && (
-                    <div className="row" style={{ gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 12, color: 'var(--muted,#6b7280)' }}>Apply to all:</span>
-                      <Button variant={bulk.holds ? 'primary' : 'subtle'} onClick={() => setBulk(b => ({ ...b, holds: !b.holds }))}>Preservation</Button>
-                      {!isTech && (
-                        <Button variant={bulk.ntp ? 'primary' : 'subtle'} onClick={() => setBulk(b => ({ ...b, ntp: !b.ntp }))}>NTP</Button>
-                      )}
-                      {!isTech && (
-                        <Button variant={bulk.consent ? 'primary' : 'subtle'} onClick={() => setBulk(b => ({ ...b, consent: !b.consent }))}>Consent</Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <p className="muted" style={{ margin: '8px 0 0' }}>
+                Preservation and NTP values are read only here and are managed within each Hold.
+              </p>
               <table style={{ width: '100%', maxWidth: '100%', borderCollapse: 'collapse', marginTop: 8, minWidth: 1000 }}>
                 <thead style={{ background: 'rgba(0,0,0,.04)', color: 'var(--text,#e5e7eb)' }}>
                   <tr>
@@ -213,9 +181,6 @@ export default function CaseDetailCustodiansTab({
                     {!isTech && (
                       <th style={{ textAlign: 'left', padding: '8px', color: 'var(--text,#e5e7eb)' }}>Status</th>
                     )}
-                    {!isTech && (
-                      <th style={{ textAlign: 'right', padding: '8px', color: 'var(--text,#e5e7eb)' }}>Actions</th>
-                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -267,10 +232,8 @@ export default function CaseDetailCustodiansTab({
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, max-content)', gap: 2 }}>
                               {holdMetaForView.map(({ key, label }) => {
                                 const state = holdState(c, key)
-                                const nextState = state.pending ? 'active' : (state.active ? 'failed' : (state.failed ? 'released' : (state.released ? 'off' : 'pending')))
                                 const symbol = state.failed ? 'X' : (state.pending ? 'P' : (state.active ? '\u2713' : (state.released ? 'R' : '')))
                                 const title = state.failed ? 'requested but could not be completed' : (state.pending ? 'pending' : (state.active ? 'completed' : (state.released ? 'released' : 'off')))
-                                const isHoldEditable = !isRequestor && (!isTech || techHoldKeySet.has(key))
                                 const boxStyle = state.failed
                                   ? { background:'#fee2e2', color:'#b91c1c', borderColor:'#fca5a5' }
                                   : state.pending
@@ -284,8 +247,7 @@ export default function CaseDetailCustodiansTab({
                                   <button
                                     key={key}
                                     type="button"
-                                    onClick={() => onToggleHold(c, key, nextState)}
-                                    disabled={!isHoldEditable}
+                                    disabled
                                     aria-pressed={state.active || state.pending || state.failed || state.released}
                                     aria-label={`${label} preservation ${title}`}
                                     style={{
@@ -297,7 +259,7 @@ export default function CaseDetailCustodiansTab({
                                       padding: '2px 6px',
                                       borderRadius: 8,
                                       boxShadow:'inset 0 1px 0 rgba(255,255,255,0.04)',
-                                      cursor: isHoldEditable ? 'pointer' : 'not-allowed'
+                                      cursor: 'default'
                                     }}
                                   >
                                     <span
@@ -330,9 +292,7 @@ export default function CaseDetailCustodiansTab({
                           {/* NTP */}
                           {!isTech && (
                             <td style={{ padding: '5px', verticalAlign: 'top' }}>
-                              <Select value={normalizeNtpStatus(c.ntp_status)} onChange={e => onChangeNtp(c, e.target.value)} disabled={isTech}>
-                                {NTP_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                              </Select>
+                              <strong>{ntpStatusLabel(normalizeNtpStatus(c.ntp_status))}</strong>
                               {c.ntp_sent_at && ['sent', 'acknowledged'].includes(String(c.ntp_status || '').toLowerCase()) && (
                                 <div style={{ fontSize: 11, color: 'var(--muted,#6b7280)', marginTop: 4 }}>
                                   Sent: {formatDateTime(c.ntp_sent_at)}
@@ -353,15 +313,7 @@ export default function CaseDetailCustodiansTab({
                           {/* Consent */}
                           {!isTech && (
                             <td style={{ padding: '5px', verticalAlign: 'top' }}>
-                              <Select
-                                value={normalizeConsentStatus(c.consent_status)}
-                                onChange={e => onChangeConsent(c, e.target.value)}
-                                disabled={isTech || normalizeConsentStatus(c.consent_status) === 'awoc'}
-                                title={normalizeConsentStatus(c.consent_status) === 'awoc' ? 'AWOC is managed by the uploaded AWOC consent document.' : undefined}
-                              >
-                                {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                                {normalizeConsentStatus(c.consent_status) === 'awoc' ? <option value="awoc">AWOC</option> : null}
-                              </Select>
+                              {consentStatusLabel(normalizeConsentStatus(c.consent_status))}
                             </td>
                           )}
                           {/* Status badges */}
@@ -400,25 +352,12 @@ export default function CaseDetailCustodiansTab({
                               </div>
                             </td>
                           )}
-                          {/* Actions */}
-                          {!isTech && (
-                            <td style={{ padding: '5px', textAlign: 'right', verticalAlign: 'top' }}>
-                              {isRequestor ? (
-                                <span style={{ color:'#6b7280' }}>Read only</span>
-                              ) : (
-                                <div className="row" style={{ justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                                  <EditIconButton label={'Edit ' + (c.name || c.email || 'custodian')} onClick={() => onEditCustodian(c)} />
-                                  <DeleteIconButton label={'Remove ' + (c.name || c.email || 'custodian')} onClick={() => openRemoveCustodian(c)} />
-                                </div>
-                              )}
-                            </td>
-                          )}
                         </tr>
                       )
                     })
                   ) : (
                     <tr>
-                      <td style={{ padding: '8px' }} colSpan={custodianColumnCount}>-</td>
+                      <td style={{ padding: '8px' }} colSpan={isTech ? 3 : 6}>-</td>
                     </tr>
                   )}
                 </tbody>

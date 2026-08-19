@@ -25,7 +25,6 @@ export function useCaseDetailTicketWorkflow({
   userRole,
   employeeIdLabel,
   custodians,
-  namedHolds = [],
   custodianOptionLookup,
   techTicketCategorySet,
   ticketCategories,
@@ -48,15 +47,9 @@ export function useCaseDetailTicketWorkflow({
   const [ticketSelfHealBusy, setTicketSelfHealBusy] = useState(false)
   const [showBulkRequestModal, setShowBulkRequestModal] = useState(false)
   const [bulkCategory, setBulkCategory] = useState(null)
-  const [bulkHoldId, setBulkHoldId] = useState('')
   const [bulkSelection, setBulkSelection] = useState(new Set())
   const [bulkSearch, setBulkSearch] = useState('')
   const [accessLogInfoEntryId, setAccessLogInfoEntryId] = useState(null)
-
-  const activeTicketHolds = useMemo(
-    () => (Array.isArray(namedHolds) ? namedHolds : []).filter(hold => hold?.status === 'active'),
-    [namedHolds],
-  )
 
   const accessLogInfoEntry = useMemo(
     () => (requestEntries || []).find(entry => entry.id === accessLogInfoEntryId) || null,
@@ -105,7 +98,7 @@ export function useCaseDetailTicketWorkflow({
     const map = new Map()
     ;(requestEntries || []).forEach(entry => {
       if (!entry || !entry.category) return
-      const bucketKey = entry.category + ':' + String(entry.case_hold_id || 'none')
+      const bucketKey = entry.category
       const bucket = map.get(bucketKey) || new Set()
       const addKey = (cust) => {
         if (!cust) return
@@ -282,7 +275,6 @@ export function useCaseDetailTicketWorkflow({
     if (isRequestor) return
     if (isTech && !techTicketCategorySet.has(categoryKey)) return
     setBulkCategory(categoryKey)
-    setBulkHoldId('')
     setBulkSelection(new Set())
     setShowBulkRequestModal(true)
   }
@@ -297,7 +289,7 @@ export function useCaseDetailTicketWorkflow({
   const toggleBulkCustodian = (custodianId) => {
     const singleSelect = workflowUsesAccessLogDetails(bulkCategory)
     const custodian = (custodians || []).find(c => Number(c.id) === Number(custodianId))
-    const requestKey = bulkCategory + ':' + String(bulkHoldId || 'none')
+    const requestKey = bulkCategory
     const reason = bulkCustodianDisabledReason(bulkCategory, custodian, usedCustodianKeysByCategory.get(requestKey) || new Set())
     if (reason) {
       showToast(reason === 'Unmatched or missing email'
@@ -324,16 +316,12 @@ export function useCaseDetailTicketWorkflow({
       setShowBulkRequestModal(false)
       return
     }
-    if (!bulkHoldId) {
-      showToast('Select an active hold for this request.', { variant: 'error' })
-      return
-    }
     const selectedIds = Array.from(bulkSelection || []).map(Number).filter(Number.isFinite)
     if (!selectedIds.length) {
       showToast('Select at least one custodian to add.', { variant: 'error' })
       return
     }
-    const requestKey = bulkCategory + ':' + String(bulkHoldId || 'none')
+    const requestKey = bulkCategory
     const usedKeys = usedCustodianKeysByCategory.get(requestKey) || new Set()
     const invalidSelected = (custodians || [])
       .filter(c => selectedIds.includes(Number(c.id)))
@@ -365,7 +353,7 @@ export function useCaseDetailTicketWorkflow({
     const newEntry = {
       id: uuid(),
       category: bulkCategory,
-      case_hold_id: Number(bulkHoldId),
+      case_hold_id: null,
       ticket: '',
       custodian_id: primary.id,
       custodian_name: primary.name || '',
@@ -380,14 +368,12 @@ export function useCaseDetailTicketWorkflow({
     updateRequestEntriesState((prev = []) => (Array.isArray(prev) ? prev : []).concat([newEntry]))
     setShowBulkRequestModal(false)
     setBulkCategory(null)
-    setBulkHoldId('')
     setBulkSelection(new Set())
   }
 
   const closeBulkModal = () => {
     setShowBulkRequestModal(false)
     setBulkCategory(null)
-    setBulkHoldId('')
     setBulkSelection(new Set())
     setBulkSearch('')
   }
@@ -680,9 +666,6 @@ export function useCaseDetailTicketWorkflow({
     ticketSelfHealBusy,
     showBulkRequestModal,
     bulkCategory,
-    bulkHoldId,
-    setBulkHoldId,
-    activeTicketHolds,
     bulkSelection,
     bulkSearch,
     setBulkSearch,

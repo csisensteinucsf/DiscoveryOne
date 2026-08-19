@@ -645,7 +645,7 @@ def test_silent_implied_and_awoc_status_rules(db_session):
     assert db_session.get(models.Custodian, custodian.id).consent_status == "awoc"
 
 
-def test_awoc_upload_flushes_proof_before_status_gate(db_session, monkeypatch):
+def test_awoc_upload_sets_case_level_consent_without_a_hold(db_session, monkeypatch):
     actor = _user(db_session, username="awoc-admin")
     case = _case(db_session, name="AWOC Upload Matter")
     custodian = models.Custodian(
@@ -653,11 +653,7 @@ def test_awoc_upload_flushes_proof_before_status_gate(db_session, monkeypatch):
         name="AWOC Person",
         email="awoc.person@example.edu",
     )
-    hold = models.CaseHold(case_id=case.id, name="Hold A", status="active")
-    db_session.add_all([custodian, hold])
-    db_session.flush()
-    membership = models.HoldCustodian(hold_id=hold.id, custodian_id=custodian.id)
-    db_session.add(membership)
+    db_session.add(custodian)
     db_session.commit()
     db_session.autoflush = False
 
@@ -679,7 +675,6 @@ def test_awoc_upload_flushes_proof_before_status_gate(db_session, monkeypatch):
         async def form(self):
             return {
                 "file": SimpleNamespace(filename="awoc-consent.pdf"),
-                "case_hold_id": str(hold.id),
                 "custodian_id": str(custodian.id),
                 "custodian_name": custodian.name,
                 "custodian_email": custodian.email,
@@ -695,15 +690,15 @@ def test_awoc_upload_flushes_proof_before_status_gate(db_session, monkeypatch):
         )
     )
 
-    db_session.refresh(membership)
+    db_session.refresh(custodian)
     proof = (
         db_session.query(models.CaseRequestConsentProof)
         .filter(
-            models.CaseRequestConsentProof.hold_custodian_id == membership.id,
             models.CaseRequestConsentProof.proof_type == "awoc",
         )
         .one()
     )
-    assert membership.consent_status == "awoc"
+    assert proof.hold_custodian_id is None
+    assert custodian.consent_status == "awoc"
     assert proof.id is not None
     assert result["proof_type"] == "awoc"

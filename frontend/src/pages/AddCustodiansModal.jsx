@@ -22,6 +22,7 @@ export function AddCustodiansModal({
   onClose,
   onSave,
   onSwitchToImport,
+  onSwitchToDirectory,
   saving = false,
   employeeIdLabel = 'Employee ID',
   lookupInputPlaceholder = DEFAULT_LOOKUP_INPUT_PLACEHOLDER,
@@ -208,11 +209,10 @@ export function AddCustodiansModal({
         </div>
       )}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Add custodians manually</div>
-        {onSwitchToImport && (
-          <Button variant="subtle" onClick={onSwitchToImport} disabled={saving}>Import custodians</Button>
-        )}
+      <div className="custodian-entry-mode-tabs" role="tablist" aria-label="Custodian entry method">
+        <Button variant="primary" disabled>Manual Add</Button>
+        <Button variant="subtle" onClick={onSwitchToImport} disabled={saving}>Import from list</Button>
+        <Button variant="subtle" onClick={onSwitchToDirectory} disabled={saving}>Select from D1 Custodians</Button>
       </div>
       <HoldAssignmentPicker
         apiBase={apiBase}

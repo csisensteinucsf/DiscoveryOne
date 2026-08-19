@@ -1,14 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Plus, RefreshCw, Search, UsersRound } from 'lucide-react'
+import { Pencil, Plus, RefreshCw, UsersRound } from 'lucide-react'
 import Modal from '../components/Modal.jsx'
 import CaseDetailHoldSelector from './CaseDetailHoldSelector.jsx'
 import CaseDetailStatusReasonModal from './CaseDetailStatusReasonModal.jsx'
 import { useCaseDetailNamedHolds } from './useCaseDetailNamedHolds.js'
 import {
-  CONSENT_STATUS_OPTIONS,
   NTP_STATUS_OPTIONS,
-  consentStatusLabel,
-  normalizeConsentStatus,
   normalizeNtpStatus,
   ntpStatusLabel,
 } from './custodianStatusCatalog.js'
@@ -53,74 +50,9 @@ function aggregateWorkflowState(counts = {}, completeStatuses = []) {
 
 function HoldWorkflowSummary({ hold }) {
   const ntp = aggregateWorkflowState(hold.ntp_counts, ['acknowledged', 'silent', 'na'])
-  const consent = aggregateWorkflowState(hold.consent_counts, ['received', 'implied', 'awoc', 'na'])
-  const search = aggregateWorkflowState(hold.search_counts?.search, ['performed', 'complete', 'completed'])
-  const exportState = aggregateWorkflowState(hold.search_counts?.export, ['performed', 'complete', 'completed'])
-  const delivery = aggregateWorkflowState(hold.search_counts?.delivery, ['performed', 'complete', 'completed'])
-  const labels = [
-    ['NTP', ntp],
-    ['Consent', consent],
-    ['Search', search],
-    ['Export', exportState],
-    ['Delivery', delivery],
-  ]
   return (
-    <div className="named-hold-workflow-summary" aria-label={'Workflow status for ' + hold.name}>
-      {labels.map(([label, status]) => (
-        <StatusBadge key={label} status={status}>{label}: {status === 'active' ? 'complete' : status.replaceAll('_', ' ')}</StatusBadge>
-      ))}
-    </div>
-  )
-}
-
-function HoldSearchDetails({ searches = [] }) {
-  if (!searches.length) return <p className="muted">No searches are assigned to this hold.</p>
-  return (
-    <div className="table-scroll named-hold-related-table">
-      <table className="table">
-        <thead>
-          <tr><th>Search</th><th>Search</th><th>Export</th><th>Delivery</th></tr>
-        </thead>
-        <tbody>
-          {searches.map(search => (
-            <tr key={search.membership_id || search.search_id}>
-              <td><strong>{search.name || 'Unnamed search'}</strong></td>
-              <td><StatusBadge status={aggregateWorkflowState({ [search.status_search]: 1 }, ['performed', 'complete', 'completed'])}>{search.status_search}</StatusBadge></td>
-              <td><StatusBadge status={aggregateWorkflowState({ [search.status_export]: 1 }, ['performed', 'complete', 'completed'])}>{search.status_export}</StatusBadge></td>
-              <td><StatusBadge status={aggregateWorkflowState({ [search.status_delivery]: 1 }, ['performed', 'complete', 'completed'])}>{search.status_delivery}</StatusBadge></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function HoldTicketDetails({ hold, entries = [] }) {
-  const memberIds = new Set((hold.custodians || []).map(member => Number(member.custodian_id)))
-  const related = (entries || []).filter(entry => {
-    const entryHoldId = Number(entry?.case_hold_id || entry?.hold_id)
-    if (Number.isFinite(entryHoldId) && entryHoldId > 0) return entryHoldId === Number(hold.id)
-    return memberIds.has(Number(entry?.custodian_id))
-  })
-  if (!related.length) return <p className="muted">No ticket activity is linked to this hold.</p>
-  return (
-    <div className="table-scroll named-hold-related-table">
-      <table className="table">
-        <thead>
-          <tr><th>Ticket</th><th>Category</th><th>Custodian</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          {related.map(entry => (
-            <tr key={entry.id || entry.ticket || entry.sys_id}>
-              <td>{entry.ticket || entry.number || entry.sys_id || '-'}</td>
-              <td>{entry.category || '-'}</td>
-              <td>{entry.custodian_name || entry.custodian_email || '-'}</td>
-              <td>{entry.ticket_status || entry.status || '-'}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="named-hold-workflow-summary" aria-label={'NTP status for ' + hold.name}>
+      <StatusBadge status={ntp}>NTP: {ntp === 'active' ? 'complete' : ntp.replaceAll('_', ' ')}</StatusBadge>
     </div>
   )
 }
@@ -146,20 +78,16 @@ export default function CaseDetailNamedHoldsTab({
   apiBase,
   caseId,
   custodians,
-  searches,
   isReadOnly,
   showToast,
-  requestEntries,
   initialHoldId = null,
 }) {
   const holds = useCaseDetailNamedHolds({ apiBase, caseId, showToast })
   const [createOpen, setCreateOpen] = useState(false)
   const [editHold, setEditHold] = useState(null)
   const [memberHold, setMemberHold] = useState(null)
-  const [searchHold, setSearchHold] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [selectedCustodians, setSelectedCustodians] = useState([])
-  const [selectedSearches, setSelectedSearches] = useState([])
   const [statusReasonRequest, setStatusReasonRequest] = useState(null)
   const [selectedHoldId, setSelectedHoldId] = useState(null)
 
@@ -200,11 +128,6 @@ export default function CaseDetailNamedHoldsTab({
     setMemberHold(hold)
   }
 
-  const openSearches = hold => {
-    setSelectedSearches((hold.search_ids || []).map(Number))
-    setSearchHold(hold)
-  }
-
   const submitCreate = async event => {
     event.preventDefault()
     const success = await holds.createNamedHold({
@@ -243,11 +166,6 @@ export default function CaseDetailNamedHoldsTab({
     if (success) setMemberHold(null)
   }
 
-  const saveSearches = async () => {
-    const success = await holds.setNamedHoldSearches(searchHold.id, selectedSearches)
-    if (success) setSearchHold(null)
-  }
-
   const updateNtpStatus = async (hold, member, value) => {
     const status = normalizeNtpStatus(value)
     const payload = { ntp_status: status, ntp_not_required_reason: null }
@@ -266,38 +184,13 @@ export default function CaseDetailNamedHoldsTab({
     await holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, payload)
   }
 
-  const updateConsentStatus = async (hold, member, value) => {
-    const status = normalizeConsentStatus(value)
-    if (status === 'awoc') {
-      showToast('AWOC status is set only by uploading an AWOC consent document.', { variant: 'warn' })
-      return
-    }
-    const payload = { consent_status: status, consent_not_required_reason: null }
-    if (status === 'implied') {
-      setStatusReasonRequest({
-        kind: 'consent',
-        hold,
-        member,
-        status,
-        title: 'Implied consent reason',
-        question: 'Why is consent Implied for this custodian?',
-        initialReason: member.consent_not_required_reason || '',
-      })
-      return
-    }
-    await holds.updateNamedHoldWorkflow(hold.id, member.custodian_id, payload)
-  }
-
   const submitStatusReason = async reason => {
     const request = statusReasonRequest
     if (!request || holds.namedHoldBusy) return
-    const payload = request.kind === 'ntp'
-      ? { ntp_status: request.status, ntp_not_required_reason: reason }
-      : { consent_status: request.status, consent_not_required_reason: reason }
     const success = await holds.updateNamedHoldWorkflow(
       request.hold.id,
       request.member.custodian_id,
-      payload,
+      { ntp_status: request.status, ntp_not_required_reason: reason },
     )
     if (success) setStatusReasonRequest(null)
   }
@@ -354,7 +247,6 @@ export default function CaseDetailNamedHoldsTab({
                   <h4>{hold.name}</h4>
                   <StatusBadge status={hold.status}>{hold.status}</StatusBadge>
                   <span className="muted">{hold.custodian_count} custodians</span>
-                  <span className="muted">{hold.search_count} searches</span>
                 </div>
                 {hold.description && <p>{hold.description}</p>}
                 {(hold.ntp_template_name || hold.preservation_template_name) && (
@@ -371,9 +263,6 @@ export default function CaseDetailNamedHoldsTab({
                   <button type="button" className="icon-button" title="Assign custodians" aria-label={'Assign custodians to ' + hold.name} onClick={() => openMembers(hold)}>
                     <UsersRound size={17} aria-hidden="true" />
                   </button>
-                  <button type="button" className="icon-button" title="Assign searches" aria-label={'Assign searches to ' + hold.name} onClick={() => openSearches(hold)}>
-                    <Search size={17} aria-hidden="true" />
-                  </button>
                 </div>
               )}
             </div>
@@ -384,10 +273,6 @@ export default function CaseDetailNamedHoldsTab({
               <summary>Hold workspace details</summary>
               <h5>Preservation</h5>
               <SourceTotals totals={hold.source_totals} />
-              <h5>Searches</h5>
-              <HoldSearchDetails searches={hold.searches} />
-              <h5>Tickets</h5>
-              <HoldTicketDetails hold={hold} entries={requestEntries} />
               <h5>Custodians</h5>
               <div className="table-scroll named-hold-members">
               <table className="table">
@@ -395,7 +280,6 @@ export default function CaseDetailNamedHoldsTab({
                   <tr>
                     <th>Custodian</th>
                     <th>NTP</th>
-                    <th>Consent</th>
                     <th>Preservation Sources</th>
                   </tr>
                 </thead>
@@ -414,19 +298,6 @@ export default function CaseDetailNamedHoldsTab({
                             disabled={holds.namedHoldBusy}
                           >
                             {NTP_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                          </select>
-                        )}
-                      </td>
-                      <td>
-                        {isReadOnly ? consentStatusLabel(member.consent_status) : (
-                          <select
-                            value={normalizeConsentStatus(member.consent_status)}
-                            onChange={event => updateConsentStatus(hold, member, event.target.value)}
-                            disabled={holds.namedHoldBusy || normalizeConsentStatus(member.consent_status) === 'awoc'}
-                            title={normalizeConsentStatus(member.consent_status) === 'awoc' ? 'AWOC is managed by the uploaded AWOC consent document.' : undefined}
-                          >
-                            {CONSENT_STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-                            {normalizeConsentStatus(member.consent_status) === 'awoc' ? <option value="awoc">AWOC</option> : null}
                           </select>
                         )}
                       </td>
@@ -461,7 +332,7 @@ export default function CaseDetailNamedHoldsTab({
                     </tr>
                   ))}
                   {!hold.custodians?.length && (
-                    <tr><td colSpan={4}>No custodians are assigned to this hold.</td></tr>
+                    <tr><td colSpan={3}>No custodians are assigned to this hold.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -553,38 +424,6 @@ export default function CaseDetailNamedHoldsTab({
         </div>
       </Modal>
 
-      <Modal
-        open={!!searchHold}
-        title={searchHold ? 'Searches for ' + searchHold.name : 'Assign Searches'}
-        onClose={() => setSearchHold(null)}
-        width={620}
-        footer={(
-          <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn secondary" onClick={() => setSearchHold(null)}>Cancel</button>
-            <button type="button" className="btn" onClick={saveSearches} disabled={holds.namedHoldBusy}>Save Assignments</button>
-          </div>
-        )}
-      >
-        <div className="named-hold-checkbox-list">
-          {(searches || []).map(searchItem => (
-            <label key={searchItem.id}>
-              <input
-                type="checkbox"
-                checked={selectedSearches.includes(Number(searchItem.id))}
-                onChange={event => setSelectedSearches(current => (
-                  event.target.checked
-                    ? [...new Set([...current, Number(searchItem.id)])]
-                    : current.filter(id => id !== Number(searchItem.id))
-                ))}
-              />
-              <span>
-                <strong>{searchItem.name || 'Unnamed search'}</strong>
-                <small>{searchItem.status_search || 'not performed'}</small>
-              </span>
-            </label>
-          ))}
-        </div>
-      </Modal>
     </section>
   )
 }

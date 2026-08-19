@@ -21,7 +21,7 @@ from .case_requests import (
 )
 from .cases import _sync_case_documentation_counters
 from .database import get_db
-from .hold_workflows import resolve_hold_memberships, set_membership_consent_status
+from .hold_workflows import set_membership_consent_status
 from .permissions import ensure_case_request_access, ensure_case_visible, ensure_not_requestor, get_role
 from .safe_log import debug_suppressed as _debug_suppressed
 
@@ -274,19 +274,6 @@ async def upload_case_consent_proof(
     )
     if target_custodian is None:
         raise HTTPException(status_code=422, detail="Select an existing custodian for this consent proof")
-    raw_hold_id = form.get("case_hold_id")
-    try:
-        case_hold_id = int(raw_hold_id) if raw_hold_id not in (None, "", b"", []) else None
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="case_hold_id must be an integer")
-    selected_hold, memberships = resolve_hold_memberships(
-        db,
-        case_id=case_id,
-        custodian_ids=[int(target_custodian.id)],
-        case_hold_id=case_hold_id,
-        create_default=False,
-    )
-    hold_membership = memberships[int(target_custodian.id)]
     blob = await _read_consent_proof_blob(upload, actor=actor, request=request)
     stored_filename: Optional[str] = None
     try:
@@ -294,7 +281,7 @@ async def upload_case_consent_proof(
         proof = models.CaseRequestConsentProof(
             case_request_id=None,
             case_id=case_id,
-            hold_custodian_id=hold_membership.id,
+            hold_custodian_id=None,
             custodian_name=custodian_name,
             custodian_email=custodian_email,
             stored_filename=stored_filename,
@@ -306,7 +293,8 @@ async def upload_case_consent_proof(
         )
         db.add(proof)
         db.flush()
-        set_membership_consent_status(db, hold_membership, "awoc" if proof_type == "awoc" else "received")
+        target_custodian.consent_status = "awoc" if proof_type == "awoc" else "received"
+        db.add(target_custodian)
         db.commit()
         _sync_case_documentation_counters(db, case_id)
         db.refresh(proof)
@@ -324,8 +312,6 @@ async def upload_case_consent_proof(
             target_id=case_id,
             details={
                 "proof_id": proof.id,
-                "case_hold_id": int(selected_hold.id),
-                "hold_custodian_id": int(hold_membership.id),
                 "custodian_id": getattr(target_custodian, "id", None),
                 "custodian_name": getattr(proof, "custodian_name", None),
                 "custodian_email": proof.custodian_email,

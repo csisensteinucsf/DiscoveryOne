@@ -49,18 +49,15 @@ test('AWOC satisfies consent only as a recognized completed status', () => {
   assert.equal(CONSENT_STATUS_OPTIONS.some(option => option.value === 'awoc'), false)
 })
 
-test('AWOC consent selectors omit redundant uploaded-document wording', async () => {
-  const sources = await Promise.all([
-    readFile(new URL('../../src/pages/CaseDetailCustodiansTab.jsx', import.meta.url), 'utf8'),
-    readFile(new URL('../../src/pages/CaseDetailNamedHoldsTab.jsx', import.meta.url), 'utf8'),
-  ])
+test('case custodian consent status is read only and omits uploaded-document wording', async () => {
+  const caseCustodians = await readFile(new URL('../../src/pages/CaseDetailCustodiansTab.jsx', import.meta.url), 'utf8')
+  const holds = await readFile(new URL('../../src/pages/CaseDetailNamedHoldsTab.jsx', import.meta.url), 'utf8')
 
-  for (const source of sources) {
-    assert.match(source, /<option value="awoc">AWOC<\/option>/)
-    assert.doesNotMatch(source, /AWOC \(document uploaded\)/)
-  }
+  assert.match(caseCustodians, /consentStatusLabel/)
+  assert.doesNotMatch(caseCustodians, /onChangeConsent\(/)
+  assert.doesNotMatch(holds, /Consent/)
+  assert.doesNotMatch(caseCustodians + holds, /AWOC \(document uploaded\)/)
 })
-
 test('custodians panel omits the case-wide preservation release control', async () => {
   const source = await readFile(
     new URL('../../src/pages/CaseDetailCustodiansTab.jsx', import.meta.url),

@@ -22,6 +22,7 @@ export function ImportCustodiansModal({
   onImport,
   progress,
   onSwitchToAdd,
+  onSwitchToDirectory,
   employeeIdLabel = 'Employee ID',
   personLookupEnabled = false,
 }) {
@@ -202,11 +203,10 @@ export function ImportCustodiansModal({
         </div>
       )}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, gap: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>Import options</div>
-        {onSwitchToAdd && (
-          <Button variant="subtle" onClick={onSwitchToAdd} disabled={progress?.working}>Back to manual add</Button>
-        )}
+      <div className="custodian-entry-mode-tabs" role="tablist" aria-label="Custodian entry method">
+        <Button variant="subtle" onClick={onSwitchToAdd} disabled={progress?.working}>Manual Add</Button>
+        <Button variant="primary" disabled>Import from list</Button>
+        <Button variant="subtle" onClick={onSwitchToDirectory} disabled={progress?.working}>Select from D1 Custodians</Button>
       </div>
       <HoldAssignmentPicker
         apiBase={apiBase}

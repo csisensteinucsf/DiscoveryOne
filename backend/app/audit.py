@@ -63,6 +63,7 @@ BIG_ACTIONS = {
     "custodian_update",
     "custodian_delete",
     "custodian_remove",
+    "custodian_directory_create",
     "search_create",
     "search_update",
     "search_delete",

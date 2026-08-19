@@ -1,0 +1,49 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+
+const source = relativePath => readFileSync(new URL(relativePath, import.meta.url), 'utf8')
+
+test('Holds contain preservation and NTP only', () => {
+  const holds = source('../../src/pages/CaseDetailNamedHoldsTab.jsx')
+
+  assert.match(holds, /Preservation/)
+  assert.match(holds, /NTP/)
+  assert.doesNotMatch(holds, /<th>Consent<\/th>|<h5>Searches<\/h5>|<h5>Tickets<\/h5>/)
+  assert.doesNotMatch(holds, /Assign searches|setNamedHoldSearches|consent_status/)
+})
+
+test('searches, tickets, and consent are created at the case level', () => {
+  const searchModal = source('../../src/pages/CaseDetailSearchEditorModals.jsx')
+  const searchWorkflow = source('../../src/pages/useCaseDetailSearchWorkflow.js')
+  const ticketModal = source('../../src/pages/CaseDetailTicketWorkflowModals.jsx')
+  const ticketWorkflow = source('../../src/pages/useCaseDetailTicketWorkflow.js')
+  const consentModal = source('../../src/pages/CaseDetailConsentModal.jsx')
+  const consentWorkflow = source('../../src/pages/useCaseDetailConsents.js')
+  const consentProofModal = source('../../src/pages/CaseDetailWorkflowModals.jsx')
+  const consentProofWorkflow = source('../../src/pages/caseDetailDocuments.js')
+
+  assert.doesNotMatch(searchModal, /<Field label="Holds"/)
+  assert.doesNotMatch(searchWorkflow, /Select at least one Hold/)
+  assert.doesNotMatch(ticketModal, /Named Hold|Select an active Hold/)
+  assert.match(ticketWorkflow, /case_hold_id: null/)
+  assert.doesNotMatch(consentModal, /<Field label="Hold"/)
+  assert.doesNotMatch(consentWorkflow, /case_hold_id: Number\(consentHoldId\)/)
+  assert.doesNotMatch(consentProofModal, /Named hold|selected hold/)
+  assert.doesNotMatch(consentProofWorkflow, /case_hold_id|caseHoldId/)
+})
+
+test('D1 custodian directory supports standalone entry and case multi-select', () => {
+  const globalPage = source('../../src/pages/Custodians.jsx')
+  const directoryModal = source('../../src/pages/D1CustodianDirectoryModal.jsx')
+  const caseWrapper = source('../../src/pages/CaseDetailCustodianEntryModals.jsx')
+  const picker = source('../../src/pages/SelectD1CustodiansModal.jsx')
+
+  assert.match(globalPage, /D1CustodianDirectoryModal/)
+  assert.doesNotMatch(globalPage, /\/cases\?closed=false|Active Case/)
+  assert.match(directoryModal, /Manual Add/)
+  assert.match(directoryModal, /Import from list/)
+  assert.match(caseWrapper, /custodianModalMode === 'directory'/)
+  assert.match(picker, /Select from D1 Custodians/)
+  assert.match(picker, /aria-multiselectable="true"/)
+})

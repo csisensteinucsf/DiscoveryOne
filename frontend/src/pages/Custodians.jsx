@@ -2,9 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Upload, UserPlus } from 'lucide-react'
 import DataTableHeader from '../components/DataTableHeader.jsx'
-import Modal from '../components/Modal.jsx'
-import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
-import { buildCustodianWorkflowQuery } from './holdAssignmentUtils.js'
+import D1CustodianDirectoryModal from './D1CustodianDirectoryModal.jsx'
 
 const lightBtn = { background: '#E5EEF3', color: '#00598C', border: '1px solid #C9D7E2' }
 
@@ -85,12 +83,6 @@ export default function Custodians({ apiBase = '/api' }) {
     holds: '',
   })
   const [workflowMode, setWorkflowMode] = useState(null)
-  const [caseOptions, setCaseOptions] = useState([])
-  const [selectedCaseId, setSelectedCaseId] = useState('')
-  const [holdOptions, setHoldOptions] = useState([])
-  const [selectedHoldIds, setSelectedHoldIds] = useState([])
-  const [workflowLoading, setWorkflowLoading] = useState(false)
-  const [workflowError, setWorkflowError] = useState('')
   const nav = useNavigate()
 
   async function load() {
@@ -156,72 +148,9 @@ export default function Custodians({ apiBase = '/api' }) {
     event.preventDefault()
     load()
   }
-  const loadHoldsForCase = async (caseId) => {
-    setHoldOptions([])
-    setSelectedHoldIds([])
-    if (!caseId) return
-    const response = await fetch(apiBase + '/cases/' + caseId + '/holds', { credentials: 'include' })
-    if (!response.ok) throw new Error('Unable to load holds for the selected case')
-    const data = await response.json()
-    const nextHolds = Array.isArray(data?.holds) ? data.holds : []
-    setHoldOptions(nextHolds)
-    setSelectedHoldIds([])
+  const openCustodianWorkflow = mode => {
+    setWorkflowMode(mode === 'import' ? 'import' : 'manual')
   }
-
-  const onWorkflowHoldCreated = (created) => {
-    if (!created?.id) return
-    setHoldOptions(current => current.some(hold => Number(hold.id) === Number(created.id))
-      ? current
-      : [...current, created])
-  }
-
-  const openCustodianWorkflow = async (mode) => {
-    setWorkflowMode(mode)
-    setWorkflowLoading(true)
-    setWorkflowError('')
-    setCaseOptions([])
-    setSelectedCaseId('')
-    setHoldOptions([])
-    setSelectedHoldIds([])
-    try {
-      const response = await fetch(apiBase + '/cases?closed=false', { credentials: 'include' })
-      if (!response.ok) throw new Error('Unable to load active cases')
-      const data = await response.json()
-      const nextCases = Array.isArray(data) ? data : []
-      setCaseOptions(nextCases)
-      if (nextCases.length) {
-        const firstId = String(nextCases[0].id)
-        setSelectedCaseId(firstId)
-        await loadHoldsForCase(firstId)
-      }
-    } catch (error) {
-      setWorkflowError(error?.message || 'Unable to prepare custodian workflow')
-    } finally {
-      setWorkflowLoading(false)
-    }
-  }
-
-  const chooseWorkflowCase = async (caseId) => {
-    setSelectedCaseId(caseId)
-    setWorkflowLoading(true)
-    setWorkflowError('')
-    try {
-      await loadHoldsForCase(caseId)
-    } catch (error) {
-      setWorkflowError(error?.message || 'Unable to load holds')
-    } finally {
-      setWorkflowLoading(false)
-    }
-  }
-
-
-  const continueCustodianWorkflow = () => {
-    if (!selectedCaseId) return
-    const params = buildCustodianWorkflowQuery(workflowMode, selectedHoldIds)
-    setWorkflowMode(null)
-    nav('/cases/' + selectedCaseId + '?' + params.toString())
-  }
-
   return (
     <div className="wrap">
       <div className="page-header" style={{ marginBottom: '1rem' }}>
@@ -348,54 +277,14 @@ export default function Custodians({ apiBase = '/api' }) {
           </table>
         </div>
       </div>
-      <Modal
-        open={!!workflowMode}
-        title={workflowMode === 'import' ? 'Import Custodians' : 'Add Custodians'}
-        onClose={() => setWorkflowMode(null)}
-        width={560}
-        footer={(
-          <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <button type="button" className="btn secondary" onClick={() => setWorkflowMode(null)}>Cancel</button>
-            <button
-              type="button"
-              className="btn"
-              onClick={continueCustodianWorkflow}
-              disabled={workflowLoading || !selectedCaseId}
-            >
-              Continue
-            </button>
-          </div>
-        )}
-      >
-        <p style={{ marginTop: 0, color: 'var(--muted,#64748b)' }}>
-          Choose the active case. Leave all Holds unselected to add custodians to the matter only, or select the named Holds they should join.
-        </p>
-        {workflowError && <div className="alert error">{workflowError}</div>}
-        <div className="named-hold-form">
-          <label>
-            Active Case
-            <select className="input" value={selectedCaseId} onChange={event => chooseWorkflowCase(event.target.value)} disabled={workflowLoading}>
-              <option value="">Select a case</option>
-              {caseOptions.map(caseRecord => (
-                <option key={caseRecord.id} value={caseRecord.id}>{caseRecord.legal_case_name || caseRecord.name}</option>
-              ))}
-            </select>
-          </label>
-          <HoldAssignmentPicker
-            apiBase={apiBase}
-            caseId={selectedCaseId}
-            holds={holdOptions}
-            selectedHoldIds={selectedHoldIds}
-            onSelectedHoldIdsChange={setSelectedHoldIds}
-            onHoldCreated={onWorkflowHoldCreated}
-            disabled={workflowLoading || !selectedCaseId}
-          />
-          {workflowLoading && <span className="muted">Loading...</span>}
-          {!workflowLoading && caseOptions.length === 0 && !workflowError && (
-            <span className="muted">Create an active case before adding custodians.</span>
-          )}
-        </div>
-      </Modal>
+      {workflowMode && (
+        <D1CustodianDirectoryModal
+          apiBase={apiBase}
+          initialMode={workflowMode}
+          onClose={() => setWorkflowMode(null)}
+          onSaved={load}
+        />
+      )}
     </div>
   )
 }

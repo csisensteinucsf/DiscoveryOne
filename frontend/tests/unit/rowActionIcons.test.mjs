@@ -15,7 +15,6 @@ test('paired row actions use accessible shared pencil and trash icons', () => {
 
   const pairedActionSources = [
     '../../src/components/NotesPanel.jsx',
-    '../../src/pages/CaseDetailCustodiansTab.jsx',
     '../../src/pages/CaseDetailSearchesTab.jsx',
     '../../src/pages/CasesTableRow.jsx',
     '../../src/pages/SystemCaseTemplatesPanel.jsx',
@@ -40,4 +39,12 @@ test('case close or reopen action appears before the edit action', () => {
   assert.notEqual(closeActionPosition, -1)
   assert.notEqual(editActionPosition, -1)
   assert.ok(closeActionPosition < editActionPosition)
+})
+
+test('Case Detail custodian rows are read only', () => {
+  const source = readSource('../../src/pages/CaseDetailCustodiansTab.jsx')
+
+  assert.match(source, /values are read only here/)
+  assert.doesNotMatch(source, /EditIconButton|DeleteIconButton/)
+  assert.doesNotMatch(source, /onToggleHold\(|onChangeNtp\(|onChangeConsent\(/)
 })
