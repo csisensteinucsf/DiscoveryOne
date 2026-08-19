@@ -4,11 +4,13 @@ import { formatNameRaw } from './caseDetailUtils.js'
 import {
   CONSENT_STATUS_OPTIONS,
   NTP_STATUS_OPTIONS,
+  consentStatusBadgeVariant,
+  consentStatusLabel,
   isConsentComplete,
   normalizeConsentStatus,
   normalizeNtpStatus,
-  consentStatusLabel,
   ntpStatusLabel,
+  ntpStatusBadgeVariant,
 } from './custodianStatusCatalog.js'
 
 const PRESERVATION_FILTER_OPTIONS = [
@@ -291,7 +293,13 @@ export default function CaseDetailCustodiansTab({
                           {/* NTP */}
                           {!isTech && (
                             <td style={{ padding: '5px', verticalAlign: 'top' }}>
-                              <strong>{ntpStatusLabel(normalizeNtpStatus(c.ntp_status))}</strong>
+                              <Badge
+                                variant={ntpStatusBadgeVariant(ntpStatus)}
+                                compact
+                                title={'NTP status: ' + ntpStatusLabel(ntpStatus)}
+                              >
+                                {ntpStatusLabel(ntpStatus)}
+                              </Badge>
                               {c.ntp_sent_at && ['sent', 'acknowledged'].includes(String(c.ntp_status || '').toLowerCase()) && (
                                 <div style={{ fontSize: 11, color: 'var(--muted,#6b7280)', marginTop: 4 }}>
                                   Sent: {formatDateTime(c.ntp_sent_at)}
@@ -312,7 +320,13 @@ export default function CaseDetailCustodiansTab({
                           {/* Consent */}
                           {!isTech && (
                             <td style={{ padding: '5px', verticalAlign: 'top' }}>
-                              {consentStatusLabel(normalizeConsentStatus(c.consent_status))}
+                              <Badge
+                                variant={consentStatusBadgeVariant(consent)}
+                                compact
+                                title={'Consent status: ' + consentStatusLabel(consent)}
+                              >
+                                {consentStatusLabel(consent)}
+                              </Badge>
                             </td>
                           )}
                           {/* Status badges */}

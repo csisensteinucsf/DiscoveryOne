@@ -1,10 +1,8 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { UserPlus } from 'lucide-react'
+import { Search, UserPlus } from 'lucide-react'
 import DataTableHeader from '../components/DataTableHeader.jsx'
 import D1CustodianDirectoryModal from './D1CustodianDirectoryModal.jsx'
-
-const lightBtn = { background: '#E5EEF3', color: '#00598C', border: '1px solid #C9D7E2' }
 
 function Chip({ kind = 'default', children, title }) {
   const base = {
@@ -89,8 +87,7 @@ export default function Custodians({ apiBase = '/api' }) {
     setLoading(true)
     setErr(null)
     try {
-      const url = q ? apiBase + '/custodians?q=' + encodeURIComponent(q) : apiBase + '/custodians'
-      const response = await fetch(url, { credentials: 'include' })
+      const response = await fetch(apiBase + '/custodians', { credentials: 'include' })
       if (!response.ok) throw new Error('HTTP ' + response.status)
       const data = await response.json()
       setRows(Array.isArray(data) ? data : [])
@@ -117,9 +114,13 @@ export default function Custodians({ apiBase = '/api' }) {
       const openCases = caseSearchText(custodian.open_cases)
       const closedCases = caseSearchText(custodian.closed_cases)
       const holds = custodian.active_holds ? 'yes active hold' : 'no none'
+      const globalQuery = q.trim().toLowerCase()
+      const matchesGlobalQuery = !globalQuery
+        || [name, email, openCases, closedCases, holds].some(value => value.includes(globalQuery))
 
       return (
-        name.includes(filters.name.trim().toLowerCase())
+        matchesGlobalQuery
+        && name.includes(filters.name.trim().toLowerCase())
         && email.includes(filters.email.trim().toLowerCase())
         && openCases.includes(filters.openCases.trim().toLowerCase())
         && closedCases.includes(filters.closedCases.trim().toLowerCase())
@@ -142,32 +143,15 @@ export default function Custodians({ apiBase = '/api' }) {
       if (typeof aValue === 'number' && typeof bValue === 'number') return (aValue - bValue) * direction
       return String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' }) * direction
     })
-  }, [filters, rows, sort])
-
-  const onSearch = (event) => {
-    event.preventDefault()
-    load()
-  }
+  }, [filters, q, rows, sort])
   const openCustodianWorkflow = () => setWorkflowMode('manual')
   return (
     <div className="wrap">
       <div className="page-header" style={{ marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: 'var(--sidebar-fg)' }}>Custodians</h2>
-        <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn secondary" onClick={openCustodianWorkflow}>
-            <UserPlus size={16} aria-hidden="true" /> Add Custodians
-          </button>
-          <form onSubmit={onSearch} className="row" style={{ gap: 8 }}>
-            <input
-              type="search"
-              placeholder="Search all custodians..."
-              value={q}
-              onChange={event => setQ(event.target.value)}
-              style={{ minWidth: 260 }}
-            />
-            <button type="submit" className="btn" style={lightBtn}>Search</button>
-          </form>
-        </div>
+        <button type="button" className="btn secondary" onClick={openCustodianWorkflow}>
+          <UserPlus size={16} aria-hidden="true" /> Add Custodians
+        </button>
       </div>
 
       {err && <div className="alert error">Error: {err}</div>}
@@ -176,16 +160,30 @@ export default function Custodians({ apiBase = '/api' }) {
           <span style={{ color: 'var(--muted, #64748b)', fontSize: 13 }}>
             {visibleRows.length} of {rows.length} custodians
           </span>
-          <button
-            type="button"
-            className="btn ghost"
-            onClick={() => {
-              setFilters({ name: '', email: '', openCases: '', closedCases: '', holds: '' })
-              setSort({ key: 'name', dir: 'asc' })
-            }}
-          >
-            Reset
-          </button>
+          <div className="custodians-table-toolbar__controls">
+            <div className="custodians-directory-search" role="search">
+              <Search size={16} aria-hidden="true" />
+              <input
+                className="input"
+                type="search"
+                aria-label="Search all custodians"
+                placeholder="Search custodians..."
+                value={q}
+                onChange={event => setQ(event.target.value)}
+              />
+            </div>
+            <button
+              type="button"
+              className="btn ghost"
+              onClick={() => {
+                setQ('')
+                setFilters({ name: '', email: '', openCases: '', closedCases: '', holds: '' })
+                setSort({ key: 'name', dir: 'asc' })
+              }}
+            >
+              Reset
+            </button>
+          </div>
         </div>
         <div className="table-scroll">
           <table className="table">

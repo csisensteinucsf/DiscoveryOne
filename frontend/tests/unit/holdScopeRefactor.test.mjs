@@ -85,3 +85,23 @@ test('NTP access and Hold preservation changes stay synchronized across Case Det
   assert.match(namedHoldsTab, /onMutationComplete: onHoldDataChanged/)
   assert.match(namedHoldsWorkflow, /typeof onMutationComplete === 'function' \? onMutationComplete\(\)/)
 })
+
+test('Custodian directory search filters live beside Reset', () => {
+  const page = source('../../src/pages/Custodians.jsx')
+  const styles = source('../../src/styles.css')
+  const toolbarStart = page.indexOf('className="custodians-table-toolbar"')
+  const searchStart = page.indexOf('className="custodians-directory-search"')
+  const resetStart = page.indexOf('Reset', searchStart)
+
+  assert.notEqual(toolbarStart, -1)
+  assert.notEqual(searchStart, -1)
+  assert.notEqual(resetStart, -1)
+  assert.equal(toolbarStart < searchStart && searchStart < resetStart, true)
+  assert.match(page, /<Search size=\{16\} aria-hidden="true" \/>/)
+  assert.match(page, /onChange={event => setQ\(event\.target\.value\)}/)
+  assert.match(page, /const globalQuery = q\.trim\(\)\.toLowerCase\(\)/)
+  assert.match(page, /setQ\(''\)/)
+  assert.doesNotMatch(page, /onSubmit={onSearch}|>Search<\/button>/)
+  assert.match(styles, /\.custodians-directory-search \{/)
+  assert.match(styles, /\.custodians-table-toolbar__controls \{/)
+})

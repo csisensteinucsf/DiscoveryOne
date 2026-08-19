@@ -5,10 +5,12 @@ import { readFile } from 'node:fs/promises'
 import {
   CONSENT_STATUS_OPTIONS,
   NTP_STATUS_OPTIONS,
+  consentStatusBadgeVariant,
   consentStatusLabel,
   isConsentComplete,
   normalizeConsentStatus,
   normalizeNtpStatus,
+  ntpStatusBadgeVariant,
   ntpStatusLabel,
 } from '../../src/pages/custodianStatusCatalog.js'
 import {
@@ -47,6 +49,21 @@ test('AWOC satisfies consent only as a recognized completed status', () => {
   assert.equal(isConsentComplete('implied'), true)
   assert.equal(isConsentComplete('sent'), false)
   assert.equal(CONSENT_STATUS_OPTIONS.some(option => option.value === 'awoc'), false)
+})
+
+test('custodian NTP and consent statuses use consistent badge colors', async () => {
+  assert.equal(ntpStatusBadgeVariant('not sent'), 'default')
+  assert.equal(ntpStatusBadgeVariant('sent'), 'warn')
+  assert.equal(ntpStatusBadgeVariant('acknowledged'), 'success')
+  assert.equal(ntpStatusBadgeVariant('silent'), 'info')
+  assert.equal(consentStatusBadgeVariant('not sent'), 'default')
+  assert.equal(consentStatusBadgeVariant('sent'), 'warn')
+  assert.equal(consentStatusBadgeVariant('received'), 'success')
+  assert.equal(consentStatusBadgeVariant('implied'), 'success')
+  assert.equal(consentStatusBadgeVariant('awoc'), 'success')
+
+  const caseCustodians = await readFile(new URL('../../src/pages/CaseDetailCustodiansTab.jsx', import.meta.url), 'utf8')
+  assert.match(caseCustodians, /variant={ntpStatusBadgeVariant\(ntpStatus\)}[\s\S]*?variant={consentStatusBadgeVariant\(consent\)}/)
 })
 
 test('case custodian consent status is read only and omits uploaded-document wording', async () => {

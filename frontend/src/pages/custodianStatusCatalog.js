@@ -33,6 +33,23 @@ export function consentStatusLabel(value) {
   return CONSENT_STATUS_OPTIONS.find(option => option.value === status)?.label || status
 }
 
+export function ntpStatusBadgeVariant(value) {
+  const status = normalizeNtpStatus(value)
+  if (status === 'acknowledged') return 'success'
+  if (status === 'sent') return 'warn'
+  if (status === 'silent') return 'info'
+  if (status === 'failed' || status === 'error') return 'danger'
+  return 'default'
+}
+
+export function consentStatusBadgeVariant(value) {
+  const status = normalizeConsentStatus(value)
+  if (['received', 'implied', 'awoc'].includes(status)) return 'success'
+  if (status === 'sent') return 'warn'
+  if (status === 'failed' || status === 'error') return 'danger'
+  return 'default'
+}
+
 export function isConsentComplete(value) {
   return ['received', 'implied', 'awoc'].includes(normalizeConsentStatus(value))
 }
