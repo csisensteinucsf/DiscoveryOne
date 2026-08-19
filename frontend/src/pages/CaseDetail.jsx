@@ -395,12 +395,16 @@ export default function CaseDetail() {
       setCustodians(next)
       setHoldBaseline(next)
     } catch (err) {
-      console.error('Unable to refresh custodians after consent proof change', err)
+      console.error('Unable to refresh case custodians', err)
     }
   }, [apiBase, caseId, setHoldBaseline])
   reloadCustodiansRef.current = reloadCustodians
+  const refreshHoldDerivedViews = useCallback(async () => {
+    await Promise.all([reloadCustodians(), loadHoldsDetail()])
+  }, [loadHoldsDetail, reloadCustodians])
   const {
     ntpTemplates,
+    ntpTemplatesLoading,
     ntpHolds,
     ntpHoldsLoading,
     loadNtpHolds,
@@ -409,7 +413,6 @@ export default function CaseDetail() {
     ntpCustodians,
     ntpReminders,
     ntpRemindersLoading,
-    ntpButtonDisabled,
     showSendNtpModal,
     closeSendNtp,
     previewNtpNotice,
@@ -468,7 +471,6 @@ export default function CaseDetail() {
     caseData,
     custodians,
     setCustodians,
-    isRequestor,
     isTech,
     showToast,
   })
@@ -1022,7 +1024,6 @@ export default function CaseDetail() {
               setShowCustodianModal={setShowCustodianModal}
               openSendNtp={openSendNtp}
               sendingNtp={sendingNtp}
-              ntpButtonDisabled={ntpButtonDisabled}
             />
           )}
           {activeTab === 'holds' && (
@@ -1032,6 +1033,7 @@ export default function CaseDetail() {
               custodians={custodians}
               isReadOnly={isReadOnly}
               showToast={showToast}
+              onHoldDataChanged={refreshHoldDerivedViews}
               initialHoldId={linkedHoldId}
             />
           )}
@@ -1267,6 +1269,7 @@ export default function CaseDetail() {
         ntpFieldLabelStyle={ntpFieldLabelStyle}
         ntpSelectStyle={ntpSelectStyle}
         ntpTemplates={ntpTemplates}
+        ntpTemplatesLoading={ntpTemplatesLoading}
         selectedReminderTemplateId={selectedReminderTemplateId}
         setSelectedReminderTemplateId={setSelectedReminderTemplateId}
         setReminderIntervalDays={setReminderIntervalDays}

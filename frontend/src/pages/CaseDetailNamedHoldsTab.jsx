@@ -81,8 +81,9 @@ export default function CaseDetailNamedHoldsTab({
   isReadOnly,
   showToast,
   initialHoldId = null,
+  onHoldDataChanged,
 }) {
-  const holds = useCaseDetailNamedHolds({ apiBase, caseId, showToast })
+  const holds = useCaseDetailNamedHolds({ apiBase, caseId, showToast, onMutationComplete: onHoldDataChanged })
   const [createOpen, setCreateOpen] = useState(false)
   const [editHold, setEditHold] = useState(null)
   const [memberHold, setMemberHold] = useState(null)

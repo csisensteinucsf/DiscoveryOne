@@ -26,7 +26,6 @@ export function useCaseDetailNtpWorkflow({
   caseData,
   custodians,
   setCustodians,
-  isRequestor,
   isTech,
   showToast,
 }) {
@@ -120,8 +119,6 @@ export function useCaseDetailNtpWorkflow({
     }
   }, [apiBase, caseId, isTech, ntpHoldId])
 
-  const ntpButtonDisabled = ntpTemplatesLoading || ntpHoldsLoading || !ntpTemplates.length
-
   const isNtpBlockedCustodian = useCallback(isNtpBlockedCustodianRecord, [])
 
   const ntpAutoNaReason = useCallback((custodian) => ntpAutoNaReasonForCustodian(caseData?.claimant, custodian), [caseData?.claimant])
@@ -191,17 +188,6 @@ export function useCaseDetailNtpWorkflow({
   } = useCaseDetailNtpHistory({ apiBase, caseId, caseHoldId: ntpHoldId, loadNtpReminders, showToast })
 
   const openSendNtp = useCallback(() => {
-    if (!ntpTemplates.length) {
-      const message = isRequestor
-        ? 'No NTP templates are assigned to your group. Ask an administrator to grant access.'
-        : 'No NTP templates available. Ask an administrator to create one.'
-      showToast(message, { variant: 'warn' })
-      return
-    }
-    if (!ntpHolds.length) {
-      showToast('Create an active Hold and assign custodians before sending an NTP.', { variant: 'warn' })
-      return
-    }
     const defaultTemplateId = ntpTemplates.find(t => t.is_default)?.id || ntpTemplates[0]?.id || null
     const defaultReminderTemplateId =
       ntpTemplates.find(t => t.is_default_reminder)?.id ||
@@ -220,7 +206,7 @@ export function useCaseDetailNtpWorkflow({
     })
     setNtpPreview({ loading: false, error: null, data: null })
     setShowSendNtpModal(true)
-  }, [caseData, isRequestor, lastNtpSend?.data, ntpHolds.length, ntpTemplates, rememberedNtpReason, showToast])
+  }, [caseData, lastNtpSend?.data, ntpTemplates, rememberedNtpReason])
 
   const closeSendNtp = useCallback(() => {
     setShowSendNtpModal(false)
@@ -402,7 +388,6 @@ export function useCaseDetailNtpWorkflow({
     ntpCustodians,
     ntpReminders,
     ntpRemindersLoading,
-    ntpButtonDisabled,
     showSendNtpModal,
     closeSendNtp,
     previewNtpNotice,

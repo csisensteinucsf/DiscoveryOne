@@ -18,6 +18,7 @@ export default function CaseDetailNtpModals({
   ntpSelection,
   ntpHolds,
   ntpHoldsLoading,
+  ntpTemplatesLoading,
   ntpHoldId,
   setNtpHoldId,
   ntpModalScrollStyle,
@@ -109,6 +110,16 @@ export default function CaseDetailNtpModals({
           )}
         >
           <div style={ntpModalScrollStyle}>
+            {!ntpHoldsLoading && !ntpHolds.length && (
+              <div className="alert warn">
+                No active Holds are available. Create a Hold and assign custodians before sending an NTP.
+              </div>
+            )}
+            {!ntpTemplatesLoading && !ntpTemplates.length && (
+              <div className="alert warn">
+                No NTP templates are available. Ask a system administrator to create one or grant access.
+              </div>
+            )}
             <div
               className="form-grid"
               style={{ display:'grid', gap:12, gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', marginTop:8 }}

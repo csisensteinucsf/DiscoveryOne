@@ -67,7 +67,6 @@ export default function CaseDetailCustodiansTab({
   setShowCustodianModal,
   openSendNtp,
   sendingNtp,
-  ntpButtonDisabled,
 }) {
   const {
     custodianCount,
@@ -99,7 +98,7 @@ export default function CaseDetailCustodiansTab({
                       </button>
                     )}
                     {!isTech && (
-                      <button className="btn secondary" type="button" onClick={openSendNtp} disabled={sendingNtp || ntpButtonDisabled}>
+                      <button className="btn secondary" type="button" onClick={openSendNtp} disabled={sendingNtp}>
                         {sendingNtp ? 'Sending...' : 'NTPs'}
                       </button>
                     )}

@@ -8,7 +8,7 @@ async function responseError(response, fallback) {
   return fallback + ' (HTTP ' + response.status + ')'
 }
 
-export function useCaseDetailNamedHolds({ apiBase, caseId, showToast }) {
+export function useCaseDetailNamedHolds({ apiBase, caseId, showToast, onMutationComplete }) {
   const [namedHolds, setNamedHolds] = useState([])
   const [namedHoldTotals, setNamedHoldTotals] = useState({})
   const [namedHoldsLoading, setNamedHoldsLoading] = useState(false)
@@ -45,7 +45,10 @@ export function useCaseDetailNamedHolds({ apiBase, caseId, showToast }) {
         ...options,
       })
       if (!response.ok) throw new Error(await responseError(response, 'Hold update failed'))
-      await loadNamedHolds()
+      await Promise.all([
+        loadNamedHolds(),
+        typeof onMutationComplete === 'function' ? onMutationComplete() : Promise.resolve(),
+      ])
       if (successMessage) showToast(successMessage, { variant: 'success' })
       return true
     } catch (error) {
@@ -54,7 +57,7 @@ export function useCaseDetailNamedHolds({ apiBase, caseId, showToast }) {
     } finally {
       setNamedHoldBusy(false)
     }
-  }, [apiBase, caseId, loadNamedHolds, showToast])
+  }, [apiBase, caseId, loadNamedHolds, onMutationComplete, showToast])
 
   const createNamedHold = useCallback(payload => mutate('', {
     method: 'POST',
