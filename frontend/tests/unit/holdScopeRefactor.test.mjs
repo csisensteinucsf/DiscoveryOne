@@ -47,3 +47,15 @@ test('D1 custodian directory supports standalone entry and case multi-select', (
   assert.match(picker, /Select from D1 Custodians/)
   assert.match(picker, /aria-multiselectable="true"/)
 })
+
+test('D1 custodian entry uses polished required labels and file controls', () => {
+  const globalPage = source('../../src/pages/Custodians.jsx')
+  const directoryModal = source('../../src/pages/D1CustodianDirectoryModal.jsx')
+  const styles = source('../../src/styles.css')
+
+  assert.doesNotMatch(globalPage, />\s*Import Custodians\s*</)
+  assert.match(directoryModal, /<RequiredFieldLabel>Name<\/RequiredFieldLabel>/)
+  assert.match(directoryModal, /<RequiredFieldLabel>Email<\/RequiredFieldLabel>/)
+  assert.doesNotMatch(directoryModal, /required-marker/)
+  assert.match(styles, /input\[type="file"\]::file-selector-button/)
+})

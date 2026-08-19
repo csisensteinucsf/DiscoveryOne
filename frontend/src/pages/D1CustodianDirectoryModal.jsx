@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Minus, Plus } from 'lucide-react'
 import FileDropZone from '../components/FileDropZone.jsx'
 import Modal from '../components/Modal.jsx'
+import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 
 const emptyRow = () => ({ name: '', email: '' })
 const validEmail = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
@@ -99,7 +100,7 @@ export default function D1CustodianDirectoryModal({
       open
       title="Add D1 Custodians"
       onClose={busy ? undefined : onClose}
-      width={760}
+      width={820}
       footer={(
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>Cancel</button>
@@ -109,16 +110,17 @@ export default function D1CustodianDirectoryModal({
         </div>
       )}
     >
-      <div className="custodian-entry-mode-tabs" role="tablist" aria-label="Custodian entry method">
-        <button type="button" className={'btn ' + (mode === 'manual' ? 'primary' : 'secondary')} onClick={() => { setMode('manual'); setRows([emptyRow()]); setError('') }}>
-          Manual Add
-        </button>
-        <button type="button" className={'btn ' + (mode === 'import' ? 'primary' : 'secondary')} onClick={() => { setMode('import'); setRows([]); setError('') }}>
-          Import from list
-        </button>
-      </div>
+      <div className="d1-custodian-directory-content">
+        <div className="custodian-entry-mode-tabs" role="tablist" aria-label="Custodian entry method">
+          <button type="button" className={'btn ' + (mode === 'manual' ? 'primary' : 'secondary')} onClick={() => { setMode('manual'); setRows([emptyRow()]); setError('') }}>
+            Manual Add
+          </button>
+          <button type="button" className={'btn ' + (mode === 'import' ? 'primary' : 'secondary')} onClick={() => { setMode('import'); setRows([]); setError('') }}>
+            Import from list
+          </button>
+        </div>
 
-      <p className="muted">
+      <p className="d1-custodian-directory-intro">
         Save names and email addresses to DiscoveryOne now. They can be selected when custodians are added to a case later.
       </p>
 
@@ -127,12 +129,12 @@ export default function D1CustodianDirectoryModal({
           {rows.map((row, index) => (
             <div className="d1-custodian-entry-row" key={index}>
               <label>
-                Name <span className="required-marker">*</span>
-                <input value={row.name} onChange={event => updateRow(index, 'name', event.target.value)} />
+                <RequiredFieldLabel>Name</RequiredFieldLabel>
+                <input className="input" required value={row.name} onChange={event => updateRow(index, 'name', event.target.value)} />
               </label>
               <label>
-                Email <span className="required-marker">*</span>
-                <input type="email" value={row.email} onChange={event => updateRow(index, 'email', event.target.value)} />
+                <RequiredFieldLabel>Email</RequiredFieldLabel>
+                <input className="input" required type="email" value={row.email} onChange={event => updateRow(index, 'email', event.target.value)} />
               </label>
               <div className="row d1-custodian-row-actions">
                 <button type="button" className="icon-button" title="Add another custodian" aria-label="Add another custodian" onClick={addRow}>
@@ -146,24 +148,27 @@ export default function D1CustodianDirectoryModal({
           ))}
         </div>
       ) : (
-        <>
-          <label>
-            Custodian list <span className="required-marker">*</span>
+        <div className="d1-custodian-import-panel">
+          <label className="d1-custodian-import-list">
+            <RequiredFieldLabel>Custodian list</RequiredFieldLabel>
             <textarea
               rows={9}
               value={pasteText}
+              className="input"
+              required
               onChange={event => applyText(event.target.value)}
               placeholder={"Jane Doe, jane.doe@example.com\nJohn Smith, john.smith@example.com"}
             />
           </label>
           <FileDropZone onFiles={onFiles} prompt="Drag and drop a CSV or text file here">
-            <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={event => onFiles(event.target.files)} />
+            <input className="native-file-input" type="file" accept=".csv,.txt,text/csv,text/plain" onChange={event => onFiles(event.target.files)} />
           </FileDropZone>
-          <p className="muted">{activeRows.length} custodian{activeRows.length === 1 ? '' : 's'} ready to save.</p>
-        </>
+          <p className="d1-custodian-import-count">{activeRows.length} custodian{activeRows.length === 1 ? '' : 's'} ready to save.</p>
+        </div>
       )}
 
       {error && <div className="alert error">{error}</div>}
+      </div>
     </Modal>
   )
 }

@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Upload, UserPlus } from 'lucide-react'
+import { UserPlus } from 'lucide-react'
 import DataTableHeader from '../components/DataTableHeader.jsx'
 import D1CustodianDirectoryModal from './D1CustodianDirectoryModal.jsx'
 
@@ -148,19 +148,14 @@ export default function Custodians({ apiBase = '/api' }) {
     event.preventDefault()
     load()
   }
-  const openCustodianWorkflow = mode => {
-    setWorkflowMode(mode === 'import' ? 'import' : 'manual')
-  }
+  const openCustodianWorkflow = () => setWorkflowMode('manual')
   return (
     <div className="wrap">
       <div className="page-header" style={{ marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: 'var(--sidebar-fg)' }}>Custodians</h2>
         <div className="row" style={{ gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-          <button type="button" className="btn secondary" onClick={() => openCustodianWorkflow('add')}>
+          <button type="button" className="btn secondary" onClick={openCustodianWorkflow}>
             <UserPlus size={16} aria-hidden="true" /> Add Custodians
-          </button>
-          <button type="button" className="btn secondary" onClick={() => openCustodianWorkflow('import')}>
-            <Upload size={16} aria-hidden="true" /> Import Custodians
           </button>
           <form onSubmit={onSearch} className="row" style={{ gap: 8 }}>
             <input

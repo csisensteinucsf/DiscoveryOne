@@ -9,6 +9,47 @@ textarea {
   max-width: 100%;
   display: block;
 }
+/* Present native file pickers like the rest of the application controls. */
+input[type="file"] {
+  min-height: 42px;
+  padding: 4px;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: 10px;
+  background: var(--card, #fff);
+  color: var(--muted, #64748b);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+input[type="file"]::file-selector-button {
+  min-height: 32px;
+  margin-right: 10px;
+  padding: 7px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent, #0b78b5) 75%, #000);
+  border-radius: 8px;
+  background: var(--accent, #0b78b5);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 120ms ease;
+}
+
+input[type="file"]:hover::file-selector-button {
+  filter: brightness(0.92);
+}
+
+input[type="file"]:active::file-selector-button {
+  transform: translateY(1px);
+}
+
+input[type="file"]:disabled,
+input[type="file"]:disabled::file-selector-button {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 
 /* Buttons keep their natural size (prevents the giant buttons issue) */
 button, .btn {
@@ -2947,39 +2988,123 @@ form[data-required-feedback='true']::after {
 }
 
 .custodian-entry-mode-tabs {
-  display: flex;
+  display: inline-flex;
+  align-self: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border, #e5e7eb);
+  gap: 4px;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border, #dbe3ec);
+  border-radius: 12px;
+  background: var(--table-header-bg, #f1f5f9);
+}
+
+.custodian-entry-mode-tabs .btn {
+  min-height: 38px;
+  padding: 8px 16px;
+  border-color: transparent;
+  border-radius: 8px;
+  box-shadow: none;
+}
+
+.d1-custodian-directory-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.d1-custodian-directory-intro {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent, #0b78b5) 20%, var(--border, #dbe3ec));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, #0b78b5) 7%, var(--card, #fff));
+  color: var(--muted, #64748b);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .d1-custodian-manual-list {
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .d1-custodian-entry-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1.2fr) auto;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 88px;
+  gap: 14px;
   align-items: end;
-  padding: 12px;
+  padding: 16px;
   border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  background: var(--table-header-bg, #f8fafc);
+  border-radius: 14px;
+  background: var(--card, #fff);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 }
 
 .d1-custodian-entry-row label {
-  display: grid;
-  gap: 5px;
-  font-weight: 600;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--text, #0f172a);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.d1-custodian-entry-row .input {
+  min-height: 42px;
+  padding: 9px 11px;
+  border-radius: 10px;
+  font-weight: 400;
 }
 
 .d1-custodian-row-actions {
+  display: flex;
   align-items: center;
-  padding-bottom: 2px;
+  justify-content: flex-end;
+  gap: 6px;
+  min-height: 42px;
+}
+
+.d1-custodian-row-actions .icon-button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border, #dbe3ec);
+  border-radius: 10px;
+  background: var(--card, #fff);
+}
+
+.d1-custodian-row-actions .icon-button:hover {
+  border-color: var(--accent, #0b78b5);
+  background: color-mix(in srgb, var(--accent, #0b78b5) 8%, var(--card, #fff));
+}
+
+.d1-custodian-import-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.d1-custodian-import-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  color: var(--text, #0f172a);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.d1-custodian-import-list textarea {
+  min-height: 180px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 400;
+}
+
+.d1-custodian-import-count {
+  margin: 0;
+  color: var(--muted, #64748b);
+  font-size: 13px;
 }
 
 .d1-custodian-picker-toolbar {
