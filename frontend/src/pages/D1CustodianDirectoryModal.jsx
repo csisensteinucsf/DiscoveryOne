@@ -3,6 +3,7 @@ import { Minus, Plus } from 'lucide-react'
 import FileDropZone from '../components/FileDropZone.jsx'
 import Modal from '../components/Modal.jsx'
 import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
+import CustodianEmploymentStatusSelect, { isEmploymentStatusOption, normalizeEmploymentStatus } from './CustodianEmploymentStatusSelect.jsx'
 
 const CSV_HEADERS = ['first_name', 'last_name', 'email', 'campus', 'department', 'employee_id', 'job_title', 'employment_status']
 const emptyRow = () => ({
@@ -32,7 +33,7 @@ function parseRows(text) {
       department: source.department || '',
       employee_id: source.employee_id || '',
       title: source.job_title || source.title || '',
-      employment_status: source.employment_status || '',
+      employment_status: normalizeEmploymentStatus(source.employment_status),
     }
   }).filter(row => Object.values(row).some(Boolean))
 }
@@ -53,10 +54,11 @@ export default function D1CustodianDirectoryModal({
     () => rows.filter(row => Object.values(row).some(value => String(value || '').trim())),
     [rows],
   )
-  const invalid = activeRows.find(row => (
+  const invalidRequired = activeRows.find(row => (
     !row.first_name.trim() || !row.last_name.trim() || !validEmail(row.email) || !row.campus.trim()
   ))
-  const canSave = activeRows.length > 0 && !invalid && !busy
+  const invalidEmploymentStatus = activeRows.find(row => !isEmploymentStatusOption(row.employment_status))
+  const canSave = activeRows.length > 0 && !invalidRequired && !invalidEmploymentStatus && !busy
 
   const updateRow = (index, field, value) => {
     setRows(current => current.map((row, rowIndex) => (
@@ -94,6 +96,10 @@ export default function D1CustodianDirectoryModal({
   }
 
   const save = async () => {
+    if (invalidEmploymentStatus) {
+      setError('Employment Status must be Active, Inactive, or left blank for every custodian.')
+      return
+    }
     if (!canSave) {
       setError('Missing required fields. Enter first name, last name, a valid email, and campus for every custodian.')
       return
@@ -114,7 +120,7 @@ export default function D1CustodianDirectoryModal({
             department: row.department.trim() || null,
             employee_id: row.employee_id.trim() || null,
             title: row.title.trim() || null,
-            employment_status: row.employment_status.trim() || null,
+            employment_status: normalizeEmploymentStatus(row.employment_status) || null,
           })),
         }),
       })
@@ -185,7 +191,7 @@ export default function D1CustodianDirectoryModal({
               <label>Department<input className="input" value={row.department} onChange={event => updateRow(index, 'department', event.target.value)} /></label>
               <label>Employee ID<input className="input" value={row.employee_id} onChange={event => updateRow(index, 'employee_id', event.target.value)} /></label>
               <label>Job Title<input className="input" value={row.title} onChange={event => updateRow(index, 'title', event.target.value)} /></label>
-              <label>Employment Status<input className="input" value={row.employment_status} onChange={event => updateRow(index, 'employment_status', event.target.value)} /></label>
+              <label>Employment Status<CustodianEmploymentStatusSelect value={row.employment_status} onChange={value => updateRow(index, 'employment_status', value)} /></label>
               </div>
               <div className="row d1-custodian-row-actions">
                 <button type="button" className="icon-button" title="Add another custodian" aria-label="Add another custodian" onClick={addRow}>
@@ -202,7 +208,7 @@ export default function D1CustodianDirectoryModal({
         <div className="d1-custodian-import-panel">
           <div className="d1-custodian-import-heading">
             <p className="d1-custodian-import-help">
-              Use the downloadable header template. First name, last name, email, and campus are required. Remaining columns may be left blank.
+              Use the downloadable header template. First name, last name, email, and campus are required. Employment Status may be Active, Inactive, or blank; remaining columns may be left blank.
             </p>
             <button type="button" className="btn secondary compact" onClick={downloadCsvTemplate}>
               Download CSV template

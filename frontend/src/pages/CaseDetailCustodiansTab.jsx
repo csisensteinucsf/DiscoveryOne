@@ -211,7 +211,7 @@ export default function CaseDetailCustodiansTab({
                           <td style={{ padding: '5px', verticalAlign: 'top' }}>
                             <button
                               type="button"
-                              className="table-link-button"
+                              className="table-link-button custodian-name-link"
                               title={'View details for ' + (formatNameRaw(c.name) || 'custodian')}
                               onClick={() => onViewCustodian(c)}
                             >

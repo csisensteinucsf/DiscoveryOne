@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import Modal from '../components/Modal.jsx'
 import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
+import CustodianEmploymentStatusSelect, { isEmploymentStatusOption, normalizeEmploymentStatus } from './CustodianEmploymentStatusSelect.jsx'
 
 const validEmail = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
 
@@ -12,7 +13,7 @@ const initialForm = custodian => ({
   department: custodian?.department || '',
   employee_id: custodian?.employee_id || custodian?.external_id || '',
   title: custodian?.title || '',
-  employment_status: custodian?.employment_status || '',
+  employment_status: normalizeEmploymentStatus(custodian?.employment_status),
 })
 
 export default function EditCustodianProfileModal({ apiBase = '/api', custodian, onClose, onSaved }) {
@@ -26,9 +27,14 @@ export default function EditCustodianProfileModal({ apiBase = '/api', custodian,
     || !form.campus.trim()
   ), [form])
 
+  const invalidEmploymentStatus = !isEmploymentStatusOption(form.employment_status)
   const update = (field, value) => setForm(current => ({ ...current, [field]: value }))
 
   const save = async () => {
+    if (invalidEmploymentStatus) {
+      setError('Employment Status must be Active, Inactive, or left blank.')
+      return
+    }
     if (invalid || busy) {
       setError('Missing required fields. Enter first name, last name, a valid email, and campus.')
       return
@@ -51,7 +57,7 @@ export default function EditCustodianProfileModal({ apiBase = '/api', custodian,
           department: form.department.trim() || null,
           employee_id: form.employee_id.trim() || null,
           title: form.title.trim() || null,
-          employment_status: form.employment_status.trim() || null,
+          employment_status: normalizeEmploymentStatus(form.employment_status) || null,
         }),
       })
       const result = await response.json().catch(() => null)
@@ -99,7 +105,7 @@ export default function EditCustodianProfileModal({ apiBase = '/api', custodian,
         <label>Department<input className="input" value={form.department} onChange={event => update('department', event.target.value)} /></label>
         <label>Employee ID<input className="input" value={form.employee_id} onChange={event => update('employee_id', event.target.value)} /></label>
         <label>Job Title<input className="input" value={form.title} onChange={event => update('title', event.target.value)} /></label>
-        <label>Employment Status<input className="input" value={form.employment_status} onChange={event => update('employment_status', event.target.value)} /></label>
+        <label>Employment Status<CustodianEmploymentStatusSelect value={form.employment_status} onChange={value => update('employment_status', value)} /></label>
       </div>
       {error && <div className="alert error" style={{ marginTop: 12 }}>{error}</div>}
     </Modal>

@@ -8,6 +8,7 @@ test('custodian directory exposes profile fields, CSV template, pagination, and 
   const modal = source('../../src/pages/D1CustodianDirectoryModal.jsx')
   const page = source('../../src/pages/Custodians.jsx')
   const detail = source('../../src/pages/CustodianDetail.jsx')
+  const employmentStatus = source('../../src/pages/CustodianEmploymentStatusSelect.jsx')
 
   for (const label of ['First name', 'Last name', 'Email', 'Campus']) {
     assert.match(modal, new RegExp('<RequiredFieldLabel>' + label + '<\\/RequiredFieldLabel>'))
@@ -17,6 +18,9 @@ test('custodian directory exposes profile fields, CSV template, pagination, and 
   }
   assert.match(modal, /CSV_HEADERS\.join\(','\)/)
   assert.match(modal, /Download CSV template/)
+  assert.match(modal, /CustodianEmploymentStatusSelect/)
+  assert.match(employmentStatus, /\['Active', 'Inactive'\]/)
+  assert.match(employmentStatus, /Not specified/)
   assert.match(page, /\[25, 50, 100, 200\]/)
   assert.match(page, /useState\(25\)/)
   assert.match(page, /custodians-back-button/)
@@ -56,7 +60,7 @@ test('matter detail exposes a custodian profile dialog and matter-scoped logs', 
   const logs = source('../../src/pages/Logs.jsx')
 
   assert.match(custodians, /onViewCustodian\(c\)/)
-  assert.match(custodians, /table-link-button/)
+  assert.match(custodians, /table-link-button custodian-name-link/)
   assert.match(detail, /CustodianProfileModal/)
   assert.match(profile, /\/custodians\/detail\?/)
   assert.match(profile, /Matters/)
@@ -95,22 +99,27 @@ test('matter logs explain hold changes in plain language with a compact IP-only 
   assert.doesNotMatch(logs, /function truncate/)
   assert.match(styles, /\.logs-table \.log-ip-column/)
   assert.match(styles, /\.logs-table \.log-details-column/)
+  assert.match(logs, /className="log-detail-lines"/)
+  assert.doesNotMatch(logs, /<ul/)
 })
 test('custodian directory names highlight and details expose profile editing', () => {
   const page = source('../../src/pages/Custodians.jsx')
   const detail = source('../../src/pages/CustodianDetail.jsx')
+  const employmentStatus = source('../../src/pages/CustodianEmploymentStatusSelect.jsx')
   const editor = source('../../src/pages/EditCustodianProfileModal.jsx')
   const styles = source('../../src/styles.css')
 
   assert.match(page, /table-link-button custodian-name-link/)
   assert.match(page, /custodian-directory-row/)
-  assert.match(styles, /\.custodian-name-link/)
+  assert.match(styles, /\.table-link-button\.custodian-name-link/)
+  assert.match(styles, /text-decoration: none/)
   assert.match(styles, /\.custodian-directory-row:hover td/)
   assert.match(detail, /Custodian Detail[\s\S]*custodians-back-button/)
   assert.match(detail, /aria-label="Edit custodian"/)
   assert.match(detail, /EditCustodianProfileModal/)
   assert.match(editor, /method: 'PUT'/)
   assert.match(editor, /\/custodians\/profile\?/)
+  assert.match(editor, /CustodianEmploymentStatusSelect/)
   for (const label of ['First name', 'Last name', 'Email', 'Campus']) {
     assert.match(editor, new RegExp('<RequiredFieldLabel>' + label + '<\\/RequiredFieldLabel>'))
   }

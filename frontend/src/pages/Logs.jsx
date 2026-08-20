@@ -348,13 +348,13 @@ function HumanDetails({ details, action }) {
             </div>
           )}
           {hasChanges && (
-            <ul style={{ margin: 0, paddingLeft: 16 }}>
+            <div className="log-detail-lines">
               {Object.entries(val.changes).map(([field, change]) => (
-                <li key={field}>
+                <div key={field}>
                   <strong>{DETAIL_FIELD_LABELS[field] || friendlyValue(field)}</strong>: {summarizeChange(field, change)}
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           )}
         </div>
       );
@@ -362,13 +362,13 @@ function HumanDetails({ details, action }) {
 
     if (keys.length && keys.length <= 6) {
       return (
-        <ul style={{ margin: 0, paddingLeft: 16 }}>
+        <div className="log-detail-lines">
           {keys.map((k) => (
-            <li key={k}>
+            <div key={k}>
               <strong>{k}</strong>: {toInlineText(val[k])}
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       );
     }
 
