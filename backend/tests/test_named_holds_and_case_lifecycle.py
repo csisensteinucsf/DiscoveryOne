@@ -617,3 +617,60 @@ def test_request_consent_proof_is_assigned_only_to_explicit_hold(db_session):
     assert membership.custodian_id == custodian.id
     assert membership.hold_id == hold.id
     assert membership.consent_status == "received"
+
+
+def test_hold_updates_audit_readable_before_and_after_details(monkeypatch, db_session):
+    monkeypatch.setattr(
+        case_holds,
+        "configured_hold_catalog",
+        lambda enabled_only=True: [("email", "holds_email", "Email (O365/Google)")],
+    )
+    events = []
+    monkeypatch.setattr(case_holds, "log_event", lambda *args, **kwargs: events.append(kwargs))
+    admin = create_user(db_session, suffix="audit-admin")
+    case = create_case(db_session, name="Readable Audit Matter")
+    custodian = models.Custodian(
+        case_id=case.id,
+        name="Person One",
+        email="person.one@example.edu",
+    )
+    db_session.add(custodian)
+    db_session.commit()
+    hold = create_hold(db_session, case, name="Preservation Hold", custodians=[custodian])
+    db_session.commit()
+
+    case_holds.update_hold_preservation(
+        case.id,
+        hold.id,
+        custodian.id,
+        "email",
+        case_holds.HoldPreservationUpdate(status="pending"),
+        db=db_session,
+        request=None,
+        user=admin,
+    )
+    preservation = events[-1]
+    assert preservation["action"] == "case_hold_preservation_update"
+    assert preservation["details"]["hold_name"] == "Preservation Hold"
+    assert preservation["details"]["source_label"] == "Email (O365/Google)"
+    assert preservation["details"]["changes"]["status"] == {
+        "old": "not_started",
+        "new": "pending",
+    }
+
+    case_holds.update_hold_custodian_workflow(
+        case.id,
+        hold.id,
+        custodian.id,
+        case_holds.HoldMemberWorkflowUpdate(ntp_status="sent"),
+        db=db_session,
+        request=None,
+        user=admin,
+    )
+    workflow = events[-1]
+    assert workflow["action"] == "case_hold_custodian_workflow_update"
+    assert workflow["details"]["hold_name"] == "Preservation Hold"
+    assert workflow["details"]["changes"]["ntp_status"] == {
+        "old": "not sent",
+        "new": "sent",
+    }

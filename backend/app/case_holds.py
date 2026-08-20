@@ -594,7 +594,13 @@ def remove_hold_custodian(
         target_type="case_hold",
         target_id=hold_id,
         actor_id=user.id,
-        details={"case_id": case_id, "hold_id": hold_id, "custodian_id": custodian_id},
+        details={
+            "case_id": case_id,
+            "hold_id": hold_id,
+            "hold_name": membership.hold.name if membership.hold else None,
+            "custodian_id": custodian_id,
+            "changes": changes,
+        },
         request=request,
     )
     return {"ok": True}
@@ -623,6 +629,14 @@ def update_hold_custodian_workflow(
     )
     if not membership:
         raise HTTPException(status_code=404, detail="Custodian is not assigned to this hold")
+    audited_fields = (
+        "ntp_status",
+        "ntp_template_name",
+        "ntp_not_required_reason",
+        "consent_status",
+        "consent_not_required_reason",
+    )
+    before = {field: getattr(membership, field, None) for field in audited_fields}
     for field in (
         "ntp_template_name",
         "ntp_not_required_reason",
@@ -656,13 +670,25 @@ def update_hold_custodian_workflow(
         )
     db.add(membership)
     db.commit()
+    after = {field: getattr(membership, field, None) for field in audited_fields}
+    changes = {
+        field: {"old": before[field], "new": after[field]}
+        for field in audited_fields
+        if before[field] != after[field]
+    }
     log_event(
         db,
         action="case_hold_custodian_workflow_update",
         target_type="case_hold",
         target_id=hold_id,
         actor_id=user.id,
-        details={"case_id": case_id, "hold_id": hold_id, "custodian_id": custodian_id},
+        details={
+            "case_id": case_id,
+            "hold_id": hold_id,
+            "hold_name": membership.hold.name if membership.hold else None,
+            "custodian_id": custodian_id,
+            "changes": changes,
+        },
         request=request,
     )
     return _serialize_hold(_hold_for_case(db, case_id, hold_id))
@@ -693,6 +719,12 @@ def update_hold_preservation(
     if not membership:
         raise HTTPException(status_code=404, detail="Custodian is not assigned to this hold")
     key = source_key(source)
+    existing = next((item for item in membership.preservation_sources if item.source_key == key), None)
+    before = {
+        "status": existing.status if existing is not None else "not_started",
+        "provider_reference": existing.provider_reference if existing is not None else None,
+        "last_error": existing.last_error if existing is not None else None,
+    }
     record = set_membership_preservation_status(
         db,
         membership,
@@ -702,6 +734,11 @@ def update_hold_preservation(
         last_error=payload.last_error,
     )
     db.commit()
+    after = {
+        "status": record.status,
+        "provider_reference": record.provider_reference,
+        "last_error": record.last_error,
+    }
     log_event(
         db,
         action="case_hold_preservation_update",
@@ -711,9 +748,16 @@ def update_hold_preservation(
         details={
             "case_id": case_id,
             "hold_id": hold_id,
+            "hold_name": membership.hold.name if membership.hold else None,
             "custodian_id": custodian_id,
             "source": key,
+            "source_label": record.source_label,
             "status": record.status,
+            "changes": {
+                field: {"old": before[field], "new": after[field]}
+                for field in before
+                if before[field] != after[field]
+            },
         },
         request=request,
     )

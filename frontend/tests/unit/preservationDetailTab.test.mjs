@@ -26,6 +26,11 @@ test('Preservation Detail includes every named Hold membership and the case-wide
   assert.match(preservationSource, /hold\.custodians/)
   assert.match(preservationSource, /member\.preservation_sources/)
   assert.match(preservationSource, /Provider events and preservation timeline/)
+  assert.match(preservationSource, /aria-label="Select custodian preservation detail"/)
+  assert.match(preservationSource, /visibleHoldCustodians\.map/)
+  assert.match(preservationSource, /Export Preservation Detail/)
+  assert.match(preservationSource, /buildPreservationDetailCsv/)
+  assert.match(preservationSource, /detailRows: selectedHoldDetailRows/)
 
   const holdsSource = readSource('../../src/pages/CaseDetailNamedHoldsTab.jsx')
   assert.doesNotMatch(holdsSource, /Legacy preservation timeline and provider events/)

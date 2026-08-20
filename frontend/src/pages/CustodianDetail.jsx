@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
+import { Pencil } from "lucide-react";
 import { personLookupDepartment, personLookupExternalId, personLookupTitle } from "./caseDetailPersonLookupFields.js";
 import { consentStatusLabel, normalizeConsentStatus } from "./custodianStatusCatalog.js";
+import EditCustodianProfileModal from "./EditCustodianProfileModal.jsx";
 
 const Chip = ({ kind = "default", children, title }) => {
   const base = {
@@ -212,13 +214,20 @@ function HoldsCard({ holds = {} }) {
   );
 }
 
-function ProfileCard({ data, employeeIdLabel = "Employee ID" }) {
+function ProfileCard({ data, employeeIdLabel = "Employee ID", onEdit }) {
   const rowStyle = { display: 'grid', gridTemplateColumns: '160px 1fr', gap: 8, marginBottom: 6 }
   const valueStyle = { color: 'var(--text,#0f172a)' }
   const muted = { color: '#6b7280' }
   return (
     <div className="card" style={{ padding: 16 }}>
-      <div style={{ fontWeight: 700, marginBottom: 10 }}>Details</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+        <div style={{ fontWeight: 700 }}>Details</div>
+        {onEdit ? (
+          <button type="button" className="icon-button" onClick={onEdit} title="Edit custodian" aria-label="Edit custodian">
+            <Pencil size={17} aria-hidden="true" />
+          </button>
+        ) : null}
+      </div>
       <div style={rowStyle}><div style={muted}>First Name</div><div style={valueStyle}>{data?.first_name || '-'}</div></div>
       <div style={rowStyle}><div style={muted}>Last Name</div><div style={valueStyle}>{data?.last_name || '-'}</div></div>
       <div style={rowStyle}><div style={muted}>Email</div><div style={valueStyle}>{data?.email || '-'}</div></div>
@@ -242,6 +251,7 @@ export default function CustodianDetail({ apiBase = "/api" }) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const hasKey = !!email || !!name;
   const employeeIdLabel = authConfig?.institution?.employee_id_label || "Employee ID";
 
@@ -268,13 +278,23 @@ export default function CustodianDetail({ apiBase = "/api" }) {
     };
   }, [email, name, apiBase, hasKey]);
 
+  const handleProfileSaved = updated => {
+    setData(updated)
+    setEditOpen(false)
+    if (updated?.email && updated.email.toLowerCase() !== email.toLowerCase()) {
+      nav(`/custodians/detail?email=${encodeURIComponent(updated.email)}`, { replace: true })
+    }
+  }
+
   return (
     <div className="wrap">
-      <div className="page-header" style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 style={{ margin: 0, color: "var(--sidebar-fg, #0f172a)" }}>Custodian Detail</h2>
-        <button className="btn" onClick={() => nav(-1)} style={{ background: "#E5EEF3", color: "#0b3b5c", border: "1px solid #C9D7E2" }}>
-          {'\u2190'} Back
-        </button>
+      <div className="page-header" style={{ marginBottom: "1rem" }}>
+        <div>
+          <h2 style={{ margin: 0, color: "var(--sidebar-fg, #0f172a)" }}>Custodian Detail</h2>
+          <button type="button" className="btn ghost compact custodians-back-button" onClick={() => nav(-1)}>
+            {'\u2190'} Back
+          </button>
+        </div>
       </div>
 
       {!hasKey && <div className="card">No custodian specified.</div>}
@@ -289,8 +309,20 @@ export default function CustodianDetail({ apiBase = "/api" }) {
             <HoldsCard holds={data.holds} />
           </div>
           <div style={{ marginTop: 16 }}>
-            <ProfileCard data={data} employeeIdLabel={employeeIdLabel} />
+            <ProfileCard
+              data={data}
+              employeeIdLabel={employeeIdLabel}
+              onEdit={data.can_edit ? () => setEditOpen(true) : null}
+            />
           </div>
+          {editOpen && (
+            <EditCustodianProfileModal
+              apiBase={apiBase}
+              custodian={data}
+              onClose={() => setEditOpen(false)}
+              onSaved={handleProfileSaved}
+            />
+          )}
         </>
       )}
     </div>

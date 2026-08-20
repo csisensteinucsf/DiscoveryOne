@@ -152,6 +152,13 @@ export default function Custodians({ apiBase = '/api' }) {
   const pagedRows = visibleRows.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   const openCustodianWorkflow = () => setWorkflowMode('manual')
+  const viewCustodian = custodian => {
+    const params = new URLSearchParams()
+    if (custodian.email) params.set('email', custodian.email)
+    else if (custodian.name) params.set('name', custodian.name)
+    if ([...params.keys()].length === 0) return
+    nav('/custodians/detail?' + params.toString())
+  }
   return (
     <div className="wrap">
       <div className="page-header custodians-page-header" style={{ marginBottom: '1rem' }}>
@@ -257,17 +264,21 @@ export default function Custodians({ apiBase = '/api' }) {
               ) : pagedRows.map((custodian, index) => (
                 <tr
                   key={custodian.id || (custodian.email || custodian.name || 'custodian') + '-' + index}
-                  onClick={() => {
-                    const params = new URLSearchParams()
-                    if (custodian.email) params.set('email', custodian.email)
-                    else if (custodian.name) params.set('name', custodian.name)
-                    if ([...params.keys()].length === 0) return
-                    nav('/custodians/detail?' + params.toString())
-                  }}
+                  className="custodian-directory-row"
+                  onClick={() => viewCustodian(custodian)}
                   style={{ cursor: 'pointer' }}
                 >
                   <td>
-                    <div>{custodian.name || '-'}</div>
+                    <button
+                      type="button"
+                      className="table-link-button custodian-name-link"
+                      onClick={event => {
+                        event.stopPropagation()
+                        viewCustodian(custodian)
+                      }}
+                    >
+                      {custodian.name || '-'}
+                    </button>
                     <div style={{ marginTop: 4 }}>
                       {custodian.is_separated ? <Chip kind="yellow-letter" title="Separated employee">S</Chip> : null}
                     </div>

@@ -427,6 +427,125 @@ def add_directory_custodians(
     }
 
 
+@router.put("/profile", summary="Update a reusable custodian profile")
+def update_custodian_profile(
+    payload: DirectoryCustodianInput,
+    request: Request,
+    email: Optional[str] = Query(None),
+    name: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+    actor: models.User = Depends(get_current_user),
+):
+    if is_requestor(actor) or is_tech(actor) or is_tester(actor):
+        raise HTTPException(status_code=403, detail="You do not have permission to edit custodian profiles")
+    if not email and not name:
+        raise HTTPException(status_code=400, detail="Provide the custodian email or name")
+
+    directory_query = db.query(models.CustodianDirectoryEntry)
+    if email:
+        directory_query = directory_query.filter(func.lower(models.CustodianDirectoryEntry.email) == email.strip().lower())
+    else:
+        directory_query = directory_query.filter(func.lower(models.CustodianDirectoryEntry.name) == name.strip().lower())
+    directory_entry = directory_query.first()
+
+    case_query = db.query(models.Custodian)
+    case_ids = _visible_case_ids(db, actor)
+    case_query = _filter_by_case_ids(case_query, models.Custodian.case_id, case_ids)
+    if email:
+        case_query = case_query.filter(func.lower(models.Custodian.email) == email.strip().lower())
+    else:
+        case_query = case_query.filter(func.lower(models.Custodian.name) == name.strip().lower())
+    case_custodians = case_query.all()
+
+    if directory_entry is None and not case_custodians:
+        raise HTTPException(status_code=404, detail="Custodian not found")
+
+    normalized_email = _normalize_directory_email(payload.email)
+    first_name = payload.first_name.strip()
+    last_name = payload.last_name.strip()
+    campus = payload.campus.strip()
+    if not first_name or not last_name or not campus:
+        raise HTTPException(status_code=422, detail="First name, last name, email, and campus are required")
+    full_name = payload.name
+
+    duplicate_directory = (
+        db.query(models.CustodianDirectoryEntry)
+        .filter(func.lower(models.CustodianDirectoryEntry.email) == normalized_email)
+    )
+    if directory_entry is not None:
+        duplicate_directory = duplicate_directory.filter(models.CustodianDirectoryEntry.id != directory_entry.id)
+    if duplicate_directory.first() is not None:
+        raise HTTPException(status_code=409, detail="Another custodian already uses that email address")
+
+    source = directory_entry or case_custodians[0]
+    before = {
+        "first_name": getattr(source, "first_name", None) or getattr(source, "person_first_name", None),
+        "last_name": getattr(source, "last_name", None) or getattr(source, "person_last_name", None),
+        "email": getattr(source, "email", None),
+        "campus": getattr(source, "campus", None),
+        "department": getattr(source, "department", None) or getattr(source, "person_department", None),
+        "employee_id": getattr(source, "employee_id", None),
+        "title": getattr(source, "title", None) or getattr(source, "person_title", None),
+        "employment_status": getattr(source, "employment_status", None),
+    }
+    after = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": normalized_email,
+        "campus": campus,
+        "department": (payload.department or "").strip() or None,
+        "employee_id": (payload.employee_id or "").strip() or None,
+        "title": (payload.title or "").strip() or None,
+        "employment_status": (payload.employment_status or "").strip() or None,
+    }
+
+    if directory_entry is None:
+        directory_entry = models.CustodianDirectoryEntry()
+        db.add(directory_entry)
+    directory_entry.name = full_name
+    directory_entry.email = normalized_email
+    directory_entry.first_name = first_name
+    directory_entry.last_name = last_name
+    directory_entry.campus = campus
+    directory_entry.department = after["department"]
+    directory_entry.employee_id = after["employee_id"]
+    directory_entry.title = after["title"]
+    directory_entry.employment_status = after["employment_status"]
+    db.flush()
+
+    for custodian in case_custodians:
+        custodian.name = full_name
+        custodian.email = normalized_email
+        custodian.campus = campus
+        custodian.person_first_name = first_name
+        custodian.person_last_name = last_name
+        custodian.person_department = after["department"]
+        custodian.employee_id = after["employee_id"]
+        custodian.person_title = after["title"]
+        custodian.employment_status = after["employment_status"]
+        db.add(custodian)
+
+    changes = {
+        field: {"old": before.get(field), "new": value}
+        for field, value in after.items()
+        if before.get(field) != value
+    }
+    log_event(
+        db,
+        action="custodian_directory_update",
+        actor_id=getattr(actor, "id", None),
+        target_type="custodian_directory",
+        target_id=directory_entry.id,
+        details={
+            "custodian_name": full_name,
+            "custodian_email": normalized_email,
+            "affected_case_ids": sorted({int(item.case_id) for item in case_custodians}),
+            "changes": changes,
+        },
+        request=request,
+    )
+    db.commit()
+    return custodian_detail(email=normalized_email, name=None, db=db, actor=actor)
 @router.get("/detail", summary="Get custodian detail by email or name")
 def custodian_detail(
     email: Optional[str] = Query(None),
@@ -468,6 +587,8 @@ def custodian_detail(
 
     first = rows[0][0] if rows else directory_entry
     detail = {
+        "directory_id": getattr(directory_entry, "id", None),
+        "can_edit": not (is_requestor(actor) or is_tech(actor) or is_tester(actor)),
         "name": first.name,
         "email": first.email,
         "active_holds": False,

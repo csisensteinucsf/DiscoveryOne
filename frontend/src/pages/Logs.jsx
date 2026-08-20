@@ -88,6 +88,7 @@ const CATEGORY_META = {
 
 const META_FIELDS = [
   { key: "case_name", label: "Matter" },
+  { key: "hold_name", label: "Hold" },
   { key: "custodian_name", label: "Custodian" },
   { key: "custodian_email", label: "Custodian Email" },
   { key: "target_username", label: "User" },
@@ -103,9 +104,60 @@ const META_FIELDS = [
   { key: "requestor", label: "Requestor" },
   { key: "requestor_email", label: "Requestor Email" },
   { key: "reason", label: "Reason" },
+  { key: "source_label", label: "Preservation Source" },
+  { key: "status", label: "Status" },
   { key: "file", label: "File" },
   { key: "logo_id", label: "Logo ID" },
 ];
+
+const ACTION_LABELS = {
+  case_hold_custodian_workflow_update: "Hold workflow changed",
+  case_hold_preservation_update: "Preservation changed",
+};
+
+const DETAIL_FIELD_LABELS = {
+  status: "Preservation status",
+  provider_reference: "Provider reference",
+  last_error: "Provider error",
+  ntp_status: "NTP status",
+  ntp_template_name: "NTP template",
+  ntp_not_required_reason: "Silent NTP reason",
+  consent_status: "Consent status",
+  consent_not_required_reason: "Implied consent reason",
+};
+
+function friendlyValue(value) {
+  if (value == null || value === "") return "None";
+  if (typeof value !== "string") return toInlineText(value);
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function actionLabel(action) {
+  const key = String(action || "").trim().toLowerCase();
+  if (ACTION_LABELS[key]) return ACTION_LABELS[key];
+  return key ? key.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()) : NA;
+}
+
+function eventSummary(action, details) {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return null;
+  const key = String(action || "").trim().toLowerCase();
+  const custodian = details.custodian_name || "the custodian";
+  const hold = details.hold_name ? ` in ${details.hold_name}` : "";
+  if (key === "case_hold_preservation_update") {
+    const source = details.source_label || friendlyValue(details.source || "preservation");
+    const change = details.changes?.status;
+    if (change && typeof change === "object") {
+      return `Changed ${source} preservation for ${custodian}${hold} from ${friendlyValue(change.old)} to ${friendlyValue(change.new)}.`;
+    }
+    if (details.status) {
+      return `Set ${source} preservation for ${custodian}${hold} to ${friendlyValue(details.status)}.`;
+    }
+  }
+  if (key === "case_hold_custodian_workflow_update") {
+    return `Updated NTP or consent information for ${custodian}${hold}.`;
+  }
+  return null;
+}
 
 function fmtPT(ts) {
   try {
@@ -159,22 +211,18 @@ function ActionPill({ action }) {
   return (
     <span
       className="log-pill"
-      title={`Category: ${style.label}`}
+      title={`Technical action: ${action || NA} | Category: ${style.label}`}
       style={{
         color: style.color,
         background: style.background,
         borderColor: style.border,
       }}
     >
-      {action || NA}
+      {actionLabel(action)}
     </span>
   );
 }
 
-function truncate(text, max = 96) {
-  if (!text) return NA;
-  return text.length <= max ? text : `${text.slice(0, max - 3)}...`;
-}
 
 function parseMaybeJson(value) {
   if (typeof value !== "string") return value;
@@ -262,6 +310,7 @@ function HumanDetails({ details, action }) {
 
     const hasNote = typeof val.note === "string" && val.note.trim().length > 0;
     const hasChanges = val.changes && typeof val.changes === "object" && Object.keys(val.changes).length > 0;
+    const summary = eventSummary(action, val);
 
     const summarizeChange = (field, change) => {
       if (Array.isArray(change?.old) || Array.isArray(change?.new)) {
@@ -270,19 +319,20 @@ function HumanDetails({ details, action }) {
         if (field.includes("request_ticket_entries")) {
           return `Ticket entries updated (${oldLen} -> ${newLen})`;
         }
-        return `${field} updated (${oldLen} -> ${newLen})`;
+        return `${DETAIL_FIELD_LABELS[field] || friendlyValue(field)} updated (${oldLen} → ${newLen})`;
       }
       if (typeof change === "object" && ("old" in change || "new" in change)) {
         const oldV = change.old ?? NA;
         const newV = change.new ?? NA;
-        return `${toInlineText(oldV)} -> ${toInlineText(newV)}`;
+        return `${friendlyValue(oldV)} → ${friendlyValue(newV)}`;
       }
       return toInlineText(change);
     };
 
-    if (meta.length || hasNote || hasChanges) {
+    if (summary || meta.length || hasNote || hasChanges) {
       return (
         <div style={{ display: "grid", gap: 4 }}>
+          {summary && <div className="log-event-summary">{summary}</div>}
           {meta.length > 0 && (
             <div style={{ display: "grid", gap: 2 }}>
               {meta.map(({ label, value }) => (
@@ -301,7 +351,7 @@ function HumanDetails({ details, action }) {
             <ul style={{ margin: 0, paddingLeft: 16 }}>
               {Object.entries(val.changes).map(([field, change]) => (
                 <li key={field}>
-                  <strong>{field}</strong>: {summarizeChange(field, change)}
+                  <strong>{DETAIL_FIELD_LABELS[field] || friendlyValue(field)}</strong>: {summarizeChange(field, change)}
                 </li>
               ))}
             </ul>
@@ -518,12 +568,12 @@ export default function Logs({ apiBase = "/api", caseId = null, embedded = false
         <table className="table logs-table">
           <thead>
             <tr>
-              <th style={{ minWidth: 160 }}>Time (PT)</th>
-              {!embedded && <th style={{ minWidth: 150 }}>Matter</th>}
-              <th style={{ minWidth: 160 }}>User</th>
-              <th>Action</th>
-              <th style={{ minWidth: 200 }}>Network</th>
-              <th>Details</th>
+              <th className="log-time-column">Time (PT)</th>
+              {!embedded && <th className="log-matter-column">Matter</th>}
+              <th className="log-user-column">User</th>
+              <th className="log-action-column">Action</th>
+              <th className="log-ip-column">IP address</th>
+              <th className="log-details-column">Details</th>
             </tr>
           </thead>
           <tbody>
@@ -536,17 +586,16 @@ export default function Logs({ apiBase = "/api", caseId = null, embedded = false
             )}
             {items.map((r) => (
               <tr key={r.id || `${r.created_at}-${r.actor_id}-${r.action}`}>
-                <td>
+                <td className="log-time-column">
                   <div style={{ fontWeight: 600 }}>{fmtPT(r.created_at || r.timestamp)}</div>
                 </td>
-                {!embedded && <td>{r.details?.case_name || (r.details?.case_id ? `Matter #${r.details.case_id}` : NA)}</td>}
-                <td>
+                {!embedded && <td className="log-matter-column">{r.details?.case_name || (r.details?.case_id ? `Matter #${r.details.case_id}` : NA)}</td>}
+                <td className="log-user-column">
                   <div style={{ fontWeight: 600 }}>{r.username || (r.actor_id ? `User #${r.actor_id}` : NA)}</div>
                 </td>
-                <td><ActionPill action={r.action} /></td>
-                <td>
-                  <div style={{ fontWeight: 600, wordBreak: "break-word" }}>{r.request_ip || NA}</div>
-                  {r.user_agent && <div className="log-ua">{truncate(r.user_agent)}</div>}
+                <td className="log-action-column"><ActionPill action={r.action} /></td>
+                <td className="log-ip-column">
+                  <span className="log-ip-address">{r.request_ip || NA}</span>
                 </td>
                 <td className="log-details"><HumanDetails details={r.details} action={r.action} /></td>
               </tr>

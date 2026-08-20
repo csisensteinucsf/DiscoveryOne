@@ -29,5 +29,5 @@ test('Preservation Detail limits provider history to the selected Hold custodian
   assert.match(source, /visibleHoldsDetailRows/)
   assert.match(source, /selectedCustodianIds\.has\(String\(row\?\.id\)\)/)
   assert.match(source, /visibleHoldsDetailRows\.map/)
-  assert.match(source, /Provider states and event history for custodians assigned to/)
+  assert.match(source, /Provider states and event history for/)
 })

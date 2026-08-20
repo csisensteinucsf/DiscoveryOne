@@ -1,7 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { formatNameRaw } from './caseDetailUtils.js'
 import CaseDetailHoldSelector from './CaseDetailHoldSelector.jsx'
 import { useCaseDetailNamedHolds } from './useCaseDetailNamedHolds.js'
+import {
+  buildPreservationDetailCsv,
+  downloadPreservationDetailCsv,
+  timelineForHold,
+} from './preservationDetailCsv.js'
 
 function PreservationStateBadge({ status }) {
   const normalized = String(status || 'not_started').toLowerCase().replaceAll(' ', '_')
@@ -29,28 +34,61 @@ export default function CaseDetailPreservationDetailTab({
 }) {
   const namedHolds = useCaseDetailNamedHolds({ apiBase, caseId, showToast })
   const [selectedHoldId, setSelectedHoldId] = useState(null)
+  const [selectedCustodianId, setSelectedCustodianId] = useState('')
   const selectedHold = namedHolds.namedHolds.find(
     hold => String(hold.id) === String(selectedHoldId),
   ) || namedHolds.namedHolds[0] || null
   const visibleNamedHolds = selectedHold ? [selectedHold] : []
+  const selectedHoldCustodians = Array.isArray(selectedHold?.custodians) ? selectedHold.custodians : []
   const selectedCustodianIds = new Set(
-    (selectedHold?.custodians || []).map(member => String(member.custodian_id)),
+    selectedHoldCustodians.map(member => String(member.custodian_id)),
   )
-  const visibleHoldsDetailRows = selectedHold
+  const selectedHoldDetailRows = selectedHold
     ? holdsDetailRows.filter(row => selectedCustodianIds.has(String(row?.id)))
     : holdsDetailRows
-  const visibleCustodianCount = selectedHold
-    ? selectedCustodianIds.size
-    : (holdsDetailTotals.custodians || 0)
+  const selectedCustodianKey = selectedHoldCustodians
+    .map(member => String(member.custodian_id))
+    .join('|')
+  const effectiveCustodianId = selectedHoldCustodians.some(
+    member => String(member.custodian_id) === String(selectedCustodianId),
+  )
+    ? String(selectedCustodianId)
+    : String(selectedHoldCustodians[0]?.custodian_id || '')
+  const visibleHoldCustodians = effectiveCustodianId
+    ? selectedHoldCustodians.filter(member => String(member.custodian_id) === effectiveCustodianId)
+    : []
+  const visibleHoldsDetailRows = effectiveCustodianId
+    ? selectedHoldDetailRows.filter(row => String(row?.id) === effectiveCustodianId)
+    : []
+  const visibleCustodianCount = visibleHoldCustodians.length
   const visibleTimelineEventCount = selectedHold
     ? visibleHoldsDetailRows.reduce(
-      (total, row) => total + (Array.isArray(row?.timeline) ? row.timeline.length : 0),
+      (total, row) => total + timelineForHold(row, selectedHold.id, isTech, techHoldKeySet).length,
       0,
     )
-    : (holdsDetailTotals.events || 0)
+    : 0
+
+  useEffect(() => {
+    setSelectedCustodianId(current => (
+      selectedHoldCustodians.some(member => String(member.custodian_id) === String(current))
+        ? current
+        : String(selectedHoldCustodians[0]?.custodian_id || '')
+    ))
+  }, [selectedHold?.id, selectedCustodianKey])
   const refreshAll = () => {
     loadHoldsDetail()
     namedHolds.loadNamedHolds()
+  }
+  const exportPreservationDetail = () => {
+    if (!selectedHold) return
+    const csv = buildPreservationDetailCsv({
+      hold: selectedHold,
+      detailRows: selectedHoldDetailRows,
+      isTech,
+      techHoldKeySet,
+    })
+    downloadPreservationDetailCsv(csv, selectedHold.name)
+    showToast?.(`Exported preservation detail for ${selectedHold.name}.`, { variant: 'success' })
   }
 
   return (
@@ -74,7 +112,7 @@ export default function CaseDetailPreservationDetailTab({
               </div>
 
               <p className="preservation-detail-intro">
-                Preservation sources and provider history are grouped by Hold. Use the Hold buttons to view each workspace separately.
+                Select a Hold, then choose one custodian to review. CSV exports include every custodian assigned to the selected Hold.
               </p>
 
               <CaseDetailHoldSelector
@@ -83,6 +121,33 @@ export default function CaseDetailPreservationDetailTab({
                 onSelect={setSelectedHoldId}
                 ariaLabel="Select Hold preservation detail"
               />
+
+              <div className="preservation-detail-custodian-toolbar">
+                <label>
+                  <span>Custodian</span>
+                  <select
+                    value={effectiveCustodianId}
+                    onChange={event => setSelectedCustodianId(event.target.value)}
+                    disabled={!selectedHoldCustodians.length}
+                    aria-label="Select custodian preservation detail"
+                  >
+                    {!selectedHoldCustodians.length ? <option value="">No custodians assigned</option> : null}
+                    {selectedHoldCustodians.map(member => (
+                      <option key={member.membership_id || member.custodian_id} value={String(member.custodian_id)}>
+                        {formatNameRaw(member.name || '') || member.email || 'Unnamed custodian'}{member.email ? ` — ${member.email}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={exportPreservationDetail}
+                  disabled={!selectedHold || !selectedHoldCustodians.length}
+                >
+                  Export Preservation Detail
+                </button>
+              </div>
 
               <section className="preservation-detail-holds" aria-labelledby="preservation-detail-holds-heading">
                 <div className="preservation-detail-section-heading">
@@ -116,7 +181,7 @@ export default function CaseDetailPreservationDetailTab({
                               <tr><th>Custodian</th><th>Preservation sources</th></tr>
                             </thead>
                             <tbody>
-                              {(hold.custodians || []).map(member => (
+                              {visibleHoldCustodians.map(member => (
                                 <tr key={member.membership_id || `${hold.id}-${member.custodian_id}`}>
                                   <td>
                                     <strong>{formatNameRaw(member.name || '') || member.email || 'Unnamed custodian'}</strong>
@@ -157,9 +222,9 @@ export default function CaseDetailPreservationDetailTab({
                 <div>
                   <h4>Provider events and preservation timeline</h4>
                   <p>
-                    {selectedHold
-                      ? 'Provider states and event history for custodians assigned to ' + selectedHold.name + '.'
-                      : 'Case-wide provider states and event history for every custodian.'}
+                    {selectedHold && visibleHoldCustodians[0]
+                      ? 'Provider states and event history for ' + (formatNameRaw(visibleHoldCustodians[0].name || '') || visibleHoldCustodians[0].email || 'the selected custodian') + ' in ' + selectedHold.name + '.'
+                      : 'Select a custodian to view provider states and event history.'}
                   </p>
                 </div>
               </div>
@@ -187,7 +252,7 @@ export default function CaseDetailPreservationDetailTab({
               <div style={{ display: 'grid', gap: 12, marginTop: 10 }}>
                 {visibleHoldsDetailRows.map((row) => {
                   const currentRows = (Array.isArray(row?.current_holds) ? row.current_holds : []).filter(item => !isTech || techHoldKeySet.has(item?.key))
-                  const timelineRows = (Array.isArray(row?.timeline) ? row.timeline : []).filter(item => !isTech || techHoldKeySet.has(item?.hold_key))
+                  const timelineRows = timelineForHold(row, selectedHold?.id, isTech, techHoldKeySet)
                   return (
                     <div key={`holds-detail-${row?.id}`} style={{ border: '1px solid var(--border,#e5e7eb)', borderRadius: 10, padding: 10, background: 'var(--card,#fff)' }}>
                       <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
