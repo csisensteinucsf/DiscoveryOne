@@ -133,6 +133,7 @@ class CustodianBase(BaseModel):
     department_id: Optional[str] = None
     department: Optional[str] = None
     title: Optional[str] = None
+    campus: Optional[str] = None
     current_employee: Optional[bool] = None
     person_lookup_last_at: Optional[datetime] = None
 
@@ -161,6 +162,7 @@ class CustodianUpdate(BaseModel):
     department_id: Optional[str] = None
     department: Optional[str] = None
     title: Optional[str] = None
+    campus: Optional[str] = None
     current_employee: Optional[bool] = None
     person_lookup_last_at: Optional[datetime] = None
 
@@ -395,6 +397,8 @@ class CaseBase(BaseModel):
     internal_counsel: Optional[str] = Field(default=None, max_length=500)
     outside_counsel: Optional[str] = Field(default=None, max_length=500)
     matter_number: Optional[str] = Field(default=None, max_length=128)
+    campus: Optional[str] = Field(default=None, max_length=255)
+    matter_type: Optional[str] = Field(default=None, max_length=255)
     requestor: Optional[str] = None
     requestors: List[CaseRequestorEntry] = Field(default_factory=list)
     analyst_id: Optional[int] = None
@@ -493,6 +497,8 @@ class CaseUpdate(BaseModel):
     internal_counsel: Optional[str] = Field(default=None, max_length=500)
     outside_counsel: Optional[str] = Field(default=None, max_length=500)
     matter_number: Optional[str] = Field(default=None, max_length=128)
+    campus: Optional[str] = Field(default=None, max_length=255)
+    matter_type: Optional[str] = Field(default=None, max_length=255)
     requestor: Optional[str] = None
     requestors: Optional[List[CaseRequestorEntry]] = None
     analyst_id: Optional[int] = None

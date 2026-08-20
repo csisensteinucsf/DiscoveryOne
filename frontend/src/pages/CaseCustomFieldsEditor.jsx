@@ -41,7 +41,7 @@ export default function CaseCustomFieldsEditor({ customFields, onChange }) {
   if (!entries.length) return null
   return (
     <section className="custom-case-fields">
-      <h4>Additional case information</h4>
+      <h4>Additional matter information</h4>
       <div className="custom-case-fields__grid">
         {entries.map(([key, field]) => (
           <label key={key} className={field.field_type === 'textarea' ? 'custom-case-field custom-case-field--wide' : 'custom-case-field'}>

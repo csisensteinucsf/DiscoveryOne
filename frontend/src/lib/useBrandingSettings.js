@@ -3,7 +3,7 @@ import { fetchSystemSettings } from './systemSettingsClient.js'
 
 const DEFAULT_BRANDING = {
   appName: 'DiscoveryOne',
-  appTagline: 'eDiscovery Case Manager',
+  appTagline: 'eDiscovery Matter Manager',
 }
 
 function normalizeBranding(data) {

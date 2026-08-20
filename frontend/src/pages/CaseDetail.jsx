@@ -42,10 +42,12 @@ import CaseDetailHeader from './CaseDetailHeader.jsx'
 import CaseDetailSlaTab from './CaseDetailSlaTab.jsx'
 import CaseDetailNotesTab from './CaseDetailNotesTab.jsx'
 import CaseDetailDocumentationTab from './CaseDetailDocumentationTab.jsx'
+import Logs from './Logs.jsx'
 import CaseDetailSearchesTab from './CaseDetailSearchesTab.jsx'
 import CaseDetailNamedHoldsTab from './CaseDetailNamedHoldsTab.jsx'
 import CaseDetailPreservationDetailTab from './CaseDetailPreservationDetailTab.jsx'
 import CaseDetailCustodiansTab from './CaseDetailCustodiansTab.jsx'
+import CustodianProfileModal from './CustodianProfileModal.jsx'
 import CaseDetailTicketsTab from './CaseDetailTicketsTab.jsx'
 import CaseDetailTicketNotesTab from './CaseDetailTicketNotesTab.jsx'
 import CaseDetailCaseSummaryModal from './CaseDetailCaseSummaryModal.jsx'
@@ -100,6 +102,7 @@ export default function CaseDetail() {
   const cachedProofs = proofCache.get(caseId)
   const reloadCustodiansRef = useRef(null)
   const [activeTab, setActiveTab] = useState('custodians')
+  const [holdsView, setHoldsView] = useState('holds')
   const linkedHoldId = useMemo(() => {
     try {
       return new URLSearchParams(location.search || '').get('hold_id')
@@ -144,9 +147,9 @@ export default function CaseDetail() {
   })
   const [holdsDirty, setHoldsDirty] = useState(false)
   const [techHoldsApplying, setTechHoldsApplying] = useState(false)
-  const [targetHoldIds, setTargetHoldIds] = useState([])
   const [showCustodianModal, setShowCustodianModal] = useState(false)
   const [custodianModalMode, setCustodianModalMode] = useState('add')
+  const [profileCustodian, setProfileCustodian] = useState(null)
   const initialTabSet = useRef(false)
   const [loading, setLoading] = useState(() => !cachedCase)
   const [error, setError] = useState(null)
@@ -164,7 +167,6 @@ export default function CaseDetail() {
     apiBase,
     caseId,
     custodians,
-    targetHoldIds,
   })
   const documentationBadgeCount = useMemo(() => {
     const consentCount = Number(caseData?.consent_envelope_count || 0)
@@ -194,6 +196,7 @@ export default function CaseDetail() {
   const [caseNamingMode, setCaseNamingMode] = useState('legal_case_name')
   const [defaultClosureNagDays, setDefaultClosureNagDays] = useState(180)
   const [esignProvider, setEsignProvider] = useState('none')
+  const [matterTypes, setMatterTypes] = useState([])
   const [ticketCategories, setTicketCategories] = useState(() => REQUEST_TICKET_CATEGORIES)
   const userRole = user?.role || (user?.is_admin ? 'sys_admin' : 'analyst')
   const isSysAdmin = userRole === 'sys_admin'
@@ -257,6 +260,7 @@ export default function CaseDetail() {
         setCaseNamingMode(normalizeCaseNamingMode(data?.case_naming?.mode))
         setDefaultClosureNagDays(Number(data?.case_closure?.default_nag_days) || 180)
         setEsignProvider(normalizeEsignProvider(data?.integrations?.providers?.esign_provider))
+        setMatterTypes(Array.isArray(data?.matter_types) ? data.matter_types : [])
       })
       .catch(() => {
         if (alive) {
@@ -308,21 +312,26 @@ export default function CaseDetail() {
   }, [isTech])
   useEffect(() => {
     const allowedTabs = new Set(isTech
-      ? ['custodians', 'holds', 'preservation', 'requests']
-      : ['custodians', 'holds', 'preservation', 'searches', 'requests', 'documentation', 'sla', 'notes'])
+      ? ['custodians', 'holds', 'requests']
+      : ['custodians', 'holds', 'searches', 'requests', 'documentation', 'sla', 'notes', ...(isRequestor ? [] : ['matter_logs'])])
     if (!allowedTabs.has(activeTab)) setActiveTab(isTech ? 'requests' : 'custodians')
-  }, [activeTab, isTech])
+  }, [activeTab, isTech, isRequestor])
   useEffect(() => {
     try {
       const requestedTab = new URLSearchParams(location.search || '').get('tab')
       const allowedTabs = new Set(isTech
-        ? ['custodians', 'holds', 'preservation', 'requests']
-        : ['custodians', 'holds', 'preservation', 'searches', 'requests', 'documentation', 'sla', 'notes'])
-      if (requestedTab && allowedTabs.has(requestedTab)) setActiveTab(requestedTab)
+        ? ['custodians', 'holds', 'requests']
+        : ['custodians', 'holds', 'searches', 'requests', 'documentation', 'sla', 'notes', ...(isRequestor ? [] : ['matter_logs'])])
+      if (requestedTab === 'preservation') {
+        setActiveTab('holds')
+        setHoldsView('preservation')
+      } else if (requestedTab && allowedTabs.has(requestedTab)) {
+        setActiveTab(requestedTab)
+      }
     } catch {
       // Ignore malformed query strings.
     }
-  }, [isTech, location.search])
+  }, [isTech, isRequestor, location.search])
   useEffect(() => {
     if (!isRequestor) return
     try {
@@ -341,11 +350,6 @@ export default function CaseDetail() {
       const params = new URLSearchParams(location.search || '')
       if ((params.get('action') || '').toLowerCase() !== 'custodians') return
       const mode = (params.get('mode') || 'add').toLowerCase() === 'import' ? 'import' : 'add'
-      const holdIds = (params.get('hold_ids') || params.get('hold_id') || '')
-        .split(',')
-        .map(Number)
-        .filter(value => Number.isFinite(value) && value > 0)
-      setTargetHoldIds([...new Set(holdIds)])
       setCustodianModalMode(mode)
       setActiveTab('custodians')
       setShowCustodianModal(true)
@@ -355,9 +359,6 @@ export default function CaseDetail() {
     }
   }, [isReadOnly, location.pathname, location.search, navigate])
 
-  useEffect(() => {
-    if (!showCustodianModal) setTargetHoldIds([])
-  }, [showCustodianModal])
   const canManageDocs = !isReadOnly
   const {
     showCaseSummaryModal,
@@ -760,7 +761,7 @@ export default function CaseDetail() {
     if (nextClosed) {
       const readinessResponse = await fetch(`${apiBase}/cases/${caseId}/closure-readiness`, { credentials: 'include' }).catch(() => null)
       if (!readinessResponse?.ok) {
-        showToast('Unable to check whether this case can be closed.', { variant: 'error' })
+        showToast('Unable to check whether this matter can be closed.', { variant: 'error' })
         return
       }
       const readiness = await readinessResponse.json()
@@ -768,8 +769,8 @@ export default function CaseDetail() {
         const activeHolds = readiness.active_holds || []
         const preservation = readiness.preservation_blockers || []
         await confirmDialog({
-          title: 'Case cannot be closed',
-          description: 'Close every active Hold and release every active preservation item before making this case inactive.',
+          title: 'Matter cannot be closed',
+          description: 'Close every active Hold and release every active preservation item before making this matter inactive.',
           confirmLabel: 'Understood',
           hideCancel: true,
           width: 620,
@@ -785,7 +786,7 @@ export default function CaseDetail() {
     }
     const accepted = await confirmDialog({
       title: nextClosed ? 'Close case?' : 'Reopen case?',
-      description: nextClosed ? 'This will mark the case as closed.' : 'This will mark the case as open again.',
+      description: nextClosed ? 'This will mark the matter as closed.' : 'This will mark the matter as open again.',
       confirmLabel: nextClosed ? 'Close case' : 'Reopen case',
       cancelLabel: 'Cancel',
     })
@@ -793,7 +794,7 @@ export default function CaseDetail() {
     try {
       await updateCase({ closed: nextClosed })
     } catch (err) {
-      if (!err?.cancelled) showToast(err?.message || 'Unable to update case status.', { variant: 'error' })
+      if (!err?.cancelled) showToast(err?.message || 'Unable to update matter status.', { variant: 'error' })
     }
   }, [apiBase, caseData, caseId, confirmDialog, showToast, updateCase])
 
@@ -1024,36 +1025,45 @@ export default function CaseDetail() {
               setShowCustodianModal={setShowCustodianModal}
               openSendNtp={openSendNtp}
               sendingNtp={sendingNtp}
+              onViewCustodian={setProfileCustodian}
             />
           )}
           {activeTab === 'holds' && (
-            <CaseDetailNamedHoldsTab
-              apiBase={apiBase}
-              caseId={caseId}
-              custodians={custodians}
-              isReadOnly={isReadOnly}
-              showToast={showToast}
-              onHoldDataChanged={refreshHoldDerivedViews}
-              initialHoldId={linkedHoldId}
-            />
+            <div className="case-holds-workspace">
+              <div className="case-holds-view-switch" role="tablist" aria-label="Hold workspace view">
+                <button type="button" className={holdsView === 'holds' ? 'btn' : 'btn secondary'} onClick={() => setHoldsView('holds')}>Holds</button>
+                <button type="button" className={holdsView === 'preservation' ? 'btn' : 'btn secondary'} onClick={() => setHoldsView('preservation')}>Preservation Detail</button>
+              </div>
+              {holdsView === 'holds' ? (
+                <CaseDetailNamedHoldsTab
+                  apiBase={apiBase}
+                  caseId={caseId}
+                  custodians={custodians}
+                  isReadOnly={isReadOnly}
+                  showToast={showToast}
+                  onHoldDataChanged={refreshHoldDerivedViews}
+                  initialHoldId={linkedHoldId}
+                />
+              ) : (
+                <CaseDetailPreservationDetailTab
+                  apiBase={apiBase}
+                  caseId={caseId}
+                  showToast={showToast}
+                  holdsDetail={holdsDetail}
+                  holdsDetailTotals={holdsDetailTotals}
+                  holdsDetailRows={holdsDetailRows}
+                  formatDateTime={formatDateTime}
+                  loadHoldsDetail={loadHoldsDetail}
+                  isTech={isTech}
+                  techHoldKeySet={techHoldKeySet}
+                  holdDetailStateStyle={holdDetailStateStyle}
+                  holdDetailStateLabel={holdDetailStateLabel}
+                  formatActionLabel={formatActionLabel}
+                />
+              )}
+            </div>
           )}
-          {activeTab === 'preservation' && (
-            <CaseDetailPreservationDetailTab
-              apiBase={apiBase}
-              caseId={caseId}
-              showToast={showToast}
-              holdsDetail={holdsDetail}
-              holdsDetailTotals={holdsDetailTotals}
-              holdsDetailRows={holdsDetailRows}
-              formatDateTime={formatDateTime}
-              loadHoldsDetail={loadHoldsDetail}
-              isTech={isTech}
-              techHoldKeySet={techHoldKeySet}
-              holdDetailStateStyle={holdDetailStateStyle}
-              holdDetailStateLabel={holdDetailStateLabel}
-              formatActionLabel={formatActionLabel}
-            />
-          )}
+          {!isTech && !isRequestor && activeTab === 'matter_logs' && <Logs apiBase={apiBase} caseId={caseId} embedded />}
           {!isTech && activeTab === 'searches' && (
             <CaseDetailSearchesTab
               isRequestor={isRequestor}
@@ -1367,17 +1377,15 @@ export default function CaseDetail() {
         useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
         internalCounselLabel={internalCounselLabel}
         defaultClosureNagDays={defaultClosureNagDays}
-      />      <CaseDetailCustodianEntryModals
+        matterTypes={matterTypes}
+      />
+      <CustodianProfileModal apiBase={apiBase} custodian={profileCustodian} onClose={() => setProfileCustodian(null)} />
+      <CaseDetailCustodianEntryModals
         showCustodianModal={showCustodianModal}
         custodianModalMode={custodianModalMode}
         setShowCustodianModal={setShowCustodianModal}
         setCustodianModalMode={setCustodianModalMode}
         apiBase={apiBase}
-        caseId={caseId}
-        namedHolds={ntpHolds}
-        targetHoldIds={targetHoldIds}
-        setTargetHoldIds={setTargetHoldIds}
-        reloadNamedHolds={loadNtpHolds}
         employeeIdLabel={employeeIdLabel}
         lookupInputPlaceholder={lookupInputPlaceholder}
         personLookupEnabled={personLookupEnabled}

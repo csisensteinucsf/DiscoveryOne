@@ -87,11 +87,11 @@ export function useSystemImportsWorkflow({ apiBase, isSysAdmin, showToast }) {
         body: JSON.stringify(payload),
       })
       if (!res.ok) {
-        const text = await res.text().catch(() => 'Unable to save case details')
-        throw new Error(text || 'Unable to save case details')
+        const text = await res.text().catch(() => 'Unable to save matter details')
+        throw new Error(text || 'Unable to save matter details')
       }
       setImportCaseDetails(prev => prev.map(item => item.id === id ? { ...item, saving: false, status: 'Saved' } : item))
-      showToast(`Updated case details for ${entry.name}`, { variant: 'success' })
+      showToast(`Updated matter details for ${entry.name}`, { variant: 'success' })
       return true
     } catch (err) {
       console.error(err)

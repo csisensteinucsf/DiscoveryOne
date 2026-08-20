@@ -1,10 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { personLookupFieldsFromRecord } from './caseDetailPersonLookupFields.js'
-import { normalizeOptionalHoldIds } from './holdAssignmentUtils.js'
 
 const normalizeEmail = (value) => (value || '').trim().toLowerCase()
 
-export function useCaseDetailCustodianImport({ apiBase, caseId, custodians, targetHoldIds = [] }) {
+export function useCaseDetailCustodianImport({ apiBase, caseId, custodians }) {
   const [importWorking, setImportWorking] = useState(false)
   const [importDone, setImportDone] = useState(0)
   const [importTotal, setImportTotal] = useState(0)
@@ -17,7 +16,6 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians, targ
   )
 
   const submitCustodianBatch = useCallback(async (rows) => {
-    const normalizedHoldIds = normalizeOptionalHoldIds(targetHoldIds)
     const seen = new Set()
     const toCreate = []
     for (const row of rows) {
@@ -51,7 +49,7 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians, targ
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ custodians: toCreate, hold_ids: normalizedHoldIds }),
+      body: JSON.stringify({ custodians: toCreate }),
     })
     let body = null
     try {
@@ -80,7 +78,7 @@ export function useCaseDetailCustodianImport({ apiBase, caseId, custodians, targ
       errors,
       submittedCount: toCreate.length,
     }
-  }, [apiBase, caseId, existingEmails, targetHoldIds])
+  }, [apiBase, caseId, existingEmails])
 
   const submitCustodianBulkUpdate = useCallback(async ({ ids = [], patch = null, updates = [] } = {}) => {
     const payload = Array.isArray(updates) && updates.length

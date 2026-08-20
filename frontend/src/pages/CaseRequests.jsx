@@ -9,6 +9,7 @@ import { ApproveCaseRequestModal, DeclineRequestModal, RequestDetailModal } from
 import CaseRequestCards from './CaseRequestCards.jsx'
 import CaseRequestDetailBody from './CaseRequestDetailBody.jsx'
 import CaseRequestsAdminTable from './CaseRequestsAdminTable.jsx'
+import NewRequestChooserModal from './NewRequestChooserModal.jsx'
 import {
   TYPE_LABELS,
   REQUEST_COLLAPSE_KEYS,
@@ -28,6 +29,7 @@ export default function CaseRequests({ apiBase }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [modalCfg, setModalCfg] = useState(null)
+  const [showRequestChooser, setShowRequestChooser] = useState(false)
   const [caseLookup, setCaseLookup] = useState({})
   const location = useLocation()
   const navigate = useNavigate()
@@ -321,7 +323,7 @@ export default function CaseRequests({ apiBase }) {
     }
   }
 
-  const heading = isRequestor ? 'Case Intake & Requests' : 'Requestor Requests'
+  const heading = isRequestor ? 'Matter Intake & Requests' : 'Requestor Requests'
   const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
   const now = Date.now()
   const isRecent = (iso) => {
@@ -336,7 +338,7 @@ export default function CaseRequests({ apiBase }) {
 
   const requestCaseName = (req) => {
     const payload = req?.payload || {}
-    return req?.case_name || payload.name || (req?.case_id && caseLookup[req.case_id]?.name) || 'Pending case'
+    return req?.case_name || payload.name || (req?.case_id && caseLookup[req.case_id]?.name) || 'Pending matter'
   }
 
   const requestorLabel = (req) => req?.requestor?.email || req?.requestor?.username || ''
@@ -490,10 +492,10 @@ export default function CaseRequests({ apiBase }) {
       <div className="page-header">
         <div>
           <h1>{heading}</h1>
-          <p className="muted">Track new case submissions and in-case requests.</p>
+          <p className="muted">Track new matter submissions and requests for existing matters.</p>
         </div>
         {isRequestor && (
-          <button className="btn" onClick={() => setModalCfg({ mode: 'new_case' })}>New Case Request</button>
+          <button className="btn" onClick={() => setShowRequestChooser(true)}>New Request</button>
         )}
         {!isRequestor && (
           <button className="btn ghost" onClick={load}>Refresh</button>
@@ -547,6 +549,20 @@ export default function CaseRequests({ apiBase }) {
             </>
           )}
         </>
+      )}
+
+      {showRequestChooser && (
+        <NewRequestChooserModal
+          apiBase={apiBase}
+          onClose={() => setShowRequestChooser(false)}
+          onContinue={(config) => {
+            if (config.caseId && config.caseName) {
+              setCaseLookup(current => ({ ...current, [config.caseId]: { id: config.caseId, name: config.caseName } }))
+            }
+            setShowRequestChooser(false)
+            setModalCfg(config)
+          }}
+        />
       )}
 
       {modalCfg && (

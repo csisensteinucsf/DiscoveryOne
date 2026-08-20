@@ -50,7 +50,7 @@ export default function SystemInstitutionPanel({
         </label>        <label>
           Internal Counsel Label
           <input className="input" value={institutionSettings.internal_counsel_label || ''} onChange={event => updateInstitutionSetting('internal_counsel_label', event.target.value)} placeholder="Internal Counsel" />
-          <span style={helpStyle}>The label used for your organization's attorney field on case forms and case lists, such as UC Attorney or Agency Counsel.</span>
+          <span style={helpStyle}>The label used for your organization's attorney field on matter forms and matter lists, such as UC Attorney or Agency Counsel.</span>
         </label>
         <label>
           SSO Display Name

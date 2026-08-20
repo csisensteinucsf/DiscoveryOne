@@ -155,7 +155,7 @@ export function BrandingStep({ form, update, logoFile, logoPreview, setLogoFile 
         </label>
         <label>
           App Tagline
-          <input className="input" value={form.app_tagline} onChange={e => update('app_tagline', e.target.value)} placeholder="eDiscovery Case Manager" />
+          <input className="input" value={form.app_tagline} onChange={e => update('app_tagline', e.target.value)} placeholder="eDiscovery Matter Manager" />
           <FieldHelp>This short description appears under the app name in the sidebar and can be changed later in System.</FieldHelp>
         </label>
       </div>

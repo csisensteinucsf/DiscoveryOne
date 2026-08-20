@@ -54,8 +54,11 @@ test('D1 custodian entry uses polished required labels and file controls', () =>
   const styles = source('../../src/styles.css')
 
   assert.doesNotMatch(globalPage, />\s*Import Custodians\s*</)
-  assert.match(directoryModal, /<RequiredFieldLabel>Name<\/RequiredFieldLabel>/)
+  assert.match(directoryModal, /<RequiredFieldLabel>First name<\/RequiredFieldLabel>/)
+  assert.match(directoryModal, /<RequiredFieldLabel>Last name<\/RequiredFieldLabel>/)
   assert.match(directoryModal, /<RequiredFieldLabel>Email<\/RequiredFieldLabel>/)
+  assert.match(directoryModal, /<RequiredFieldLabel>Campus<\/RequiredFieldLabel>/)
+  assert.match(directoryModal, /Download CSV template/)
   assert.doesNotMatch(directoryModal, /required-marker/)
   assert.match(styles, /input\[type="file"\]::file-selector-button/)
 })

@@ -3,7 +3,7 @@ import { MASKED_SECRET_VALUE, secretInputValue } from './systemUtils.js'
 const fieldHelp = {
   tenant_id: 'Directory (tenant) ID for the Entra application.',
   client_id: 'Application (client) ID for the Entra application.',
-  mailbox: 'Exchange Online mailbox that receives case-request email.',
+  mailbox: 'Exchange Online mailbox that receives matter-request email.',
   folder_id: 'Well-known folder name such as inbox, or a Graph mail-folder ID.',
 }
 
@@ -15,7 +15,7 @@ export default function SystemEmailIntakeConfig({ integrationSettings, updateInt
     <section style={{ marginTop: 22, paddingTop: 20, borderTop: '1px solid var(--border,#d1d5db)' }}>
       <h3 style={{ margin: '0 0 6px' }}>Email Intake</h3>
       <p style={{ color: 'var(--muted,#6b7280)', margin: '0 0 12px' }}>
-        This integration polls one Exchange Online folder through Microsoft Graph and creates pending Case Requests for analyst approval. Register an Entra application with Microsoft Graph <strong>Mail.Read</strong> application permission, grant admin consent, and restrict the application to this mailbox with Exchange application RBAC or an application access policy where available.
+        This integration polls one Exchange Online folder through Microsoft Graph and creates pending Matter Requests for analyst approval. Register an Entra application with Microsoft Graph <strong>Mail.Read</strong> application permission, grant admin consent, and restrict the application to this mailbox with Exchange application RBAC or an application access policy where available.
       </p>
       <div className="form-grid">
         <label>
@@ -105,7 +105,7 @@ export default function SystemEmailIntakeConfig({ integrationSettings, updateInt
       </div>
       <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12, fontWeight: 600 }}>
         <input type="checkbox" checked={config.requestor_from_sender !== false} onChange={e => update('requestor_from_sender', e.target.checked)} />
-        Use the message sender as the case requestor
+        Use the message sender as the matter requestor
       </label>      <label style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 10, fontWeight: 600 }}>
         <input type="checkbox" checked={!!config.process_existing_on_first_run} onChange={e => update('process_existing_on_first_run', e.target.checked)} />
         Process messages already in the folder on the first poll

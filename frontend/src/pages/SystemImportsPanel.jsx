@@ -30,9 +30,9 @@ export default function SystemImportsPanel({
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <div style={titleStyle}>Case Spreadsheet Import</div>
+      <div style={titleStyle}>Matter Spreadsheet Import</div>
       <p style={{ color: 'var(--muted,#6b7280)', marginBottom: 12 }}>
-        Upload individual eDiscovery case workbooks or select an entire folder. Supported files must be .xlsx or a .zip that contains spreadsheets.
+        Upload individual eDiscovery matter workbooks or select an entire folder. Supported files must be .xlsx or a .zip that contains spreadsheets.
         A detailed report is written to the server for every import.
       </p>
       <FileDropZone
@@ -116,11 +116,11 @@ export default function SystemImportsPanel({
           {importCaseDetails.length > 0 && (
             <div style={{ marginTop: 16, padding: 16, border: '1px solid var(--border,#e5e7eb)', borderRadius: 12, background: '#f8fafc' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>Finalize new cases</div>
+                <div style={{ fontWeight: 800, fontSize: 16, color: '#0f172a' }}>Finalize new matters</div>
                 <span style={{ color: '#475569', fontSize: 12 }}>{importCaseDetails.length} case{importCaseDetails.length === 1 ? '' : 's'} ready</span>
               </div>
               <p style={{ marginTop: 8, marginBottom: 12, color: '#475569' }}>
-                Add missing details before teams start using these imported cases.
+                Add missing details before teams start using these imported matters.
               </p>
               <button type="button" className="btn secondary" onClick={() => setImportFinalizeIdx(0)}>
                 Review cases
@@ -153,7 +153,7 @@ export default function SystemImportsPanel({
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>{currentFinalizeCase.name}</div>
                 <label className="field field--full">
-                  <span>Legal case name</span>
+                  <span>Legal matter name</span>
                   <input
                     value={currentFinalizeCase.legal_case_name}
                     onChange={(e) => updateImportCaseField(currentFinalizeCase.id, 'legal_case_name', e.target.value)}
@@ -203,7 +203,7 @@ export default function SystemImportsPanel({
               <thead>
                 <tr>
                   <th>File</th>
-                  <th>Case</th>
+                  <th>Matter</th>
                   <th>Status</th>
                   <th>Custodians</th>
                   <th>Searches</th>

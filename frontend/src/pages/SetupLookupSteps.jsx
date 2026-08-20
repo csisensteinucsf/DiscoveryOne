@@ -152,10 +152,10 @@ export function PersonLookupStep({
         />
       )}
       <div style={{ color: 'var(--muted,#6b7280)', lineHeight: 1.5 }}>
-        The lookup source should provide stable identity data for custodians and employees: display name, first/middle/last name, email, Employee ID, department, title, separation date, and separation status. DiscoveryOne normalizes those values into a common person record, then stores the selected custodian details on the case records that use them.
+        The lookup source should provide stable identity data for custodians and employees: display name, first/middle/last name, email, Employee ID, department, title, separation date, and separation status. DiscoveryOne normalizes those values into a common person record, then stores the selected custodian details on the matter records that use them.
       </div>
       <div style={{ color: 'var(--muted,#6b7280)', lineHeight: 1.5 }}>
-        For IDP/HR API lookup, point the lookup API URL at an endpoint that accepts a query and returns a JSON list of people. DiscoveryOne reads common field names such as display_name, email, employee_id, department, title, separation_date, and separation_status. The source system remains the system of record; DiscoveryOne only saves the values needed for legal hold and case workflows after a person is selected.
+        For IDP/HR API lookup, point the lookup API URL at an endpoint that accepts a query and returns a JSON list of people. DiscoveryOne reads common field names such as display_name, email, employee_id, department, title, separation_date, and separation_status. The source system remains the system of record; DiscoveryOne only saves the values needed for legal hold and matter workflows after a person is selected.
       </div>
     </div>
   )

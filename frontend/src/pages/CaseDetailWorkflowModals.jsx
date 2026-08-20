@@ -23,7 +23,7 @@ export function CaseDetailAddDocModal({
       <form onSubmit={submitConsentDocument}>
         <Field
           label={<RequiredFieldLabel>Custodian</RequiredFieldLabel>}
-          hint="The uploaded document updates consent for this custodian across the case."
+          hint="The uploaded document updates consent for this custodian across the matter."
         >
           <Select
             value={docForm.custodianId}
@@ -115,7 +115,7 @@ export function CaseDetailCloseCaseModal({
   return (
 <Modal
           open
-          title="Request Case Closure"
+          title="Request Matter Closure"
           onClose={() => { if (closeCaseBusy) return; setShowCloseCaseModal(false); setCloseCaseNote('') }}
           width={540}
           dismissOnBackdrop={false}
@@ -129,7 +129,7 @@ export function CaseDetailCloseCaseModal({
           )}
         >
           <p style={{ marginTop:0, color:'#475467' }}>
-            This will request the eDiscovery team to close the case and release all current holds and preservation. Analysts will review before completing the action.
+            This will request the eDiscovery team to close the matter and release all current holds and preservation. Analysts will review before completing the action.
           </p>
           <label style={{ display:'block', fontSize:13, color:'#475467', marginBottom:6 }}>Message to the eDiscovery team</label>
           <textarea

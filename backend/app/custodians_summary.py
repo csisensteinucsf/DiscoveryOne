@@ -22,8 +22,18 @@ router = APIRouter(prefix="/api/custodians", tags=["custodians"])
 
 
 class DirectoryCustodianInput(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+    first_name: str = Field(min_length=1, max_length=255)
+    last_name: str = Field(min_length=1, max_length=255)
     email: str = Field(min_length=3, max_length=320)
+    campus: str = Field(min_length=1, max_length=255)
+    department: Optional[str] = Field(default=None, max_length=255)
+    employee_id: Optional[str] = Field(default=None, max_length=128)
+    title: Optional[str] = Field(default=None, max_length=255)
+    employment_status: Optional[str] = Field(default=None, max_length=128)
+
+    @property
+    def name(self) -> str:
+        return f"{self.first_name.strip()} {self.last_name.strip()}".strip()
 
 
 class DirectoryCustodianBatch(BaseModel):
@@ -136,6 +146,7 @@ def _apply_snapshot(bucket: Dict[str, Any], custodian: models.Custodian) -> None
     bucket["department"] = getattr(custodian, "person_department", None)
     bucket["title"] = getattr(custodian, "person_title", None)
     bucket["current_employee"] = getattr(custodian, "person_current_employee", None)
+    bucket["campus"] = getattr(custodian, "campus", None)
     bucket["person_lookup_last_at"] = getattr(custodian, "person_lookup_last_at", None)
 
 
@@ -225,6 +236,10 @@ def list_custodians(
                 models.Custodian.person_department.ilike(like),
                 models.Custodian.person_title.ilike(like),
                 models.Custodian.employee_id.ilike(like),
+                models.Custodian.campus.ilike(like),
+                models.Custodian.person_first_name.ilike(like),
+                models.Custodian.person_last_name.ilike(like),
+                models.Custodian.employment_status.ilike(like),
             )
         )
 
@@ -238,6 +253,13 @@ def list_custodians(
             directory_query = directory_query.filter(or_(
                 models.CustodianDirectoryEntry.name.ilike(like),
                 models.CustodianDirectoryEntry.email.ilike(like),
+                models.CustodianDirectoryEntry.first_name.ilike(like),
+                models.CustodianDirectoryEntry.last_name.ilike(like),
+                models.CustodianDirectoryEntry.campus.ilike(like),
+                models.CustodianDirectoryEntry.department.ilike(like),
+                models.CustodianDirectoryEntry.employee_id.ilike(like),
+                models.CustodianDirectoryEntry.title.ilike(like),
+                models.CustodianDirectoryEntry.employment_status.ilike(like),
             ))
         for entry in directory_query.all():
             key = _custodian_key(entry.name, entry.email)
@@ -250,17 +272,18 @@ def list_custodians(
                 "active_holds": False,
                 "is_separated": False,
                 "employment_end_date": None,
-                "employment_status": None,
-                "external_id": None,
-                "employee_id": None,
-                "first_name": None,
-                "last_name": None,
+                "employment_status": entry.employment_status,
+                "external_id": entry.employee_id,
+                "employee_id": entry.employee_id,
+                "first_name": entry.first_name,
+                "last_name": entry.last_name,
                 "department_id": None,
-                "department": None,
-                "title": None,
+                "department": entry.department,
+                "title": entry.title,
+                "campus": entry.campus,
                 "current_employee": None,
                 "person_lookup_last_at": None,
-                "_snapshot_score": -1,
+                "_snapshot_score": 50,
             }
     for cust, case_id, case_name, case_closed, case_claimant in rows:
         key = _custodian_key(cust.name or "", cust.email)
@@ -284,6 +307,7 @@ def list_custodians(
                 "title": None,
                 "current_employee": None,
                 "person_lookup_last_at": None,
+                "campus": None,
                 "_snapshot_score": -1,
             }
             grouped[key] = bucket
@@ -338,14 +362,16 @@ def add_directory_custodians(
     normalized = []
     seen = set()
     for item in payload.custodians:
-        name = item.name.strip()
-        if not name:
-            raise HTTPException(status_code=422, detail="Custodian name is required")
+        first_name = item.first_name.strip()
+        last_name = item.last_name.strip()
+        campus = item.campus.strip()
+        if not first_name or not last_name or not campus:
+            raise HTTPException(status_code=422, detail="First name, last name, email, and campus are required")
         email = _normalize_directory_email(item.email)
         if email in seen:
             continue
         seen.add(email)
-        normalized.append((name, email))
+        normalized.append((item, email))
 
     existing_rows = (
         db.query(func.lower(models.CustodianDirectoryEntry.email))
@@ -356,20 +382,41 @@ def add_directory_custodians(
     )
     existing = {value for (value,) in existing_rows}
     created = []
-    for name, email in normalized:
+    for item, email in normalized:
         if email in existing:
             continue
-        entry = models.CustodianDirectoryEntry(name=name, email=email)
+        entry = models.CustodianDirectoryEntry(
+            name=item.name,
+            email=email,
+            first_name=item.first_name.strip(),
+            last_name=item.last_name.strip(),
+            campus=item.campus.strip(),
+            department=(item.department or "").strip() or None,
+            employee_id=(item.employee_id or "").strip() or None,
+            title=(item.title or "").strip() or None,
+            employment_status=(item.employment_status or "").strip() or None,
+        )
         db.add(entry)
         db.flush()
-        created.append({"directory_id": entry.id, "name": entry.name, "email": entry.email})
+        created.append({
+            "directory_id": entry.id,
+            "name": entry.name,
+            "email": entry.email,
+            "first_name": entry.first_name,
+            "last_name": entry.last_name,
+            "campus": entry.campus,
+            "department": entry.department,
+            "employee_id": entry.employee_id,
+            "title": entry.title,
+            "employment_status": entry.employment_status,
+        })
         log_event(
             db,
             action="custodian_directory_create",
             actor_id=getattr(actor, "id", None),
             target_type="custodian_directory",
             target_id=entry.id,
-            details={"name": entry.name, "email": entry.email},
+            details={"name": entry.name, "email": entry.email, "campus": entry.campus},
             request=request,
         )
     db.commit()
@@ -407,25 +454,34 @@ def custodian_detail(
         q = q.filter(models.Custodian.name.ilike(name.strip()))
 
     rows = q.all()
-    if not rows:
+    directory_entry = None
+    if not (is_requestor(actor) or is_tech(actor) or is_tester(actor)):
+        directory_query = db.query(models.CustodianDirectoryEntry)
+        if email:
+            directory_query = directory_query.filter(models.CustodianDirectoryEntry.email.ilike(email.strip()))
+        else:
+            directory_query = directory_query.filter(models.CustodianDirectoryEntry.name.ilike(name.strip()))
+        directory_entry = directory_query.first()
+    if not rows and directory_entry is None:
         raise HTTPException(status_code=404, detail="Custodian not found")
     consent_lookup = _latest_consent_status_by_custodian(db, [row[0] for row in rows])
 
-    first = rows[0][0]
+    first = rows[0][0] if rows else directory_entry
     detail = {
         "name": first.name,
         "email": first.email,
         "active_holds": False,
         "is_separated": False,
         "employment_end_date": None,
-        "employment_status": None,
-        "external_id": None,
-        "employee_id": None,
-        "first_name": None,
-        "last_name": None,
+        "employment_status": getattr(directory_entry, "employment_status", None),
+        "external_id": getattr(directory_entry, "employee_id", None),
+        "employee_id": getattr(directory_entry, "employee_id", None),
+        "first_name": getattr(directory_entry, "first_name", None),
+        "last_name": getattr(directory_entry, "last_name", None),
         "department_id": None,
-        "department": None,
-        "title": None,
+        "department": getattr(directory_entry, "department", None),
+        "title": getattr(directory_entry, "title", None),
+        "campus": getattr(directory_entry, "campus", None),
         "current_employee": None,
         "person_lookup_last_at": None,
         "holds": {
@@ -438,7 +494,7 @@ def custodian_detail(
         "cases": [],
         "ntp_statuses": [],
         "consent_statuses": [],
-        "_snapshot_score": -1,
+        "_snapshot_score": 50 if directory_entry is not None else -1,
     }
     for cust, case_id, case_name, case_closed, case_claimant in rows:
         detail["cases"].append({

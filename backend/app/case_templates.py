@@ -23,6 +23,8 @@ TEMPLATE_FIELDS = {
     "internal_counsel",
     "outside_counsel",
     "matter_number",
+    "campus",
+    "matter_type",
     "requestor",
     "requestors",
     "analyst_id",

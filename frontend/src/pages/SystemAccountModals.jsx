@@ -86,7 +86,7 @@ export function SystemGroupModal({ groupModal, closeGroupModal, groupSaving, sav
             </label>
 
             <label>
-              Allow this group to see cases for these other groups
+              Allow this group to see matters for these other groups
               <select
                 className="input"
                 multiple

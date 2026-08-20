@@ -78,7 +78,7 @@ export default function HoldAssignmentPicker({
         </div>
       ) : (
         <div style={{ fontSize: 12, color: '#64748b', marginBottom: 8 }}>
-          This case has no active Holds. Custodians can still be added at the matter level and assigned to a Hold later.
+          This matter has no active Holds. Custodians can still be added at the matter level and assigned to a Hold later.
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

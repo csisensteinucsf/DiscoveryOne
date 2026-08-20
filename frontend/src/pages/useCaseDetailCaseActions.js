@@ -90,7 +90,7 @@ export function useCaseDetailCaseActions({
       existing.add(normalizedRequestor)
       writeSessionJSON(REQUESTOR_CACHE_KEY, Array.from(existing).sort((a, b) => a.localeCompare(b)))
     }
-    showToast('Case updated.', { variant: 'success' })
+    showToast('Matter updated.', { variant: 'success' })
     return fresh
   }, [apiBase, caseData, caseId, setCaseData, showToast])
 

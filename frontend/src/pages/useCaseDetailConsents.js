@@ -246,12 +246,12 @@ export function useCaseDetailConsents({
       let ok = true
       if (confirmDialog) {
         ok = await confirmDialog({
-          title: 'Send without legal case name?',
-          description: 'Are you sure you want to send e-signature consent requests without a legal case name?',
+          title: 'Send without legal matter name?',
+          description: 'Are you sure you want to send e-signature consent requests without a legal matter name?',
           confirmLabel: 'Send anyway',
         })
       } else {
-        ok = window.confirm('Are you sure you want to send e-signature consent requests without a legal case name?')
+        ok = window.confirm('Are you sure you want to send e-signature consent requests without a legal matter name?')
       }
       if (!ok) return
     }

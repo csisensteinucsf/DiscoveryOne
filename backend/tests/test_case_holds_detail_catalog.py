@@ -36,3 +36,18 @@ def test_hold_detail_fallback_keeps_universal_defaults_without_rubrik(monkeypatc
 
     assert {"holds_email", "holds_onedrive", "holds_gdrive", "holds_box", "holds_slack"}.issubset(keys)
     assert "holds_rubrik_restore" not in keys
+
+
+def test_preservation_event_states_keep_each_transition_visible():
+    assert case_holds_detail._hold_detail_event_state(
+        "case_hold_preservation_update", "pending"
+    ) == "pending"
+    assert case_holds_detail._hold_detail_event_state(
+        "case_hold_preservation_update", "active"
+    ) == "active"
+    assert case_holds_detail._hold_detail_event_state(
+        "case_hold_preservation_update", "released"
+    ) == "released"
+    assert case_holds_detail._hold_detail_event_state(
+        "case_hold_preservation_update", "failed"
+    ) == "failed"

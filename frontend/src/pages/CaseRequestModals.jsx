@@ -73,7 +73,7 @@ export function ApproveCaseRequestModal({ request, analystId, analysts, onAnalys
   return (
     <Modal
       open
-      title="Approve new case"
+      title="Approve new matter"
       onClose={onClose}
       width={520}
       footer={(
@@ -91,7 +91,7 @@ export function ApproveCaseRequestModal({ request, analystId, analysts, onAnalys
       )}
     >
       <p style={{ marginTop: 0, color: '#475467' }}>
-        Select an analyst to assign to <strong>{request.case_name || 'this case'}</strong> before approving.
+        Select an analyst to assign to <strong>{request.case_name || 'this matter'}</strong> before approving.
       </p>
       <label style={{ display: 'block', marginBottom: 12 }}>
         <span style={{ display: 'block', marginBottom: 6, color: '#475467', fontWeight: 600 }}>Analyst</span>

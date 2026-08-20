@@ -145,6 +145,12 @@ DEFAULT_SETTINGS: Dict[str, Any] = {
     },
     "preservation_sources": default_preservation_sources(),
     "ticket_workflows": default_ticket_workflows(),
+    "matter_types": [
+        "Public Record Request",
+        "General Litigation",
+        "Internal Investigation",
+        "Subpoena Request",
+    ],
     "case_naming": {
         "mode": "legal_case_name",
     },

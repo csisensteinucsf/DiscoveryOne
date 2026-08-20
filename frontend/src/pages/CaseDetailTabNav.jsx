@@ -24,13 +24,6 @@ export default function CaseDetailTabNav({
             >
               Holds
             </button>
-            <button
-              className={activeTab === 'preservation' ? 'btn' : 'btn secondary'}
-              onClick={() => setActiveTab('preservation')}
-              aria-pressed={activeTab === 'preservation'}
-            >
-              Preservation Detail
-            </button>
             {!isTech && (
               <button
                 className={activeTab === 'searches' ? 'btn' : 'btn secondary'}
@@ -124,6 +117,15 @@ export default function CaseDetailTabNav({
                     {isRequestor ? requestorNoteCount : (noteCount + requestorNoteCount)}
                   </span>
                 )}
+              </button>
+            )}
+            {!isTech && !isRequestor && (
+              <button
+                className={activeTab === 'matter_logs' ? 'btn' : 'btn secondary'}
+                onClick={() => setActiveTab('matter_logs')}
+                aria-pressed={activeTab === 'matter_logs'}
+              >
+                Matter Logs
               </button>
             )}
           </div>

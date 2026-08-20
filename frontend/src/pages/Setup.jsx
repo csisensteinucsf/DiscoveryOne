@@ -48,8 +48,8 @@ const SETUP_STEPS = [
   },
   {
     key: 'case_naming',
-    title: 'eDiscovery Case Naming',
-    context: 'Choose how DiscoveryOne names the eDiscovery case record. This affects new cases created after setup and can be changed later from System.',
+    title: 'eDiscovery Matter Naming',
+    context: 'Choose how DiscoveryOne names the eDiscovery matter record. This affects new matters created after setup and can be changed later from System.',
   },
   {
     key: 'preservation',
@@ -93,7 +93,7 @@ export default function Setup({ apiBase = '/api' }) {
     org_name: '',
     org_short_name: '',
     app_name: 'DiscoveryOne',
-    app_tagline: 'eDiscovery Case Manager',
+    app_tagline: 'eDiscovery Matter Manager',
     allowed_requestor_email_domains: '',
     requestor_email_exceptions: '',
     sso_display_name: 'Single sign-on',
@@ -425,7 +425,7 @@ export default function Setup({ apiBase = '/api' }) {
                 <div><strong style={{ color: 'var(--fg,#111827)' }}>App name:</strong> {form.app_name || 'DiscoveryOne'}</div>
                 <div><strong style={{ color: 'var(--fg,#111827)' }}>Tagline:</strong> {form.app_tagline || 'None'}</div>
                 <div><strong style={{ color: 'var(--fg,#111827)' }}>Logo:</strong> {logoFile?.name || 'Default D1 logo'}</div>
-                <div><strong style={{ color: 'var(--fg,#111827)' }}>Case naming:</strong> {CASE_NAMING_OPTIONS.find(([mode]) => mode === form.case_naming?.mode)?.[1] || 'Use Legal Case Name'}</div>
+                <div><strong style={{ color: 'var(--fg,#111827)' }}>Case naming:</strong> {CASE_NAMING_OPTIONS.find(([mode]) => mode === form.case_naming?.mode)?.[1] || 'Use Legal Matter Name'}</div>
                 <div><strong style={{ color: 'var(--fg,#111827)' }}>Preservation:</strong> {preservationPayload.filter(item => item.enabled).map(item => item.label).join(', ') || 'None selected'}</div>
                 <div><strong style={{ color: 'var(--fg,#111827)' }}>Person lookup:</strong> {form.enabled_integrations.person_lookup ? form.integrations.person_lookup_provider : 'Disabled'}</div>
                 <div><strong style={{ color: 'var(--fg,#111827)' }}>SMTP:</strong> {form.enabled_integrations.smtp ? `${form.smtp?.host || 'missing host'}:${form.smtp?.port || 587}` : 'Disabled'}</div>

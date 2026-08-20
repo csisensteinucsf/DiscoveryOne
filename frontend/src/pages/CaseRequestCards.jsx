@@ -31,10 +31,10 @@ export default function CaseRequestCards({ items, emptyLabel, apiBase, caseLooku
               <div className="request-card__header">
                 <div>
                   <div className="label">{TYPE_LABELS[req.request_type] || req.request_type}</div>
-                  <h3>{caseName || 'Pending case'}</h3>
+                  <h3>{caseName || 'Pending matter'}</h3>
                   {payload.legal_case_name && (
                     <div style={{ fontSize: 12, color: '#475569' }}>
-                      <strong>Legal Case:</strong> {payload.legal_case_name}
+                      <strong>Legal Matter:</strong> {payload.legal_case_name}
                     </div>
                   )}
                   {payload.claimant && (
@@ -51,7 +51,7 @@ export default function CaseRequestCards({ items, emptyLabel, apiBase, caseLooku
                 {payload.claimant ? <div><strong>Claimant:</strong> {payload.claimant}</div> : null}
                 {req.request_type === 'close_case' && (
                   <div style={{ padding:'8px 10px', borderRadius:8, background:'#FEF3C7', border:'1px solid #FDE68A', color:'#92400E' }}>
-                    Request to close the case and release all existing holds/preservation.
+                    Request to close the matter and release all existing holds/preservation.
                   </div>
                 )}
                 {req.ntp_all_sent ? <div><strong>NTPs:</strong> Mark as sent</div> : null}

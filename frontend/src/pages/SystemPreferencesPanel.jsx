@@ -39,9 +39,9 @@ export default function SystemPreferencesPanel({
       </div>
       {themeSaving && <div style={{ marginTop: 8, color: 'var(--muted,#6b7280)' }}>Saving preference</div>}
       <div style={{ marginTop: 16, borderTop: '1px solid var(--border,#e5e7eb)', paddingTop: 14 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>Cases Page Sorting</div>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Matters Page Sorting</div>
         <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-          Choose whether cases are sorted by eDiscovery case name or legal case name within the year/letter groups.
+          Choose whether matters are sorted by eDiscovery matter name or legal matter name within the year/letter groups.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 12 }}>
           <label style={{ border: '1px solid var(--border,#e5e7eb)', borderRadius: 10, padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
@@ -54,8 +54,8 @@ export default function SystemPreferencesPanel({
               style={{ marginTop: 4 }}
             />
             <span>
-              <div style={{ fontWeight: 700 }}>eDiscovery case name</div>
-              <div style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>Uses the internal case name (e.g., D1 case naming).</div>
+              <div style={{ fontWeight: 700 }}>eDiscovery matter name</div>
+              <div style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>Uses the internal matter name (e.g., D1 case naming).</div>
             </span>
           </label>
           <label style={{ border: '1px solid var(--border,#e5e7eb)', borderRadius: 10, padding: 12, display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer' }}>
@@ -68,8 +68,8 @@ export default function SystemPreferencesPanel({
               style={{ marginTop: 4 }}
             />
             <span>
-              <div style={{ fontWeight: 700 }}>Legal case name</div>
-              <div style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>Uses the legal case name when present; falls back to internal name.</div>
+              <div style={{ fontWeight: 700 }}>Legal matter name</div>
+              <div style={{ color: 'var(--muted,#6b7280)', fontSize: 13 }}>Uses the legal matter name when present; falls back to internal name.</div>
             </span>
           </label>
         </div>

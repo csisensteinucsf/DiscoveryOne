@@ -5,7 +5,7 @@ import { Field, TextInput, Select, Button } from './caseDetailControls.jsx'
 import { displayUserName } from './caseDetailUtils.js'
 import CaseCustomFieldsEditor from './CaseCustomFieldsEditor.jsx'
 import { findInvalidFormControls, findMissingRequiredControls } from './casesUtils.js'
-export function EditCaseModal({ initial, analysts, requestorOptions, onClose, onSave, useLegalCaseNameAsPrimary = false, internalCounselLabel = 'Internal Counsel' }) {
+export function EditCaseModal({ initial, analysts, requestorOptions, onClose, onSave, useLegalCaseNameAsPrimary = false, internalCounselLabel = 'Internal Counsel', matterTypes = [] }) {
   const [form, setForm] = useState({ ...initial, additional_requestors: '' })
   const [showMissingRequired, setShowMissingRequired] = useState(false)
   useEffect(() => {
@@ -57,7 +57,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
   return (
     <Modal
       open
-      title="Edit Case"
+      title="Edit Matter"
       onClose={onClose}
       width={720}
       footer={(
@@ -80,11 +80,11 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
         onInput={handleInput}
         onSubmit={handleSubmit}
       >
-      <Field label={fieldLabel(useLegalCaseNameAsPrimary ? 'Case Name' : 'eDiscovery Case Name', true)}>
+      <Field label={fieldLabel(useLegalCaseNameAsPrimary ? 'Matter Name' : 'eDiscovery Matter Name', true)}>
         <TextInput value={caseNameValue} onChange={e => updatePrimaryCaseName(e.target.value)} required />
       </Field>
       {!useLegalCaseNameAsPrimary && (
-        <Field label="Legal Case Name">
+        <Field label="Legal Matter Name">
           <TextInput value={form.legal_case_name} onChange={e => setForm({ ...form, legal_case_name: e.target.value })} />
         </Field>
       )}
@@ -94,7 +94,7 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
           <span>
             <strong>Make case private</strong>
             <small>
-              Only requestors on this case, admins, and analysts can see it.
+              Only requestors on this matter, admins, and analysts can see it.
             </small>
           </span>
         </label>
@@ -105,8 +105,8 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
             onChange={e => setForm({ ...form, is_test_case: e.target.checked })}
           />
           <span>
-            <strong>Test case</strong>
-            <small>Marks this case as designated test data.</small>
+            <strong>Test matter</strong>
+            <small>Marks this matter as designated test data.</small>
           </span>
         </label>
       </div>
@@ -122,6 +122,27 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
         </Field>
         <Field label={internalCounselLabel}>
           <TextInput value={form.internal_counsel || ''} onChange={e => setForm({ ...form, internal_counsel: e.target.value })} />
+        <Field label="Campus">
+          <TextInput value={form.campus || ''} onChange={e => setForm({ ...form, campus: e.target.value })} />
+        </Field>
+        <Field label="Matter Type">
+          <Select
+            value={form.matter_type || ''}
+            onChange={e => setForm({ ...form, matter_type: e.target.value, matter_type_other: e.target.value === 'Other' ? form.matter_type_other : '' })}
+          >
+            <option value="">-- Select matter type --</option>
+            {matterTypes.map(option => <option key={option} value={option}>{option}</option>)}
+            <option value="Other">Other</option>
+          </Select>
+        </Field>
+        {form.matter_type === 'Other' && (
+          <Field label="Other Matter Type">
+            <TextInput
+              value={form.matter_type_other || ''}
+              onChange={e => setForm({ ...form, matter_type_other: e.target.value })}
+            />
+          </Field>
+        )}
         </Field>
         <Field label="Outside Counsel">
           <TextInput value={form.outside_counsel || ''} onChange={e => setForm({ ...form, outside_counsel: e.target.value })} />
@@ -168,11 +189,11 @@ export function EditCaseModal({ initial, analysts, requestorOptions, onClose, on
             placeholder="secondary1@example.com, secondary2@example.com"
           />
           <div style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>
-            Primary gets notifications; others can access the case.
+            Primary gets notifications; others can access the matter.
           </div>
         </Field>
       </div>
-      <Field label="Send case status notification to requestor every (days)">
+      <Field label="Send matter status notification to requestor every (days)">
         <TextInput
           type="number"
           min={1}

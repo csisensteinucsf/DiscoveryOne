@@ -60,15 +60,15 @@ function renderWidgetBody(widget, data, loading, onDrilldown) {
           label="Total"
           value={data.total}
           tone="info"
-          onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'All cases', config: {} })}
+          onClick={() => onDrilldown?.({ kind: 'cases_list', title: 'All matters', config: {} })}
         />
         <div style={{ gridColumn: '1 / -1', color: 'var(--muted,#64748b)', fontSize: 13 }}>
           Created last {data.created_last_days} days:{' '}
           <span
             role="button"
             tabIndex={0}
-            onClick={() => onDrilldown?.({ kind: 'cases_list', title: `Cases created in last ${data.created_last_days} days`, config: { created_last_days: data.created_last_days } })}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDrilldown?.({ kind: 'cases_list', title: `Cases created in last ${data.created_last_days} days`, config: { created_last_days: data.created_last_days } }) }}
+            onClick={() => onDrilldown?.({ kind: 'cases_list', title: `Matters created in last ${data.created_last_days} days`, config: { created_last_days: data.created_last_days } })}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDrilldown?.({ kind: 'cases_list', title: `Matters created in last ${data.created_last_days} days`, config: { created_last_days: data.created_last_days } }) }}
             style={{ color: 'var(--text,#0f172a)', fontWeight: 800, cursor: 'pointer', textDecoration: 'underline' }}
             title="Click for details"
           >

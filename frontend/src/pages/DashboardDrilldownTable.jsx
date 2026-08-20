@@ -46,7 +46,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Status</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Analyst</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Requestor</th>
@@ -89,7 +89,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Custodian</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Active preservation</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Pending preservation</th>
@@ -141,7 +141,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
           <thead>
             <tr>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Request</th>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Submitted</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Requestor</th>
               <th style={{ textAlign: 'right', padding: '8px 6px' }}>Actions</th>
@@ -181,7 +181,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Custodian</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Status</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Sent</th>
@@ -220,7 +220,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Search</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Search status</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Export status</th>
@@ -266,7 +266,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Custodian</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Status</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Sent</th>
@@ -306,7 +306,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Custodian</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Template</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Next send</th>
@@ -351,7 +351,7 @@ export function DrilldownTable({ kind, items, filter, loading, onOpenCase, onOpe
         <table>
           <thead>
             <tr>
-              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Case</th>
+              <th style={{ textAlign: 'left', padding: '8px 6px' }}>Matter</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Category</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Ticket</th>
               <th style={{ textAlign: 'left', padding: '8px 6px' }}>Status</th>

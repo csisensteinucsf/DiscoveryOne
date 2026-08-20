@@ -9,9 +9,9 @@ export const REQUESTOR_HELP_SECTIONS = [
     ],
     steps: [
       'Use the table of contents first, then keep this page open in a second tab while you work through an unfamiliar flow.',
-      'If you are completely new, read sections in this order: Access and login, Cases page, Requests page, New case request, and Case detail.',
+      'If you are completely new, read sections in this order: Access and login, Matters page, Requests page, New matter request, and Case detail.',
       'If you already submitted a request, jump straight to Requests page and the request-type section that matches your task.',
-      'If you are working inside a case, read Case detail before making assumptions based on status chips.',
+      'If you are working inside a matter, read Case detail before making assumptions based on status chips.',
       'Treat Pending status values as in-progress snapshots. Some external hold/search/ticket systems update asynchronously.',
     ],
     tips: [
@@ -43,10 +43,10 @@ export const REQUESTOR_HELP_SECTIONS = [
   },
   {
     id: 'cases',
-    title: 'Cases Page (Requestor Navigation)',
+    title: 'Matters Page (Requestor Navigation)',
     paragraphs: [
-      'Cases is your index of matters you can see. It contains Active Cases and Inactive Cases in separate tables.',
-      'Requestor accounts are read-only here for case records. Use this page to locate and open cases, not to edit case metadata.',
+      'Cases is your index of matters you can see. It contains Active Matters and Inactive Matters in separate tables.',
+      'Requestor accounts are read-only here for matter records. Use this page to locate and open cases, not to edit matter metadata.',
     ],
     steps: [
       'Select Cases from the left sidebar.',
@@ -55,28 +55,28 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Use Filter Legal Name for legal naming only when legal naming is consistently maintained.',
       'Use Filter Analyst to narrow to a specific analyst owner when you are coordinating on a handoff.',
       'Use Filter Requestor to find cases assigned to your requestor identity or related requestor set.',
-      'Use year and letter expand/collapse controls to reduce visual noise before drilling into a case.',
-      'Click a case row action to open Case Detail.',
-      'For new work, use the yellow requestor helper card button Open Case Intake to jump to Requests.',
+      'Use year and letter expand/collapse controls to reduce visual noise before drilling into a matter.',
+      'Click a matter row action to open Matter Detail.',
+      'For new work, use the yellow requestor helper card button Open Matter Intake to jump to Requests.',
       'Use Reset to clear all filters quickly when results look unexpectedly empty.',
     ],
     tips: [
-      'If expected cases are missing, verify role visibility and requestor assignment before assuming data loss.',
-      'Legal column behavior depends on case data completeness and role-specific table layout.',
+      'If expected matters are missing, verify role visibility and requestor assignment before assuming data loss.',
+      'Legal column behavior depends on matter data completeness and role-specific table layout.',
     ],
   },
   {
     id: 'case-detail',
-    title: 'Case Detail (Requestor Deep Walkthrough)',
+    title: 'Matter Detail (Requestor Deep Walkthrough)',
     paragraphs: [
-      'Case Detail is the most important requestor screen. You validate scope, monitor status, and initiate requestor-allowed workflows from here.',
+      'Matter Detail is the most important requestor screen. You validate scope, monitor status, and initiate requestor-allowed workflows from here.',
       'Requestor mode is mostly read-only for direct case edits, but requestor-specific actions are available, including NTP send flow and closure requests.',
     ],
     steps: [
-      'Open a case from Cases.',
-      'Read the case header first: case name, legal case, claimant, analyst, requestor list, and created date.',
-      'Use Back to Cases to preserve your filter context while navigating.',
-      'Requestor action buttons at top: NTPs opens notice send workflow, Case Summary opens summary view, Request Case Closure opens closure request modal.',
+      'Open a matter from Matters.',
+      'Read the matter header first: matter name, legal matter, claimant, analyst, requestor list, and created date.',
+      'Use Back to Matters to preserve your filter context while navigating.',
+      'Requestor action buttons at top: NTPs opens notice send workflow, Matter Summary opens summary view, Request Matter Closure opens closure request modal.',
       'Use Custodians tab to review per-custodian preservation, NTP status, consent status, and search-derived progress badges.',
       'If custodians are missing, use Request to add custodians button from Custodians tab to open the correct request modal.',
       'Use Searches tab to review search names, assigned custodians, and Search/Export/Delivery states. Requestor sees read-only search controls.',
@@ -100,7 +100,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     ],
     steps: [
       'Open Requests.',
-      'Use New Case Request to start a net-new intake.',
+      'Use New Matter Request to start a net-new intake.',
       'Review Pending first to monitor work still awaiting analyst review.',
       'Open each card and read every section: case context, custodians, preservation, searches, attachments, and decline reason if present.',
       'For Declined cards, copy valid data into a new request and correct only the rejected components.',
@@ -115,14 +115,14 @@ export const REQUESTOR_HELP_SECTIONS = [
   },
   {
     id: 'new-case-request',
-    title: 'New Case Request (Step-by-Step, Extremely Detailed)',
+    title: 'New Matter Request (Step-by-Step, Extremely Detailed)',
     paragraphs: [
       'This workflow creates intake for a new matter. Accuracy here drives downstream preservation quality and approval speed.',
-      'The wizard collects case details, custodian identity and preservation intent, plus any NTP/consent indicators and search requests.',
+      'The wizard collects matter details, custodian identity and preservation intent, plus any NTP/consent indicators and search requests.',
     ],
     steps: [
-      'Open Requests and click New Case Request.',
-      'Step 1 Case details: verify suggested case name, then set legal case name and claimant if applicable.',
+      'Open Requests and click New Matter Request.',
+      'Step 1 Matter details: verify suggested matter name, then set legal matter name and claimant if applicable.',
       'Enter Description/Notes with concrete scope language: systems, timeframe, urgency, and legal context.',
       'Choose custodian input mode: manual entry, paste list, upload file, or none yet.',
       'If using manual mode, enter full name and email per custodian and add/remove rows as needed.',
@@ -147,12 +147,12 @@ export const REQUESTOR_HELP_SECTIONS = [
     id: 'custodian-update-request',
     title: 'Custodian Update Request',
     paragraphs: [
-      'Use this when an existing case needs person-level scope changes (additions, removals, or preservation updates).',
+      'Use this when an existing matter needs person-level scope changes (additions, removals, or preservation updates).',
       'Write the request as delta instructions: what changes, what stays unchanged, and why.',
     ],
     steps: [
-      'From Case Detail Custodians tab, click Request to add custodians, or open Requests and choose custodian update context.',
-      'Confirm target case before entering custodian rows.',
+      'From Matter Detail Custodians tab, click Request to add custodians, or open Requests and choose custodian update context.',
+      'Confirm target matter before entering custodian rows.',
       'Add new custodians with complete name and email data.',
       'For removals, identify custodians precisely and include reason/context in notes.',
       'Select preservation changes per custodian. Do not assume prior preservation state without checking current status.',
@@ -188,18 +188,18 @@ export const REQUESTOR_HELP_SECTIONS = [
   },
   {
     id: 'close-case-request',
-    title: 'Case Closure Request',
+    title: 'Matter Closure Request',
     paragraphs: [
-      'Closure requests formally ask to close a case and begin hold release workflow according to policy.',
+      'Closure requests formally ask to close a matter and begin hold release workflow according to policy.',
       'Use this only when the matter is actually ready for closure or when legal has approved release timing.',
     ],
     steps: [
-      'From Case Detail header, click Request Case Closure, or open close-case request flow from Requests.',
-      'Confirm target case and review whether case is already marked closed.',
+      'From Matter Detail header, click Request Matter Closure, or open close-matter request flow from Requests.',
+      'Confirm target matter and review whether matter is already marked closed.',
       'Provide explicit closure notes including dependencies, approvals, and restrictions.',
       'If holds must remain temporarily, state that clearly in notes instead of assuming default behavior.',
       'Submit request and monitor Pending/Approved states in Requests.',
-      'After approval, re-open Case Detail and validate closure state and hold release outcomes.',
+      'After approval, re-open Matter Detail and validate closure state and hold release outcomes.',
     ],
     tips: [
       'If closure timing is contested, add stakeholders and decision date in notes for audit clarity.',
@@ -209,7 +209,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     id: 'dashboards',
     title: 'Dashboards Page (Requestor Use)',
     paragraphs: [
-      'Dashboards provides visual widgets and drilldowns for operational status across cases and workflows.',
+      'Dashboards provides visual widgets and drilldowns for operational status across matters and workflows.',
       'Requestor accounts can use saved dashboard layouts to monitor high-level trend and workload patterns.',
     ],
     steps: [
@@ -220,7 +220,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Use Rename and Delete to keep dashboard list clean and purpose-driven.',
       'Click metric values or widgets to open drilldown tables when available.',
       'Use drilldown filter input to narrow result rows quickly.',
-      'Use Open case actions from drilldowns to jump directly into Case Detail.',
+      'Use Open case actions from drilldowns to jump directly into Matter Detail.',
       'Save dashboard layout changes after adding/removing/reordering widgets.',
     ],
     tips: [
@@ -239,8 +239,8 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Review static report sections first and use Export CSV links as needed.',
       'Use Custodian Report runner to search by custodian name/email or run across all custodians.',
       'Use Clear to reset custodian query state between unrelated analyses.',
-      'Use Case Timeline section to load case-specific event timelines.',
-      'Select or type case name/legal name, then load timeline.',
+      'Use Matter Timeline section to load matter-specific event timelines.',
+      'Select or type matter name/legal name, then load timeline.',
       'Export timeline CSV when preserving a point-in-time snapshot for external review.',
       'Open linked cases from report tables to verify context before escalating findings.',
     ],
@@ -279,7 +279,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     ],
     steps: [
       'Open System.',
-      'Set User Preferences theme and case sort mode to match your workflow.',
+      'Set User Preferences theme and matter sort mode to match your workflow.',
       'Contact a DiscoveryOne administrator if your account details need correction.',
       'Use tab buttons to navigate sections; expect admin-only notice cards for restricted areas.',
       'Use User Management tab for self-level visibility if your role cannot manage users globally.',
@@ -298,9 +298,9 @@ export const REQUESTOR_HELP_SECTIONS = [
     ],
     steps: [
       'Reproduce once and note exact page, button, and visible error text.',
-      'Capture case name, request ID, and custodian email(s) involved.',
+      'Capture matter name, request ID, and custodian email(s) involved.',
       'Refresh the page and retry once to rule out transient state.',
-      'Check Requests and Case Detail together to distinguish submission failure vs delayed backend processing.',
+      'Check Requests and Matter Detail together to distinguish submission failure vs delayed backend processing.',
       'For visibility issues, confirm role and assigned case/requestor context.',
       'For login issues, include approximate timestamp and whether you used single sign-on or local account sign-in.',
       'Escalate with a concise timeline of what you clicked and what the system returned.',
@@ -310,12 +310,12 @@ export const REQUESTOR_HELP_SECTIONS = [
     id: 'requestor-global-nav',
     title: 'Requestor Navigation: What Each Page Is For',
     paragraphs: [
-      'Requestor accounts should primarily work in Requests and Cases. Other pages are for monitoring, reporting, and account security.',
+      'Requestor accounts should primarily work in Requests and Matters. Other pages are for monitoring, reporting, and account security.',
     ],
     controls: [
-      'Cases: find and open case records you can view.',
+      'Cases: find and open matter records you can view.',
       'Requests: submit all intake/update/search/closure actions and track status.',
-      'Dashboards: monitor operational metrics and drilldown to cases.',
+      'Dashboards: monitor operational metrics and drilldown to matters.',
       'Reports: run/export CSV reports for audits and status checks.',
       'Logs: filter and inspect activity records available to requestor role.',
       'System: account preferences and limited role-specific tools.',
@@ -330,9 +330,9 @@ export const REQUESTOR_HELP_SECTIONS = [
   },
   {
     id: 'case-detail-tab-details',
-    title: 'Case Detail Tabs: Exact Requestor Behavior by Tab',
+    title: 'Matter Detail Tabs: Exact Requestor Behavior by Tab',
     paragraphs: [
-      'Requestor role can open all case detail tabs, but editing capability differs by tab.',
+      'Requestor role can open all matter detail tabs, but editing capability differs by tab.',
     ],
     controls: [
       'Custodians tab: review holds, NTP, consent, and status chips; use Request to add custodians to trigger change workflow.',
@@ -348,7 +348,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'After requests are approved, return to the same tab to verify final state.',
     ],
     checks: [
-      'Always confirm you are in the correct case before acting from header buttons.',
+      'Always confirm you are in the correct matter before acting from header buttons.',
       'Refresh once before escalating stale status concerns to account for async backend updates.',
     ],
   },
@@ -356,7 +356,7 @@ export const REQUESTOR_HELP_SECTIONS = [
     id: 'ntp-send',
     title: 'NTP Send Modal: Every Field and Action',
     paragraphs: [
-      'NTP sending is launched from Case Detail via the NTPs button. This flow controls template selection, reminder scheduling, variables, and recipient selection.',
+      'NTP sending is launched from Matter Detail via the NTPs button. This flow controls template selection, reminder scheduling, variables, and recipient selection.',
     ],
     controls: [
       'Template: required selector for the outbound notice format.',
@@ -364,8 +364,8 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Reminder every (days): cadence for reminders.',
       'Reminders for (days): duration window before reminders stop.',
       'See previous NTPs: opens historical send/reminder timeline modal.',
-      'Copy previous NTP data: preloads latest prior NTP setup for this case.',
-      'Variable fields: legal case name, claimant, reason, outside counsel values, firm, and CC list.',
+      'Copy previous NTP data: preloads latest prior NTP setup for this matter.',
+      'Variable fields: legal matter name, claimant, reason, outside counsel values, firm, and CC list.',
       'Custodian search box: narrows recipients list by name/email.',
       'Custodian checkboxes: chooses recipients for current send.',
       'Send Notices: executes send for selected custodians.',
@@ -400,7 +400,7 @@ export const REQUESTOR_HELP_SECTIONS = [
       'Open the card and confirm request type and case.',
       'Read status and details completely before acting.',
       'If declined, copy valid info and resubmit corrected request.',
-      'If approved, verify resulting case state in Case Detail.',
+      'If approved, verify resulting case state in Matter Detail.',
     ],
   },
   {
@@ -442,13 +442,13 @@ export const TECH_HELP_SECTIONS = [
       'Tech navigation is intentionally narrower than requestor workflows: Cases, System, and Help Videos.',
     ],
     steps: [
-      'Use Cases to find eligible matters and open case details.',
-      'Use Case Detail primarily for Custodians and Tickets tabs, depending on group permissions.',
+      'Use Cases to find eligible matters and open matter details.',
+      'Use Matter Detail primarily for Custodians and Tickets tabs, depending on group permissions.',
       'Use System for your own account security settings and limited role-visible tabs.',
       'Use the help button on any page to jump to matching tech instructions.',
     ],
     tips: [
-      'If a case or category is missing, first confirm your tech group assignment before escalating.',
+      'If a matter or category is missing, first confirm your tech group assignment before escalating.',
     ],
   },
   {
@@ -461,25 +461,25 @@ export const TECH_HELP_SECTIONS = [
     steps: [
       'Log in normally with approved tech account credentials.',
       'Open System and confirm your account profile includes expected group assignment.',
-      'If ticket categories are missing in case detail, verify group is exactly Box and/or Email.',
+      'If ticket categories are missing in matter detail, verify group is exactly Box and/or Email.',
       'Set a password on first login or after reset.',
       'Escalate group mismatches through admin channel instead of using another user account.',
     ],
   },
   {
     id: 'tech-cases',
-    title: 'Cases Page (Tech Workflow)',
+    title: 'Matters Page (Tech Workflow)',
     paragraphs: [
       'Tech cases list only shows matters that are visible to your ticket category permissions.',
-      'Tech page includes a ticket-only access notice and read-only case table controls.',
+      'Tech page includes a ticket-only access notice and read-only matter table controls.',
     ],
     steps: [
-      'Select Cases.',
-      'Use Show Filters and narrow by case name, analyst, or requestor context as needed.',
-      'Expand year and letter groups to locate the case faster.',
-      'Open case detail for ticket and hold work.',
-      'Remember: tech cannot create/edit/delete case records from this page.',
-      'If no cases appear, verify your assigned group and whether matching ticket categories exist on cases.',
+      'Select Matters.',
+      'Use Show Filters and narrow by matter name, analyst, or requestor context as needed.',
+      'Expand year and letter groups to locate the matter faster.',
+      'Open matter detail for ticket and hold work.',
+      'Remember: tech cannot create/edit/delete matter records from this page.',
+      'If no matters appear, verify your assigned group and whether matching ticket categories exist on matters.',
     ],
     tips: [
       'Use Reset whenever multiple filters were applied across different tasks.',
@@ -487,13 +487,13 @@ export const TECH_HELP_SECTIONS = [
   },
   {
     id: 'tech-case-detail',
-    title: 'Case Detail (Tech Deep Walkthrough)',
+    title: 'Matter Detail (Tech Deep Walkthrough)',
     paragraphs: [
       'Tech opens directly into ticket-focused context and can manage only allowed hold/ticket categories by group.',
       'Tech view intentionally hides non-tech tabs like Searches, Consent, SLA, and Notes.',
     ],
     steps: [
-      'Open a case from Cases.',
+      'Open a matter from Matters.',
       'Read top info and confirm you are in ticket-only view notice context.',
       'Use tab buttons: Custodians and Tickets are the primary tech surfaces.',
       'In Custodians tab, review only hold fields relevant to your allowed categories.',
@@ -521,7 +521,7 @@ export const TECH_HELP_SECTIONS = [
     ],
     steps: [
       'Open System.',
-      'Set User Preferences theme and case sort mode.',
+      'Set User Preferences theme and matter sort mode.',
       'Change password and verify confirmation matches.',
       'Review your account details and change your password when needed.',
       'Use User Management view for self visibility where allowed; global user management remains restricted.',
@@ -555,20 +555,20 @@ export const TECH_HELP_SECTIONS = [
     steps: [
       'Confirm role is tech and group is set to Box and/or Email.',
       'Confirm case actually contains tickets in your allowed categories.',
-      'Refresh case detail and re-open the same tab before concluding data is missing.',
-      'Capture case name, category, ticket entry context, and visible error text.',
-      'If categories are empty across all cases, escalate as group assignment issue.',
-      'If one case is affected, include case ID and category in escalation details.',
+      'Refresh matter detail and re-open the same tab before concluding data is missing.',
+      'Capture matter name, category, ticket entry context, and visible error text.',
+      'If categories are empty across all matters, escalate as group assignment issue.',
+      'If one matter is affected, include matter ID and category in escalation details.',
     ],
   },
   {
     id: 'tech-nav',
     title: 'Tech Navigation: Working Surfaces',
     paragraphs: [
-      'Tech accounts are intentionally constrained to ticket-focused work. Primary navigation is Cases and System.',
+      'Tech accounts are intentionally constrained to ticket-focused work. Primary navigation is Matters and System.',
     ],
     controls: [
-      'Cases: locate visible cases with allowed ticket categories.',
+      'Cases: locate visible matters with allowed ticket categories.',
       'System: manage your own account security and preferences.',
       'Help Videos: short reference walkthroughs.',
     ],

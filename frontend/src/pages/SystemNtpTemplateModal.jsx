@@ -77,7 +77,7 @@ export default function SystemNtpTemplateModal({
                 Use as default for NTP sends
               </label>
               <div style={{ fontSize: 12, color: 'var(--muted,#6b7280)', marginTop: 4 }}>
-                Your default template is pre-selected when opening the case &quot;Send NTPs&quot; modal.
+                Your default template is pre-selected when opening the matter &quot;Send NTPs&quot; modal.
               </div>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>

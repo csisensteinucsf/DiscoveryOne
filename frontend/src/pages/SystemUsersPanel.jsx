@@ -104,7 +104,7 @@ export default function SystemUsersPanel({
             <button className="btn secondary" type="button" onClick={openCreateGroup}>Add Group</button>
           </div>
           <p style={{ marginTop: 0, color: 'var(--muted,#6b7280)', fontSize: 13 }}>
-            Group visibility is one-way. If Legal is allowed to see Risk cases, Risk does not automatically see Legal cases.
+            Group visibility is one-way. If Legal is allowed to see Risk cases, Risk does not automatically see Legal matters.
           </p>
           {groups.length ? (
             <div className="table-responsive">
@@ -113,7 +113,7 @@ export default function SystemUsersPanel({
                   <tr>
                     <th>Group</th>
                     <th>Users</th>
-                    <th>Can see cases for</th>
+                    <th>Can see matters for</th>
                     <th>Actions</th>
                   </tr>
                 </thead>

@@ -266,7 +266,7 @@ function Shell() {
             <div className="brand-sub" style={{ color: 'var(--muted)', fontSize: 13, textAlign: 'center' }}>{appTagline}</div>
           </div>
           <nav className="nav" style={{ display: 'grid', gap: 6, paddingTop: 10 }}>
-            <Link to="/cases" className={isActive('/cases') ? 'active' : ''} aria-current={isActive('/cases') ? 'page' : undefined}>Cases</Link>
+            <Link to="/cases" className={isActive('/cases') ? 'active' : ''} aria-current={isActive('/cases') ? 'page' : undefined}>Matters</Link>
             {!isRequestor && !isTech && (
               <Link to="/custodians" className={isActive('/custodians') ? 'active' : ''} aria-current={isActive('/custodians') ? 'page' : undefined}>Custodians</Link>
             )}

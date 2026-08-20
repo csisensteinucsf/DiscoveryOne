@@ -1,7 +1,6 @@
 import { Fragment, useCallback, useMemo, useRef, useState } from 'react'
 import Modal from '../components/Modal.jsx'
 import FileDropZone from '../components/FileDropZone.jsx'
-import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
 import { Field, TextInput, Button, Badge } from './caseDetailControls.jsx'
 import {
   employmentEndDateColor,
@@ -13,11 +12,6 @@ import { emptyPersonLookupFields, personLookupFieldsFromMatch } from './caseDeta
 
 export function ImportCustodiansModal({
   apiBase = '/api',
-  caseId,
-  holds = [],
-  selectedHoldIds = [],
-  onSelectedHoldIdsChange,
-  onHoldCreated,
   onClose,
   onImport,
   progress,
@@ -208,15 +202,6 @@ export function ImportCustodiansModal({
         <Button variant="primary" disabled>Import from list</Button>
         <Button variant="subtle" onClick={onSwitchToDirectory} disabled={progress?.working}>Select from D1 Custodians</Button>
       </div>
-      <HoldAssignmentPicker
-        apiBase={apiBase}
-        caseId={caseId}
-        holds={holds}
-        selectedHoldIds={selectedHoldIds}
-        onSelectedHoldIdsChange={onSelectedHoldIdsChange}
-        onHoldCreated={onHoldCreated}
-        disabled={!!progress?.working}
-      />
       {progress?.working && (
         <div style={{ marginBottom: 12 }}>
           <div style={{ height: 10, background:'#eef2f7', borderRadius: 999, overflow:'hidden' }}>

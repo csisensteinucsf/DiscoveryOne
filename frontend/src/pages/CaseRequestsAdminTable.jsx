@@ -32,7 +32,7 @@ export default function CaseRequestsAdminTable({
         <div>
           <h2 style={{ margin: 0 }}>All Requestor Requests</h2>
           <p className="muted" style={{ margin: '4px 0 0' }}>
-            Click a request to review the full intake details and compare what was requested against the case.
+            Click a request to review the full intake details and compare what was requested against the matter.
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>

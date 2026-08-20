@@ -158,7 +158,7 @@ export default function CaseDetailConsentModal({
               <p style={{ margin: 0, color: '#6b7280' }}>No custodians match your search.</p>
             )
           ) : (
-            <p style={{ margin: 0, color: '#6b7280' }}>Add custodians to this case to send consent requests.</p>
+            <p style={{ margin: 0, color: '#6b7280' }}>Add custodians to this matter to send consent requests.</p>
           )}
         </div>
       </div>

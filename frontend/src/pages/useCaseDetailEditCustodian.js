@@ -88,7 +88,7 @@ export function useCaseDetailEditCustodian({
       const currentLabel = existingClaimant.name || existingClaimant.email || 'Another custodian'
       await confirmDialog({
         title: 'Claimant already assigned',
-        description: `${currentLabel} is already marked as the claimant for this case. Update that claimant first before assigning another custodian.`,
+        description: `${currentLabel} is already marked as the claimant for this matter. Update that claimant first before assigning another custodian.`,
         confirmLabel: 'OK',
         cancelLabel: 'Close',
       })
@@ -125,7 +125,7 @@ export function useCaseDetailEditCustodian({
       })
       if (!res.ok) {
         if (res.status === 409) {
-          showToast('Duplicate email for this case.', { variant: 'warn' })
+          showToast('Duplicate email for this matter.', { variant: 'warn' })
         } else {
           showToast('Failed to save custodian.', { variant: 'error' })
         }

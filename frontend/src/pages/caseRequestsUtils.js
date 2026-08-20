@@ -6,10 +6,10 @@ import {
 } from './preservationCatalog.js'
 
 const TYPE_LABELS = {
-  new_case: 'New Case Request',
+  new_case: 'New Matter Request',
   custodian: 'Custodian Update',
   search: 'Search Request',
-  close_case: 'Case Closure Request',
+  close_case: 'Matter Closure Request',
 }
 
 

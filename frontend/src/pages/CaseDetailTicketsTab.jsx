@@ -47,7 +47,7 @@ export default function CaseDetailTicketsTab({
               )}
               {!custodianOptions.length && (
                 <p style={{ color: '#9ca3af', fontSize: 12, marginTop: 8 }}>
-                  Add custodians to the case to enable lookup suggestions in the search box.
+                  Add custodians to the matter to enable lookup suggestions in the search box.
                 </p>
               )}
               <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', marginTop: 16 }}>

@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 from email_validator import EmailNotValidError, validate_email
+from pydantic import BaseModel, Field
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
@@ -70,6 +71,29 @@ from .system_admin_config import (
 from .system_settings import load_system_settings, save_system_settings
 
 router = APIRouter(prefix="/api", tags=["system"])
+DEFAULT_MATTER_TYPES = [
+    "Public Record Request",
+    "General Litigation",
+    "Internal Investigation",
+    "Subpoena Request",
+]
+
+
+class MatterTypesPayload(BaseModel):
+    matter_types: list[str] = Field(min_length=1, max_length=100)
+
+
+def _normalize_matter_types(values) -> list[str]:
+    normalized = []
+    seen = set()
+    for value in values or []:
+        label = str(value or "").strip()
+        key = label.casefold()
+        if label and len(label) <= 255 and key not in seen and key != "other":
+            seen.add(key)
+            normalized.append(label)
+    return normalized or list(DEFAULT_MATTER_TYPES)
+
 
 
 @router.get("/system/settings", tags=["system"])
@@ -105,6 +129,7 @@ def sys_get_settings(actor: Optional[models.User] = Depends(get_current_user_opt
         "preservation_sources": normalize_preservation_sources(s.get("preservation_sources")),
         "ticket_workflows": public_ticket_workflows(s.get("ticket_workflows")),
         "case_naming": normalize_case_naming(s.get("case_naming")),
+        "matter_types": _normalize_matter_types(s.get("matter_types")),
         "case_closure": public_case_closure_config(s.get("case_closure")),
         "case_status": public_case_status_config(s.get("case_status")),
         "case_requests": public_case_request_settings_config(s.get("case_requests")),
@@ -114,6 +139,39 @@ def sys_get_settings(actor: Optional[models.User] = Depends(get_current_user_opt
     payload["ntp"] = public_ntp_config(s.get("ntp")) if is_admin else None
     payload["account_review"] = public_account_review_config(s.get("account_review")) if is_admin else None
     return payload
+
+
+@router.get("/system/matter-types", tags=["system"])
+def sys_get_matter_types(actor: models.User = Depends(get_current_user)):
+    return {"matter_types": _normalize_matter_types(load_system_settings().get("matter_types"))}
+
+
+@router.post("/system/matter-types", tags=["system"])
+def sys_update_matter_types(
+    payload: MatterTypesPayload,
+    actor: models.User = Depends(get_current_user),
+    request: Request = None,
+    db: Session = Depends(get_db),
+):
+    if not is_sys_admin(actor):
+        raise HTTPException(status_code=403, detail="Admin privileges required")
+    normalized = _normalize_matter_types(payload.matter_types)
+    settings = load_system_settings()
+    settings["matter_types"] = normalized
+    save_system_settings(settings)
+    try:
+        log_event(
+            db,
+            action="system_matter_types_update",
+            actor_id=actor.id,
+            target_type="system",
+            details={"matter_types": normalized},
+            request=request,
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+    return {"matter_types": normalized}
 
 
 def _public_integration_admin_payload() -> dict[str, Any]:

@@ -7,11 +7,6 @@ export default function CaseDetailCustodianEntryModals({
   setShowCustodianModal,
   setCustodianModalMode,
   apiBase,
-  caseId,
-  namedHolds,
-  targetHoldIds,
-  setTargetHoldIds,
-  reloadNamedHolds,
   employeeIdLabel,
   lookupInputPlaceholder,
   personLookupEnabled,
@@ -34,11 +29,6 @@ export default function CaseDetailCustodianEntryModals({
     return (
       <SelectD1CustodiansModal
         apiBase={apiBase}
-        caseId={caseId}
-        holds={namedHolds}
-        selectedHoldIds={targetHoldIds}
-        onSelectedHoldIdsChange={setTargetHoldIds}
-        onHoldCreated={reloadNamedHolds}
         existingCustodians={custodians}
         saving={addCustodiansWorking}
         onClose={() => {
@@ -56,7 +46,6 @@ export default function CaseDetailCustodianEntryModals({
             const result = await submitCustodianBatch(rows)
             if (result.created.length) {
               setCustodians(previous => [...previous, ...result.created])
-              await reloadNamedHolds?.()
             }
             const totalDuplicates = result.localDuplicateCount + result.duplicateCount
             if (result.failedCount > 0) {
@@ -82,11 +71,6 @@ export default function CaseDetailCustodianEntryModals({
     return (
       <ImportCustodiansModal
         apiBase={apiBase}
-        caseId={caseId}
-        holds={namedHolds}
-        selectedHoldIds={targetHoldIds}
-        onSelectedHoldIdsChange={setTargetHoldIds}
-        onHoldCreated={reloadNamedHolds}
         employeeIdLabel={employeeIdLabel}
         personLookupEnabled={personLookupEnabled}
         progress={{ working: importWorking, done: importDone, total: importTotal }}
@@ -99,7 +83,6 @@ export default function CaseDetailCustodianEntryModals({
             const result = await submitCustodianBatch(rows)
             if (result.created.length) {
               setCustodians(prev => [...prev, ...result.created])
-              await reloadNamedHolds?.()
             }
             const totalDup = result.localDuplicateCount + result.duplicateCount
             if (result.failedCount > 0) {
@@ -128,11 +111,6 @@ export default function CaseDetailCustodianEntryModals({
   return (
     <AddCustodiansModal
       apiBase={apiBase}
-      caseId={caseId}
-      holds={namedHolds}
-      selectedHoldIds={targetHoldIds}
-      onSelectedHoldIdsChange={setTargetHoldIds}
-      onHoldCreated={reloadNamedHolds}
       employeeIdLabel={employeeIdLabel}
       lookupInputPlaceholder={lookupInputPlaceholder}
       personLookupEnabled={personLookupEnabled}
@@ -158,7 +136,6 @@ export default function CaseDetailCustodianEntryModals({
           const result = await submitCustodianBatch(rows)
           if (result.created.length) {
             setCustodians(prev => [...prev, ...result.created])
-            await reloadNamedHolds?.()
           }
           const totalDup = result.localDuplicateCount + result.duplicateCount
           if (totalDup > 0) showToast(`Skipped ${totalDup} duplicate email${totalDup===1?'' : 's'}`)

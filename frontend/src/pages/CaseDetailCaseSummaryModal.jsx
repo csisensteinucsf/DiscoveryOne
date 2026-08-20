@@ -21,7 +21,7 @@ export default function CaseDetailCaseSummaryModal({
   return (
 <Modal
           open
-          title="Case Summary"
+          title="Matter Summary"
           onClose={onClose}
           width={980}
           bodyStyle={{ maxHeight: '78vh', overflowY: 'auto' }}
@@ -65,7 +65,7 @@ export default function CaseDetailCaseSummaryModal({
               <div style={ntpSectionCardStyle}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{caseSummaryData?.case?.name || caseData?.name || 'Case'}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>{caseSummaryData?.case?.name || caseData?.name || 'Matter'}</div>
                     <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Generated: {formatDateTime(caseSummaryData?.generated_at) || '-'}</div>
                   </div>
                   <Badge variant={caseSummaryAiAttention.length ? 'warn' : 'success'} compact>
@@ -79,7 +79,7 @@ export default function CaseDetailCaseSummaryModal({
                   <div><strong>Consent requests:</strong> {caseSummarySections?.consent?.envelopes_total ?? 0}</div>
                   <div><strong>Open tickets:</strong> {caseSummarySections?.tickets?.open_or_unclassified ?? 0}</div>
                   <div><strong>AI model:</strong> {caseSummaryAi?.model || '-'}</div>
-                  <div><strong>Case phase:</strong> {caseSummaryAi?.case_phase || '-'}</div>
+                  <div><strong>Matter phase:</strong> {caseSummaryAi?.case_phase || '-'}</div>
                   <div><strong>AI risk:</strong> {String(caseSummaryAi?.overall_risk || '-').toUpperCase()}</div>
                   <div><strong>AI confidence:</strong> {typeof caseSummaryAi?.confidence === 'number' ? caseSummaryAi.confidence.toFixed(2) : '-'}</div>
                 </div>

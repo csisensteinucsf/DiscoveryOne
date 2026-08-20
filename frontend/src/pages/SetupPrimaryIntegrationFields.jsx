@@ -175,7 +175,7 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                   Match these values to the text tab labels in your DocuSign template. DiscoveryOne fills these tabs when it sends a consent request.
                                 </div>
                                 <label>
-                                  Case Name Tab Label
+                                  Matter Name Tab Label
                                   <input className="input" value={form.integration_configs.docusign?.case_name_tab || ''} onChange={e => updateIntegrationConfig('docusign', 'case_name_tab', e.target.value)} placeholder="case_name" />
                                 </label>
                                 <label>
@@ -273,7 +273,7 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                                   <input type="checkbox" checked={!!form.integration_configs.purview?.add_data_sources} onChange={e => updateIntegrationConfig('purview', 'add_data_sources', e.target.checked)} />
-                                  Add Purview data sources when creating a case
+                                  Add Purview data sources when creating a matter
                                 </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                                   <input type="checkbox" checked={!!form.integration_configs.purview?.hold_missing_email_mark_failed} onChange={e => updateIntegrationConfig('purview', 'hold_missing_email_mark_failed', e.target.checked)} />
@@ -300,7 +300,7 @@ export default function SetupPrimaryIntegrationFields({ integrationKey, form, up
                                 <label>
                                   Export Poll Requestor Groups
                                   <input className="input" value={form.integration_configs.purview?.export_poll_requestor_groups || 'pra'} onChange={e => updateIntegrationConfig('purview', 'export_poll_requestor_groups', e.target.value)} placeholder="pra" />
-                                  <FieldHelp>Cases whose primary requestor is in one of these groups are included in scheduled export checks.</FieldHelp>
+                                  <FieldHelp>Matters whose primary requestor is in one of these groups are included in scheduled export checks.</FieldHelp>
                                 </label>
                               </div>
                             )}

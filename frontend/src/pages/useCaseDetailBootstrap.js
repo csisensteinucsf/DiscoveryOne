@@ -41,7 +41,7 @@ export function useCaseDetailBootstrap({
           ? Promise.resolve(null)
           : fetch(`${apiBase}/users`, { credentials: 'include' }).catch(() => null)
         const [r1, r2, ru] = await Promise.all([casePromise, custodiansPromise, usersPromise])
-        if (!r1.ok) throw new Error(`Case HTTP ${r1.status}`)
+        if (!r1.ok) throw new Error(`Matter HTTP ${r1.status}`)
         const c = await r1.json()
         if (!cancelled) {
           setCaseData(c)
@@ -103,7 +103,7 @@ export function useCaseDetailBootstrap({
   }, [caseId])
 
   useEffect(() => {
-    if (activeTab === 'preservation' && !tabDataLoadedRef.current.preservation) {
+    if (activeTab === 'holds' && !tabDataLoadedRef.current.preservation) {
       tabDataLoadedRef.current.preservation = true
       loadHoldsDetail()
     }

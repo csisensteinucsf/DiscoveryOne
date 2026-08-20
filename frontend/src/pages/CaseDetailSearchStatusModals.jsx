@@ -44,7 +44,7 @@ export default function CaseDetailSearchStatusModals({
             ) : null}
             {!searchExportModal.busy && !searchExportModal.error && searchExportModal.result && (
               <div style={{ fontSize: 12, color: '#334155', display: 'grid', gap: 4 }}>
-                <div><strong>{searchExportProviderName} Case ID:</strong> {searchExportModal.result.provider_case_id || searchExportModal.result.purview_case_id || '-'}</div>
+                <div><strong>{searchExportProviderName} Matter ID:</strong> {searchExportModal.result.provider_case_id || searchExportModal.result.purview_case_id || '-'}</div>
                 <div><strong>{searchExportProviderName} Search ID:</strong> {searchExportModal.result.provider_search_id || searchExportModal.result.purview_search_id || '-'}</div>
               </div>
             )}

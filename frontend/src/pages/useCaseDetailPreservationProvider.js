@@ -279,7 +279,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
       }
       const label = data?.display_name || caseData?.name || 'case'
       if (data?.status === 'exists') {
-        showToast(`${providerName} case already exists for ${label}.`, { variant: 'info' })
+        showToast(`${providerName} matter already exists for ${label}.`, { variant: 'info' })
       } else {
         showToast(`${providerName} case created for ${label}.`, { variant: 'success' })
       }
@@ -310,7 +310,7 @@ export function useCaseDetailPreservationProvider({ apiBase, caseId, caseData, c
       const unmatched = Array.isArray(data?.unmatched_exports) ? data.unmatched_exports : []
       const withoutConsent = Array.isArray(data?.matched_without_consent) ? data.matched_without_consent : []
       if (exportCount === 0) {
-        showToast('No provider exports found for this case.', { variant: 'info' })
+        showToast('No provider exports found for this matter.', { variant: 'info' })
       } else {
         const pieces = [
           `Found ${exportCount} export${exportCount === 1 ? '' : 's'}`,

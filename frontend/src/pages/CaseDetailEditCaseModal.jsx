@@ -12,6 +12,7 @@ export default function CaseDetailEditCaseModal({
   setCaseData,
   showToast,
   useLegalCaseNameAsPrimary = false,
+  matterTypes = [],
   internalCounselLabel = 'Internal Counsel',
   defaultClosureNagDays = 180,
 }) {
@@ -25,6 +26,9 @@ export default function CaseDetailEditCaseModal({
         servicenow_inc_number: caseData?.servicenow_inc_number || '',
         claimant: caseData?.claimant || '',
         matter_number: caseData?.matter_number || '',
+        campus: caseData?.campus || '',
+        matter_type: caseData?.matter_type && matterTypes.includes(caseData.matter_type) ? caseData.matter_type : (caseData?.matter_type ? 'Other' : ''),
+        matter_type_other: caseData?.matter_type && !matterTypes.includes(caseData.matter_type) ? caseData.matter_type : '',
         internal_counsel: caseData?.internal_counsel || '',
         outside_counsel: caseData?.outside_counsel || '',
         description: caseData?.description || '',
@@ -43,6 +47,7 @@ export default function CaseDetailEditCaseModal({
       useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
       internalCounselLabel={internalCounselLabel}
       onClose={onClose}
+      matterTypes={matterTypes}
       onSave={async (form) => {
         try {
           const trimmed = (form.requestor || '').trim()
@@ -83,6 +88,8 @@ export default function CaseDetailEditCaseModal({
             description: (form.description || '').trim() || null,
             start_date: form.start_date || null,
             ler_representative: null,
+            campus: (form.campus || '').trim() || null,
+            matter_type: (form.matter_type === 'Other' ? form.matter_type_other : form.matter_type || '').trim() || null,
             requestor: trimmed || null,
             requestors: requestorsPayload.length ? requestorsPayload : undefined,
             analyst_id: form.analyst_id ?? null,
@@ -95,7 +102,7 @@ export default function CaseDetailEditCaseModal({
           const updated = await updateCase(patch)
           onClose()
           setCaseData(updated)
-          showToast('Case updated.', { variant: 'success' })
+          showToast('Matter updated.', { variant: 'success' })
         } catch (e) {
           if (!e?.cancelled) showToast('Failed to update case: ' + e.message, { variant: 'error' })
         }

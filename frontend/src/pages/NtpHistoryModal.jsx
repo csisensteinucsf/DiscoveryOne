@@ -101,7 +101,7 @@ export default function NtpHistoryModal({
                     </table>
                   </div>
                 ) : (
-                  <p style={{ color: '#6b7280', margin: 0 }}>No NTP activity found for custodians in this case.</p>
+                  <p style={{ color: '#6b7280', margin: 0 }}>No NTP activity found for custodians in this matter.</p>
                 )}
               </div>
 
@@ -141,7 +141,7 @@ export default function NtpHistoryModal({
                     </table>
                   </div>
                 ) : (
-                  <p style={{ color: '#6b7280', margin: 0 }}>No NTP audit events found for this case.</p>
+                  <p style={{ color: '#6b7280', margin: 0 }}>No NTP audit events found for this matter.</p>
                 )}
               </div>
             </div>

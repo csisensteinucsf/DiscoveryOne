@@ -61,7 +61,7 @@ const REPORT_SECTIONS = [
   {
     title: "Analyst Summary",
     exportUrl: "/api/reports/analysts/export",
-    description: "Shows how many active and inactive cases are assigned to each analyst so leads can balance workloads and staffing."
+    description: "Shows how many active and inactive matters are assigned to each analyst so leads can balance workloads and staffing."
   },
   {
     title: "Consent Status",
@@ -71,17 +71,17 @@ const REPORT_SECTIONS = [
   {
     title: "Preservation Status",
     exportUrl: "/api/reports/holds/export",
-    description: "Buckets all cases by whether any custodian preservation is active, giving a quick view into preservation coverage."
+    description: "Buckets all matters by whether any custodian preservation is active, giving a quick view into preservation coverage."
   },
   {
-    title: "Per-Case Summary (Active Cases Only)",
+    title: "Per-Matter Summary (Active Matters Only)",
     exportUrl: "/api/reports/cases_summary/export?open_only=1",
     description: "Provides per-case counts of custodians, search/export/delivery progress, and NTP/consent milestones for active matters."
   },
   {
-    title: "Case Aging",
+    title: "Matter Aging",
     exportUrl: "/api/reports/case_aging/export",
-    description: "Lists each case with its analyst, status, and days open so you can spot matters that may be stalled."
+    description: "Lists each matter with its analyst, status, and days open so you can spot matters that may be stalled."
   },
   {
     title: "NTP & Consent Summary",
@@ -94,14 +94,14 @@ const REPORT_SECTIONS = [
     description: "Flags cases where custodians lack preservation, NTPs, or completed consents so gaps can be resolved quickly."
   },
   {
-    title: "Cases By Year",
+    title: "Matters By Year",
     exportUrl: "/api/reports/cases_by_year/export",
-    description: "Counts cases created per calendar year to track workload trends and historical volumes."
+    description: "Counts matters created per calendar year to track workload trends and historical volumes."
   },
   {
     title: "Search Execution Status",
     exportUrl: "/api/reports/searches_by_status/export",
-    description: "Shows overall counts of completed vs pending searches/exports/deliveries for all cases."
+    description: "Shows overall counts of completed vs pending searches/exports/deliveries for all matters."
   },
 ];
 
@@ -188,7 +188,7 @@ export default function Reports() {
   const loadTimeline = async () => {
     const resolvedId = resolveCaseId(timelineCaseQuery);
     if (!resolvedId) {
-      setTimeline({ items: [], error: "Pick a case from the list", loading: false });
+      setTimeline({ items: [], error: "Pick a matter from the list", loading: false });
       return;
     }
     setTimelineCaseId(String(resolvedId));
@@ -256,7 +256,7 @@ export default function Reports() {
             columns={[
               { key: "custodian", header: "Custodian", render: (r) => r.custodian?.name || r.custodian?.email || "-" },
               { key: "custodian.email", header: "Email", render: (r) => r.custodian?.email || "-" },
-              { key: "case", header: "Case", render: (r) => <Link to={`/cases/${r.case?.id}`}>{r.case?.name}</Link> },
+              { key: "case", header: "Matter", render: (r) => <Link to={`/cases/${r.case?.id}`}>{r.case?.name}</Link> },
               ...holdReportColumns,
               { key: "searches.total", header: "Searches", render: (r) => r.searches?.total ?? 0 },
               { key: "searches.search_done", header: "Search Performed", render: (r) => r.searches?.search_done ?? 0 },
@@ -269,7 +269,7 @@ export default function Reports() {
       </Section>
 
       <Section
-        title="Case Timeline"
+        title="Matter Timeline"
         right={
           Number.isFinite(Number(timelineCaseId)) && timelineCaseId
             ? <ExportLink href={`/api/reports/case_timeline/export?case_id=${Number(timelineCaseId)}`} />
@@ -279,7 +279,7 @@ export default function Reports() {
         <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
           <input
             type="text"
-            placeholder="Type case name or legal name"
+            placeholder="Type matter name or legal name"
             value={timelineCaseQuery}
             onFocus={ensureCaseOptions}
             onChange={(e) => setTimelineCaseQuery(e.target.value)}

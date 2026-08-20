@@ -1,6 +1,6 @@
-// Frontend auto-fill for "New Case" dialog
+// Frontend auto-fill for "New Matter" dialog
 // - Fetches /api/cases/suggest_name
-// - Inserts suggestion into "eDiscovery Case Name" input if empty
+// - Inserts suggestion into "eDiscovery Matter Name" input if empty
 // - Respects user typing; does not overwrite
 // - Includes Authorization header if a token is stored
 
@@ -49,11 +49,11 @@
     const byName = form.querySelector('input[name="name"]');
     if (byName) return byName;
 
-    // Fallback: label-based lookup for "eDiscovery Case Name" (still scoped to the modal form).
+    // Fallback: label-based lookup for "eDiscovery Matter Name" (still scoped to the modal form).
     const labels = Array.from(form.querySelectorAll("label"));
     for (const label of labels) {
       const text = (label.textContent || "").toLowerCase();
-      if (text.includes("ediscovery case name")) {
+      if (text.includes("ediscovery matter name")) {
         const input = label.querySelector("input");
         if (input) return input;
       }
@@ -100,12 +100,12 @@
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Also react to clicking a "New Case" button/link
+  // Also react to clicking a "New Matter" button/link
   document.addEventListener("click", (e) => {
     const btn = e.target && (e.target.closest("button") || e.target.closest("a"));
     if (!btn) return;
     const txt = (btn.textContent || "").toLowerCase();
-    if (txt.includes("new case")) {
+    if (txt.includes("new matter")) {
       setTimeout(tryFill, 50);
     }
   });

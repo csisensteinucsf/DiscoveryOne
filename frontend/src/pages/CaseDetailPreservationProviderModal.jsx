@@ -47,9 +47,9 @@ export default function CaseDetailPreservationProviderModal({
             <div style={{ border: '1px solid #e5e7eb', borderRadius: 12, padding: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
                 <div>
-                  <div style={{ fontWeight: 600 }}>Case</div>
+                  <div style={{ fontWeight: 600 }}>Matter</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    {providerName} case name: {(caseData?.name || '').trim() || 'Unnamed case'}
+                    {providerName} matter name: {(caseData?.name || '').trim() || 'Unnamed case'}
                   </div>
                 </div>
                 {purviewStatus.enabled === false ? (
@@ -74,7 +74,7 @@ export default function CaseDetailPreservationProviderModal({
               )}
               {(purviewStatus.provider_case_id || purviewStatus.purview_case_id) && (
                 <div style={{ fontSize: 12, color: '#475467', marginTop: 6 }}>
-                  Case ID: {purviewStatus.provider_case_id || purviewStatus.purview_case_id}
+                  Matter ID: {purviewStatus.provider_case_id || purviewStatus.purview_case_id}
                 </div>
               )}
               <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -110,7 +110,7 @@ export default function CaseDetailPreservationProviderModal({
                 <div>
                   <div style={{ fontWeight: 600 }}>Preservation</div>
                   <div style={{ fontSize: 12, color: '#6b7280' }}>
-                    Add custodians to the {providerName} case and apply email and/or OneDrive preservation.
+                    Add custodians to the {providerName} matter and apply email and/or OneDrive preservation.
                   </div>
                 </div>
                 {!purviewStatus.case_exists && (

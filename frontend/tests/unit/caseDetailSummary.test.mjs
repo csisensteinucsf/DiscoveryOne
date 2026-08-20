@@ -11,8 +11,8 @@ test('case metadata is grouped into a semantic responsive summary', () => {
   const source = readSource('../../src/pages/CaseDetailHeader.jsx')
   const styles = readSource('../../src/styles.css')
 
-  assert.match(source, /<section className="case-detail-summary" aria-label="Case summary">/)
-  assert.match(source, /<h3>Case details<\/h3>/)
+  assert.match(source, /<section className="case-detail-summary" aria-label="Matter summary">/)
+  assert.match(source, /<h3>Matter details<\/h3>/)
   assert.match(source, /<h3>People &amp; access<\/h3>/)
   assert.match(source, /<dl className="case-detail-summary__list">/)
   assert.match(source, /<SummaryItem label="Requestors" wide>/)

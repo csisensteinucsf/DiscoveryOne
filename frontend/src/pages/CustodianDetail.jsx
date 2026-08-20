@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
-import { personLookupCurrentEmployee, personLookupDepartment, personLookupDepartmentId, personLookupExternalId, personLookupTitle } from "./caseDetailPersonLookupFields.js";
+import { personLookupDepartment, personLookupExternalId, personLookupTitle } from "./caseDetailPersonLookupFields.js";
 import { consentStatusLabel, normalizeConsentStatus } from "./custodianStatusCatalog.js";
 
 const Chip = ({ kind = "default", children, title }) => {
@@ -148,7 +148,7 @@ function CasesCard({ cases }) {
         <Link to={`/cases/${c.id}`} style={{ fontWeight: 600, overflowWrap: "anywhere" }}>{c.name}</Link>
       </div>
       <div style={statusStyle}>
-        {c.is_claimant ? <Chip kind="blue-letter" title="Claimant in this case">C</Chip> : null}
+        {c.is_claimant ? <Chip kind="blue-letter" title="Claimant in this matter">C</Chip> : null}
         {c.closed ? <Chip>closed</Chip> : <Chip kind="green">open</Chip>}
         {c.consent ? (
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -162,8 +162,8 @@ function CasesCard({ cases }) {
 
   return (
     <div className="card" style={{ padding: 16 }}>
-      <div style={{ fontWeight: 700, marginBottom: 8 }}>Cases</div>
-      {(!cases || cases.length === 0) && <div>?</div>}
+      <div style={{ fontWeight: 700, marginBottom: 8 }}>Matters</div>
+      {(!cases || cases.length === 0) && <div>—</div>}
       {!!open.length && (
         <div style={{ marginBottom: 14 }}>
           <div style={sectionLabelStyle}>Open</div>
@@ -219,13 +219,14 @@ function ProfileCard({ data, employeeIdLabel = "Employee ID" }) {
   return (
     <div className="card" style={{ padding: 16 }}>
       <div style={{ fontWeight: 700, marginBottom: 10 }}>Details</div>
+      <div style={rowStyle}><div style={muted}>First Name</div><div style={valueStyle}>{data?.first_name || '-'}</div></div>
+      <div style={rowStyle}><div style={muted}>Last Name</div><div style={valueStyle}>{data?.last_name || '-'}</div></div>
+      <div style={rowStyle}><div style={muted}>Email</div><div style={valueStyle}>{data?.email || '-'}</div></div>
+      <div style={rowStyle}><div style={muted}>Campus</div><div style={valueStyle}>{data?.campus || '-'}</div></div>
       <div style={rowStyle}><div style={muted}>{employeeIdLabel}</div><div style={valueStyle}>{personLookupExternalId(data) || '-'}</div></div>
       <div style={rowStyle}><div style={muted}>Department</div><div style={valueStyle}>{personLookupDepartment(data) || '-'}</div></div>
-      <div style={rowStyle}><div style={muted}>Department ID</div><div style={valueStyle}>{personLookupDepartmentId(data) || '-'}</div></div>
       <div style={rowStyle}><div style={muted}>Job Title</div><div style={valueStyle}>{personLookupTitle(data) || '-'}</div></div>
-      <div style={rowStyle}><div style={muted}>Employment End</div><div style={valueStyle}>{data?.employment_end_date || '-'}</div></div>
-      <div style={rowStyle}><div style={muted}>Current Employee</div><div style={valueStyle}>{typeof personLookupCurrentEmployee(data) === 'boolean' ? (personLookupCurrentEmployee(data) ? 'Yes' : 'No') : '?'}</div></div>
-      <div style={rowStyle}><div style={muted}>Last Lookup</div><div style={valueStyle}>{data?.person_lookup_last_at ? new Date(data.person_lookup_last_at).toLocaleString() : '-'}</div></div>
+      <div style={rowStyle}><div style={muted}>Employment Status</div><div style={valueStyle}>{data?.employment_status || '-'}</div></div>
     </div>
   )
 }

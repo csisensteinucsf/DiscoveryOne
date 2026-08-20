@@ -230,7 +230,7 @@ export function SystemBrandingPanel({
             value={brandingText?.app_tagline || ''}
             onChange={e => setBrandingText(prev => ({ ...(prev || {}), app_tagline: e.target.value }))}
             disabled={!canManageBranding || brandingTextSaving}
-            placeholder="eDiscovery Case Manager"
+            placeholder="eDiscovery Matter Manager"
           />
           <small style={{ color: 'var(--muted,#6b7280)' }}>Shown under the app name in the sidebar.</small>
         </label>

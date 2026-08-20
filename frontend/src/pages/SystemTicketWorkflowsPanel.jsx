@@ -82,7 +82,7 @@ export default function SystemTicketWorkflowsPanel({
               </div>
 
               <div className="form-grid">
-                <WorkflowField label="Workflow label" help="This is the user-facing ticket category shown in case request and case detail workflows.">
+                <WorkflowField label="Workflow label" help="This is the user-facing ticket category shown in matter request and matter detail workflows.">
                   <input
                     className="input"
                     value={workflow.label || ''}
@@ -173,7 +173,7 @@ export default function SystemTicketWorkflowsPanel({
                 />
                 <span>
                   Auto-create on case-request approval
-                  <span style={fieldHelpStyle}>When enabled, approving a new-case or custodian request creates an external ticket for custodians who require this workflow's linked preservation source.</span>
+                  <span style={fieldHelpStyle}>When enabled, approving a new-matter or custodian request creates an external ticket for custodians who require this workflow's linked preservation source.</span>
                 </span>
               </label>
 

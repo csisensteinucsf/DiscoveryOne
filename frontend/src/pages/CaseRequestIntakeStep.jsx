@@ -32,7 +32,7 @@ export default function CaseRequestIntakeStep({
         {(!useWizard || step === 1) && (
           <>
             <div className="form-section">
-              <div className="form-section__title">Case details</div>
+              <div className="form-section__title">Matter details</div>
               <div className="form-section__body">
                 {caseContext?.name && !isNewCase && (
                   <div className="callout">
@@ -43,7 +43,7 @@ export default function CaseRequestIntakeStep({
                   <div className="form-grid">
                     {!(isRequestor && caseNamingMode === 'legal_case_name') && (
                     <label className="field">
-                      <span>eDiscovery Case Name</span>
+                      <span>eDiscovery Matter Name</span>
                       <input
                         type="text"
                         value={caseNamingMode === 'legal_case_name' ? form.legal_case_name : form.name}
@@ -58,7 +58,7 @@ export default function CaseRequestIntakeStep({
                       />
                       {caseNamingMode !== 'color' || isRequestor ? (
                         <small style={{ color: 'var(--muted,#6b7280)' }}>
-                          {caseNamingMode === 'legal_case_name' ? 'Generated from the legal case name.' : 'Generated from the configured naming policy.'}
+                          {caseNamingMode === 'legal_case_name' ? 'Generated from the legal matter name.' : 'Generated from the configured naming policy.'}
                         </small>
                       ) : null}
                     </label>
@@ -194,7 +194,7 @@ export default function CaseRequestIntakeStep({
                       />
                       <strong style={{ color: '#0f172a' }}>Make case private</strong>
                       <small style={{ color: '#0f766e' }}>
-                        Only the listed requestor(s) and system admins can see this case.
+                        Only the listed requestor(s) and system admins can see this matter.
                       </small>
                     </span>
                     {form.is_private && (
@@ -212,8 +212,8 @@ export default function CaseRequestIntakeStep({
                   <label className="case-editor-flag case-editor-flag--test request-intake-test-flag">
                     <input type="checkbox" checked={!!form.is_test_case} onChange={(e) => setForm((prev) => ({ ...prev, is_test_case: e.target.checked }))} />
                     <span>
-                      <strong>Test case</strong>
-                      <small>Marks this case as designated test data.</small>
+                      <strong>Test matter</strong>
+                      <small>Marks this matter as designated test data.</small>
                     </span>
                   </label>
                   </div>

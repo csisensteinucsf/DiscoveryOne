@@ -11,7 +11,7 @@ test('Cases places its primary and column controls in the requested toolbars', (
   const cases = readSource('../../src/pages/Cases.jsx')
   const grouped = readSource('../../src/pages/CasesGroupedTable.jsx')
 
-  assert.match(cases, /cases-primary-actions[\s\S]*?>New Case</)
+  assert.match(cases, /cases-primary-actions[\s\S]*?>New Matter</)
   assert.match(cases, /column-picker--compact/)
   assert.match(cases, /toolbarExtra={columnPicker}/)
   assert.match(grouped, /cases-group-toggle[\s\S]*?\{toolbarExtra\}[\s\S]*?>Reset</)
@@ -36,7 +36,7 @@ test('case editors and requestor intake expose the designated test-case flag', (
   const requestModal = readSource('../../src/pages/CaseRequestModal.jsx')
 
   for (const source of [caseModals, detailModals, intake]) {
-    assert.match(source, /Test case/)
+    assert.match(source, /Test matter/)
     assert.match(source, /is_test_case/)
   }
   assert.match(requestModal, /is_test_case: isNewCase \? !!form\.is_test_case/)
@@ -86,12 +86,12 @@ test('template editor scrolls within the viewport and case tabs expose active st
   assert.match(tabs, /aria-pressed={activeTab === 'custodians'}/)
   assert.match(tabs, /aria-pressed={activeTab === 'notes'}/)
 })
-test('Case Detail places Tickets before Edit Case and removes it from the tab row', () => {
+test('Case Detail places Tickets before Edit Matter and removes it from the tab row', () => {
   const header = readSource('../../src/pages/CaseDetailHeader.jsx')
   const tabs = readSource('../../src/pages/CaseDetailTabNav.jsx')
   const detail = readSource('../../src/pages/CaseDetail.jsx')
   const ticketsAction = header.indexOf('onClick={onOpenTickets}')
-  const editAction = header.indexOf('>Edit Case</button>')
+  const editAction = header.indexOf('>Edit Matter</button>')
 
   assert.notEqual(ticketsAction, -1)
   assert.notEqual(editAction, -1)

@@ -69,6 +69,7 @@ export default function CaseDetailCustodiansTab({
   setShowCustodianModal,
   openSendNtp,
   sendingNtp,
+  onViewCustodian,
 }) {
   const {
     custodianCount,
@@ -207,7 +208,16 @@ export default function CaseDetailCustodiansTab({
                       const pDelivery = progressFor(c.id, 'delivery');
                       return (
                         <tr key={c.id} data-id={c.id} style={isUnmatched ? { background: 'rgba(239, 68, 68, 0.06)' } : (needsNameEmailReview ? { background: 'rgba(245, 158, 11, 0.08)' } : undefined)}>
-                          <td style={{ padding: '5px', verticalAlign: 'top' }}><span title={formatNameRaw(c.name) || '-'} style={{fontSize:12,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'block'}}>{formatNameRaw(c.name) || '-'}</span></td>
+                          <td style={{ padding: '5px', verticalAlign: 'top' }}>
+                            <button
+                              type="button"
+                              className="table-link-button"
+                              title={'View details for ' + (formatNameRaw(c.name) || 'custodian')}
+                              onClick={() => onViewCustodian(c)}
+                            >
+                              {formatNameRaw(c.name) || '-'}
+                            </button>
+                          </td>
                           <td style={{ padding: '5px', verticalAlign: 'top' }}>
                             <span title={c.email || '-'} style={{fontSize:12,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',display:'block'}}>{c.email || '-'}</span>
                             <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>

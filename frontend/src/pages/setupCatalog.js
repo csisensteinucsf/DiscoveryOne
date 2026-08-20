@@ -61,10 +61,10 @@ export const SERVICENOW_DEFAULTS = {
   customer_id: 'discoveryone',
   source_system: 'discoveryone',
   default_customer_id: '',
-  box_short_description: 'Box hold needed for legal case',
+  box_short_description: 'Box hold needed for legal matter',
   box_release_assignment_group: '',
   box_release_incident_keyword: '',
-  box_release_short_description: 'Box hold release request for legal case',
+  box_release_short_description: 'Box hold release request for legal matter',
 }
 
 export const BOX_DEFAULTS = {
@@ -233,7 +233,7 @@ export const INTEGRATION_REQUIREMENTS = {
     values: ['Enterprise ID', 'Client ID', 'Client secret', 'JWT public key ID', 'Private key', 'Passphrase'],
   },
   ai: {
-    text: 'Enable AI-assisted case summaries, search drafting, and assistant features through an OpenAI-compatible chat completions endpoint.',
+    text: 'Enable AI-assisted matter summaries, search drafting, and assistant features through an OpenAI-compatible chat completions endpoint.',
     values: ['Endpoint URL', 'Model', 'API key', 'Feature toggles'],
   },
 }
@@ -314,9 +314,9 @@ export const PRESERVATION_SOURCE_DEFAULTS = Object.fromEntries(
 export const CASE_NAMING_MODE_DEFAULT = 'legal_case_name'
 
 export const CASE_NAMING_OPTIONS = [
-  ['legal_case_name', 'Use Legal Case Name', 'The submitted legal case name becomes the DiscoveryOne case name. Duplicate names receive a numeric suffix.'],
-  ['created_date', 'Use Created Date + Sequence', 'DiscoveryOne generates names from the creation date and stores the submitted legal case name separately.'],
-  ['color', 'Use Color Naming', 'Use the legacy yearly color naming sequence and store the submitted legal case name separately.'],
+  ['legal_case_name', 'Use Legal Matter Name', 'The submitted legal matter name becomes the DiscoveryOne matter name. Duplicate names receive a numeric suffix.'],
+  ['created_date', 'Use Created Date + Sequence', 'DiscoveryOne generates names from the creation date and stores the submitted legal matter name separately.'],
+  ['color', 'Use Color Naming', 'Use the legacy yearly color naming sequence and store the submitted legal matter name separately.'],
 ]
 
 export const CASE_NAMING_MODES = CASE_NAMING_OPTIONS.map(([mode]) => mode)

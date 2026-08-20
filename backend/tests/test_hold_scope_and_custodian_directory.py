@@ -37,9 +37,9 @@ def create_user(db, role="sys_admin", suffix="admin"):
 def test_directory_custodians_are_saved_without_a_case_and_merged_into_list(db_session):
     actor = create_user(db_session)
     payload = custodians_summary.DirectoryCustodianBatch(custodians=[
-        {"name": "Jane Doe", "email": "JANE.DOE@example.test"},
-        {"name": "Jane Duplicate", "email": "jane.doe@example.test"},
-        {"name": "John Smith", "email": "john.smith@example.test"},
+        {"first_name": "Jane", "last_name": "Doe", "email": "JANE.DOE@example.test", "campus": "Main", "department": "Legal"},
+        {"first_name": "Jane", "last_name": "Duplicate", "email": "jane.doe@example.test", "campus": "Main"},
+        {"first_name": "John", "last_name": "Smith", "email": "john.smith@example.test", "campus": "South"},
     ])
 
     result = custodians_summary.add_directory_custodians(
@@ -58,12 +58,15 @@ def test_directory_custodians_are_saved_without_a_case_and_merged_into_list(db_s
         ("John Smith", "john.smith@example.test"),
     ]
     assert all(row["open_cases"] == [] and row["closed_cases"] == [] for row in rows)
+    assert rows[0]["first_name"] == "Jane"
+    assert rows[0]["campus"] == "Main"
+    assert rows[0]["department"] == "Legal"
 
 
 def test_requestors_cannot_add_directory_custodians(db_session):
     actor = create_user(db_session, role="requestor", suffix="requestor")
     payload = custodians_summary.DirectoryCustodianBatch(custodians=[
-        {"name": "Jane Doe", "email": "jane@example.test"},
+        {"first_name": "Jane", "last_name": "Doe", "email": "jane@example.test", "campus": "Main"},
     ])
 
     with pytest.raises(HTTPException) as exc:

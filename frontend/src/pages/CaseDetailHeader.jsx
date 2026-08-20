@@ -59,9 +59,9 @@ export default function CaseDetailHeader({
           <div className="row" style={{ justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <div className="row" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <h2 style={{ margin: 0, color: 'var(--sidebar-fg)', display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <span>{caseData ? primaryCaseName : 'Case'}</span>
-                {caseData?.is_private ? <span className="case-private-badge" title="Private case">P</span> : null}
-                {caseData?.is_test_case ? <span className="case-test-badge" title="Test case">TEST</span> : null}
+                <span>{caseData ? primaryCaseName : 'Matter'}</span>
+                {caseData?.is_private ? <span className="case-private-badge" title="Private matter">P</span> : null}
+                {caseData?.is_test_case ? <span className="case-test-badge" title="Test matter">TEST</span> : null}
               </h2>
               {caseData?.closed ? <Badge variant="danger">INACTIVE</Badge> : <Badge variant="success">ACTIVE</Badge>}
             </div>
@@ -77,18 +77,18 @@ export default function CaseDetailHeader({
               </button>
               {!isReadOnly && (
                 <>
-                  <button className="btn secondary" onClick={() => setShowEdit(true)}>Edit Case</button>
-                  <button className="btn secondary" onClick={onExportCustodians}>Export Case to CSV</button>
+                  <button className="btn secondary" onClick={() => setShowEdit(true)}>Edit Matter</button>
+                  <button className="btn secondary" onClick={onExportCustodians}>Export Matter to CSV</button>
                   {preservationAutomationEnabled && (
                     <button className="btn secondary" onClick={openPreservationAutomation}>
                       {preservationProviderName}
                     </button>
                   )}
                   <button className="btn secondary" onClick={openCaseSummary}>
-                    Case Summary
+                    Matter Summary
                   </button>
                   <button className={caseData?.closed ? 'btn' : 'btn danger'} onClick={toggleClosed}>
-                    {caseData?.closed ? 'Reopen Case' : 'Close Case'}
+                    {caseData?.closed ? 'Reopen Matter' : 'Close Matter'}
                   </button>
                 </>
               )}
@@ -100,17 +100,19 @@ export default function CaseDetailHeader({
                 onClick={() => navigate('/cases')}
                 style={{ margin: '12px 0' }}
               >
-                {'\u2190'} Back to Cases
+                {'\u2190'} Back to Matters
               </button>
           {!isTech && (
-            <section className="case-detail-summary" aria-label="Case summary">
+            <section className="case-detail-summary" aria-label="Matter summary">
               <div className="case-detail-summary__group">
-                <h3>Case details</h3>
+                <h3>Matter details</h3>
                 <dl className="case-detail-summary__list">
                   {!useLegalCaseNameAsPrimary && (
-                    <SummaryItem label="Legal case">{caseData?.legal_case_name || '-'}</SummaryItem>
+                    <SummaryItem label="Legal matter">{caseData?.legal_case_name || '-'}</SummaryItem>
                   )}
                   <SummaryItem label="Matter / Claim number">{caseData?.matter_number || '-'}</SummaryItem>
+                  <SummaryItem label="Matter type">{caseData?.matter_type || '-'}</SummaryItem>
+                  <SummaryItem label="Campus">{caseData?.campus || '-'}</SummaryItem>
                   <SummaryItem label="Start date">{caseData?.start_date ? formatDate(caseData.start_date) : '-'}</SummaryItem>
                   <SummaryItem label="Created">{caseData?.created_at ? formatDate(caseData.created_at) : '-'}</SummaryItem>
                   <SummaryItem label="Last updated">{caseData?.updated_at ? formatDate(caseData.updated_at) : '-'}</SummaryItem>
@@ -125,8 +127,8 @@ export default function CaseDetailHeader({
                   <SummaryItem label="Outside counsel">{caseData?.outside_counsel || '-'}</SummaryItem>
                   <SummaryItem label="Analyst">{analystName || '-'}</SummaryItem>
                   <SummaryItem label="Requestors" wide><RequestorSummary caseData={caseData} /></SummaryItem>
-                  {caseData?.is_private && <SummaryItem label="Visibility">Private case</SummaryItem>}
-                  {caseData?.is_test_case && <SummaryItem label="Case type">Test case</SummaryItem>}
+                  {caseData?.is_private && <SummaryItem label="Visibility">Private matter</SummaryItem>}
+                  {caseData?.is_test_case && <SummaryItem label="Data designation">Test matter</SummaryItem>}
                 </dl>
               </div>
 
@@ -152,9 +154,9 @@ export default function CaseDetailHeader({
             </section>
           )}
           {isTech && (
-            <section className="case-detail-summary case-detail-summary--compact" aria-label="Case summary">
+            <section className="case-detail-summary case-detail-summary--compact" aria-label="Matter summary">
               <div className="case-detail-summary__group">
-                <h3>Case information</h3>
+                <h3>Matter information</h3>
                 <dl className="case-detail-summary__list">
                   <SummaryItem label="Analyst">{analystName || '-'}</SummaryItem>
                   <SummaryItem label="Created">{caseData?.created_at ? formatDate(caseData.created_at) : '-'}</SummaryItem>
@@ -166,7 +168,7 @@ export default function CaseDetailHeader({
           {isRequestor && (
             <div style={{ display:'flex', flexDirection:'column', gap:12, marginTop:12 }}>
               <p style={{ color: '#fbbf24', background:'rgba(251,191,36,.12)', border:'1px solid rgba(251,191,36,.4)', padding:'6px 10px', borderRadius: 8, margin:0 }}>
-                Read-only view: requestor accounts cannot modify case data directly.
+                Read-only view: requestor accounts cannot modify matter data directly.
               </p>
               <div style={{ display:'flex', flexWrap:'wrap', gap:12 }}>
                 <button
@@ -174,24 +176,24 @@ export default function CaseDetailHeader({
                   type="button"
                   onClick={openCaseSummary}
                 >
-                  Case Summary
+                  Matter Summary
                 </button>
                 <button
                   className="btn secondary"
                   type="button"
                   onClick={onExportCustodians}
                 >
-                  Export Case to CSV
+                  Export Matter to CSV
                 </button>
                 <button
                   className="btn danger"
                   type="button"
                   onClick={() => setShowCloseCaseModal(true)}
                   disabled={caseData?.closed}
-                  title={caseData?.closed ? 'Case already closed' : 'Request closure and release of holds'}
+                  title={caseData?.closed ? 'Matter already inactive' : 'Request closure and release of holds'}
                   style={{ opacity: caseData?.closed ? 0.6 : 1 }}
                 >
-                  Request Case Closure
+                  Request Matter Closure
                 </button>
               </div>
             </div>

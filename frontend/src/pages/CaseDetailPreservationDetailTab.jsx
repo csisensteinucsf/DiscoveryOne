@@ -96,7 +96,7 @@ export default function CaseDetailPreservationDetailTab({
 
                 {namedHolds.namedHoldsError ? <div className="alert error">{namedHolds.namedHoldsError}</div> : null}
                 {namedHolds.namedHoldsLoading && !namedHolds.namedHolds.length ? <p className="muted">Loading Hold preservation...</p> : null}
-                {!namedHolds.namedHoldsLoading && !namedHolds.namedHolds.length ? <p className="muted">No Holds have been created for this case.</p> : null}
+                {!namedHolds.namedHoldsLoading && !namedHolds.namedHolds.length ? <p className="muted">No Holds have been created for this matter.</p> : null}
 
                 <div className="preservation-detail-hold-list">
                   {visibleNamedHolds.map(hold => (
@@ -180,7 +180,7 @@ export default function CaseDetailPreservationDetailTab({
 
               {!holdsDetail.loading && visibleHoldsDetailRows.length === 0 ? (
                 <p style={{ color: '#6b7280', marginTop: 10 }}>
-                  {selectedHold ? 'No custodians are assigned to this Hold.' : 'No custodians found for this case.'}
+                  {selectedHold ? 'No custodians are assigned to this Hold.' : 'No custodians found for this matter.'}
                 </p>
               ) : null}
 

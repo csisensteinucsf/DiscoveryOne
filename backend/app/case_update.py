@@ -88,7 +88,7 @@ def update_case_record(
     case_core.ensure_case_editable(user)
     payload_fields = set(getattr(payload, "model_fields_set", set()) or set())
 
-    tracked_fields = ("name","legal_case_name","is_ler_hr","servicenow_inc_number","claimant","ler_representative","internal_counsel","outside_counsel","matter_number","requestor","closed","closed_at","is_private","is_test_case","color","description","analyst_id","start_date","rubrik_restore_ticket","box_hold_ticket","is_active_case","closure_nag_days","custom_fields")
+    tracked_fields = ("name","legal_case_name","is_ler_hr","servicenow_inc_number","claimant","ler_representative","internal_counsel","outside_counsel","matter_number","campus","matter_type","requestor","closed","closed_at","is_private","is_test_case","color","description","analyst_id","start_date","rubrik_restore_ticket","box_hold_ticket","is_active_case","closure_nag_days","custom_fields")
     _before = {k: getattr(case, k, None) for k in tracked_fields}
     _before["request_ticket_entries"] = getattr(case, "request_ticket_entries", []) or []
     was_closed = bool(case.closed)
@@ -164,7 +164,7 @@ def update_case_record(
         if value is not None:
             setattr(case, field, value)
 
-    for field in ("internal_counsel", "outside_counsel", "matter_number"):
+    for field in ("internal_counsel", "outside_counsel", "matter_number", "campus", "matter_type"):
         if field in payload_fields:
             value = getattr(payload, field, None)
             setattr(case, field, value.strip() if isinstance(value, str) and value.strip() else None)

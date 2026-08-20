@@ -394,7 +394,7 @@ export function useSystemConfigurationWorkflow({ apiBase, isSysAdmin }) {
       setCaseClosureSettings(normalizeCaseClosureSettings(data?.case_closure))
       setCaseClosureStatus('Case closure settings saved.')
     } catch (err) {
-      setCaseClosureStatus(err?.message || 'Unable to save case closure settings.')
+      setCaseClosureStatus(err?.message || 'Unable to save matter closure settings.')
     } finally {
       setCaseClosureSaving(false)
     }
@@ -418,9 +418,9 @@ export function useSystemConfigurationWorkflow({ apiBase, isSysAdmin }) {
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
       setCaseStatusSettings(normalizeCaseStatusSettings(data?.case_status))
-      setCaseStatusStatus('Case status SLA settings saved.')
+      setCaseStatusStatus('Matter status SLA settings saved.')
     } catch (err) {
-      setCaseStatusStatus(err?.message || 'Unable to save case status SLA settings.')
+      setCaseStatusStatus(err?.message || 'Unable to save matter status SLA settings.')
     } finally {
       setCaseStatusSaving(false)
     }
@@ -444,9 +444,9 @@ export function useSystemConfigurationWorkflow({ apiBase, isSysAdmin }) {
       if (!res.ok) throw new Error(await res.text())
       const data = await res.json()
       setCaseRequestSettings(normalizeCaseRequestSettings(data?.case_requests))
-      setCaseRequestStatus('Case request policy settings saved.')
+      setCaseRequestStatus('Matter request policy settings saved.')
     } catch (err) {
-      setCaseRequestStatus(err?.message || 'Unable to save case request policy settings.')
+      setCaseRequestStatus(err?.message || 'Unable to save matter request policy settings.')
     } finally {
       setCaseRequestSaving(false)
     }

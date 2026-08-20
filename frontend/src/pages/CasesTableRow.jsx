@@ -4,8 +4,8 @@ import { DeleteIconButton, EditIconButton } from '../components/RowActionIconBut
 function HoldCountBadge({ count }) {
   const total = Number(count || 0)
   const title = total === 1
-    ? '1 Hold in this case'
-    : `${total} Holds in this case`
+    ? '1 Hold in this matter'
+    : `${total} Holds in this matter`
   return (
     <span
       className={total > 0 ? 'case-hold-count is-active' : 'case-hold-count'}
@@ -90,8 +90,8 @@ export function CasesTableRow({
       <td style={{ ...tableStyles.cell, ...tableStyles.caseNameCell }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           <Link to={'/cases/' + c.id} style={{ textDecoration: 'none', color: 'inherit' }}>{primaryCaseName}</Link>
-          {c.is_private ? <span className="case-private-badge" title="Private case">P</span> : null}
-          {c.is_test_case ? <span className="case-test-badge" title="Test case">TEST</span> : null}
+          {c.is_private ? <span className="case-private-badge" title="Private matter">P</span> : null}
+          {c.is_test_case ? <span className="case-test-badge" title="Test matter">TEST</span> : null}
         </span>
       </td>
       {showSecondaryCaseNameColumn && (

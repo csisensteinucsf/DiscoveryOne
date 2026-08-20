@@ -10,7 +10,7 @@ const CATEGORY_OPTIONS = [
   { value: "hold", label: "Hold" },
   { value: "delete_remove", label: "Delete/Remove" },
   { value: "login_auth", label: "Login/Auth" },
-  { value: "case", label: "Case" },
+  { value: "case", label: "Matter" },
   { value: "custodian", label: "Custodian" },
   { value: "search", label: "Search" },
   { value: "consent", label: "Consent" },
@@ -49,7 +49,7 @@ const CATEGORY_META = {
     border: "#bbf7d0",
   },
   case: {
-    label: "Case",
+    label: "Matter",
     color: "#6d28d9",
     background: "#f5f3ff",
     border: "#ddd6fe",
@@ -87,7 +87,7 @@ const CATEGORY_META = {
 };
 
 const META_FIELDS = [
-  { key: "case_name", label: "Case" },
+  { key: "case_name", label: "Matter" },
   { key: "custodian_name", label: "Custodian" },
   { key: "custodian_email", label: "Custodian Email" },
   { key: "target_username", label: "User" },
@@ -352,10 +352,10 @@ function HumanDetails({ details, action }) {
   return <span>{toInlineText(val)}</span>;
 }
 
-export default function Logs({ apiBase = "/api" }) {
+export default function Logs({ apiBase = "/api", caseId = null, embedded = false }) {
   const { user } = useAuth();
   const role = user?.role || (user?.is_admin ? "sys_admin" : "analyst");
-  const canSyncAudit = role === "sys_admin";
+  const canSyncAudit = !embedded && role === "sys_admin";
   const [rows, setRows] = useState([]);
   const [page, setPage] = useState(1);
   const [perPage] = useState(50);
@@ -370,6 +370,7 @@ export default function Logs({ apiBase = "/api" }) {
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState("");
   const pages = Math.max(1, Math.ceil((total || 0) / perPage));
+  const [matterFilter, setMatterFilter] = useState("");
 
   const load = async (p = 1) => {
     setErr(null);
@@ -384,9 +385,12 @@ export default function Logs({ apiBase = "/api" }) {
       if (actorId && Number(actorId) > 0) params.append("actor_id", String(Number(actorId)));
       if (ipFilter.trim()) params.append("ip", ipFilter.trim());
       if (contains.trim()) params.append("contains", contains.trim());
+      if (matterFilter.trim()) params.append("case_query", matterFilter.trim());
 
-      const res = await fetch(`${apiBase}/logs?${params.toString()}`, { credentials: "include" });
+      const endpoint = caseId ? `${apiBase}/logs/matter/${caseId}` : `${apiBase}/logs`;
+      const res = await fetch(`${endpoint}?${params.toString()}`, { credentials: "include" });
       const data = await res.json();
+      if (!res.ok) throw new Error(data?.detail || "Unable to load logs.");
       setRows(data.items || []);
       setPage(p);
       setTotal(data.total || (data.items || []).length);
@@ -441,8 +445,8 @@ export default function Logs({ apiBase = "/api" }) {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 12 }}>Logs</h1>
+    <div style={{ padding: embedded ? 0 : 24 }}>
+      <h1 style={{ fontSize: embedded ? 22 : 28, fontWeight: 700, marginBottom: 12 }}>{embedded ? 'Matter Logs' : 'Logs'}</h1>
       {err && <div style={{ color: "#b91c1c", marginBottom: 8 }}>{err}</div>}
       {syncStatus && <div style={{ color: "#166534", marginBottom: 8 }}>{syncStatus}</div>}
 
@@ -471,8 +475,11 @@ export default function Logs({ apiBase = "/api" }) {
           <span style={{ color: "#6b7280", fontSize: 12 }}>Details/username contains</span>
           <input value={contains} onChange={(e) => setContains(e.target.value)} placeholder="search string" />
         </label>
+        {!embedded && <label style={{ display: "grid", gap: 4, flex: "1 1 180px" }}>
+          <span style={{ color: "#6b7280", fontSize: 12 }}>Matter</span>
+          <input value={matterFilter} onChange={(e) => setMatterFilter(e.target.value)} placeholder="Matter name or ID" />
+        </label>}
       </div>
-
       <div className="logs-toolbar" style={{ alignItems: "center", gap: 12, flexWrap: "wrap", justifyContent: "space-between" }}>
         <div style={{ color: "#4b5563" }}>
           {total > 0 ? (
@@ -493,6 +500,7 @@ export default function Logs({ apiBase = "/api" }) {
               setActorId("");
               setIpFilter("");
               setContains("");
+              setMatterFilter("");
               load(1);
             }}
             disabled={loading}
@@ -511,6 +519,7 @@ export default function Logs({ apiBase = "/api" }) {
           <thead>
             <tr>
               <th style={{ minWidth: 160 }}>Time (PT)</th>
+              {!embedded && <th style={{ minWidth: 150 }}>Matter</th>}
               <th style={{ minWidth: 160 }}>User</th>
               <th>Action</th>
               <th style={{ minWidth: 200 }}>Network</th>
@@ -520,7 +529,7 @@ export default function Logs({ apiBase = "/api" }) {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ textAlign: "center", color: "#6b7280", padding: 16 }}>
+                <td colSpan={embedded ? 5 : 6} style={{ textAlign: "center", color: "#6b7280", padding: 16 }}>
                   {loading ? "Loading..." : "No log entries yet."}
                 </td>
               </tr>
@@ -530,6 +539,7 @@ export default function Logs({ apiBase = "/api" }) {
                 <td>
                   <div style={{ fontWeight: 600 }}>{fmtPT(r.created_at || r.timestamp)}</div>
                 </td>
+                {!embedded && <td>{r.details?.case_name || (r.details?.case_id ? `Matter #${r.details.case_id}` : NA)}</td>}
                 <td>
                   <div style={{ fontWeight: 600 }}>{r.username || (r.actor_id ? `User #${r.actor_id}` : NA)}</div>
                 </td>

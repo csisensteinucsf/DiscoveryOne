@@ -75,8 +75,8 @@ function formFromCaseTemplate(template, closureNagDays, current = {}) {
 
 export default function Cases({ apiBase }) {
   const { user, refreshUser } = useAuth()
-  const { appName } = useBrandingSettings(apiBase, { updateTitle: true, titleSuffix: 'Cases' })
-  const casesPageTitle = `${appName} Cases`
+  const { appName } = useBrandingSettings(apiBase, { updateTitle: true, titleSuffix: 'Matters' })
+  const casesPageTitle = `${appName} Matters`
   const { showToast } = useToast()
   const confirmDialog = useConfirm()
   const role = user?.role || (user?.is_admin ? 'sys_admin' : 'analyst')
@@ -89,11 +89,12 @@ export default function Cases({ apiBase }) {
   const [caseNamingMode, setCaseNamingMode] = useState('legal_case_name')
   const [defaultClosureNagDays, setDefaultClosureNagDays] = useState(180)
   const [internalCounselLabel, setInternalCounselLabel] = useState('Internal Counsel')
+  const [matterTypes, setMatterTypes] = useState([])
   const useLegalCaseNameAsPrimary = caseNamingMode === 'legal_case_name'
   const showSecondaryCaseNameColumn = !isTech && !useLegalCaseNameAsPrimary
-  const primaryCaseNameLabel = useLegalCaseNameAsPrimary ? 'Case Name' : 'eDiscovery Name'
+  const primaryCaseNameLabel = useLegalCaseNameAsPrimary ? 'Matter Name' : 'eDiscovery Name'
   const prefersLegalCaseLabel = requestorGroup === 'risk' || requestorGroup === 'legal'
-  const secondaryCaseNameLabel = prefersLegalCaseLabel ? 'Legal Case Name' : 'Case Name'
+  const secondaryCaseNameLabel = prefersLegalCaseLabel ? 'Legal Matter Name' : 'Matter Name'
   const savedColumns = user?.ui_preferences?.cases?.visible_columns
   const [visibleColumns, setVisibleColumns] = useState(
     Array.isArray(savedColumns) ? savedColumns : DEFAULT_CASE_COLUMNS
@@ -220,6 +221,7 @@ export default function Cases({ apiBase }) {
         setCaseNamingMode(normalizeCaseNamingMode(data?.case_naming?.mode))
         setDefaultClosureNagDays(Number(data?.case_closure?.default_nag_days) || 180)
         setInternalCounselLabel(data?.institution?.internal_counsel_label || 'Internal Counsel')
+        setMatterTypes(Array.isArray(data?.matter_types) ? data.matter_types : [])
       })
       .catch(() => {
         if (alive) {
@@ -301,6 +303,9 @@ export default function Cases({ apiBase }) {
       legal_case_name: c.legal_case_name || '',
       servicenow_inc_number: c.servicenow_inc_number || '',
       matter_number: c.matter_number || '',
+      campus: c.campus || '',
+      matter_type: c.matter_type && matterTypes.includes(c.matter_type) ? c.matter_type : (c.matter_type ? 'Other' : ''),
+      matter_type_other: c.matter_type && !matterTypes.includes(c.matter_type) ? c.matter_type : '',
       internal_counsel: c.internal_counsel || '',
       outside_counsel: c.outside_counsel || '',
       description: c.description || '',
@@ -475,7 +480,7 @@ export default function Cases({ apiBase }) {
       : Number(closureDaysRaw)
 
     if (!editingId && caseNamingMode === 'legal_case_name' && !form.legal_case_name.trim()) {
-      showToast('Legal case name is required for the selected eDiscovery naming mode.', { variant: 'warn' })
+      showToast('Legal matter name is required for the selected eDiscovery naming mode.', { variant: 'warn' })
       return
     }
 
@@ -488,6 +493,8 @@ export default function Cases({ apiBase }) {
       internal_counsel: (form.internal_counsel || '').trim() || null,
       outside_counsel: (form.outside_counsel || '').trim() || null,
       matter_number: (form.matter_number || '').trim() || null,
+      campus: (form.campus || '').trim() || null,
+      matter_type: (form.matter_type === 'Other' ? form.matter_type_other : form.matter_type || '').trim() || null,
       requestor: trimmedRequestor || null,
       requestors: requestorsPayload.length ? requestorsPayload : undefined,
       analyst_id: form.analyst_id ? Number(form.analyst_id) : null,
@@ -519,7 +526,7 @@ export default function Cases({ apiBase }) {
       } catch {
         navigate(0)
       }
-      showToast(editingId ? 'Case updated.' : 'Case created.', { variant: 'success' })
+      showToast(editingId ? 'Matter updated.' : 'Case created.', { variant: 'success' })
       return
     }
     const t = await res.text().catch(() => '')
@@ -532,7 +539,7 @@ export default function Cases({ apiBase }) {
     if (closing) {
       const response = await fetch(`${apiBase}/cases/${caseRecord.id}/closure-readiness`, { credentials: 'include' })
       if (!response.ok) {
-        showToast('Unable to check whether this case can be closed.', { variant: 'error' })
+        showToast('Unable to check whether this matter can be closed.', { variant: 'error' })
         return
       }
       setClosureReadiness(await response.json())
@@ -541,7 +548,7 @@ export default function Cases({ apiBase }) {
     }
     const accepted = await confirmDialog({
       title: 'Reopen case',
-      description: 'Reopen this case and move it to Active Cases?',
+      description: 'Reopen this matter and move it to Active Matters?',
       confirmLabel: 'Reopen case',
     })
     if (!accepted) return
@@ -558,7 +565,7 @@ export default function Cases({ apiBase }) {
     if (!response.ok) {
       const detail = await response.json().catch(() => null)
       const message = detail?.detail?.message || detail?.detail || 'Unknown error'
-      throw new Error(typeof message === 'string' ? message : 'Unable to update case status')
+      throw new Error(typeof message === 'string' ? message : 'Unable to update matter status')
     }
     showToast(closed ? 'Case closed.' : 'Case reopened.', { variant: 'success' })
     await load()
@@ -687,7 +694,7 @@ export default function Cases({ apiBase }) {
         Columns
       </summary>
       <div className="column-picker__menu">
-        <div className="column-picker__locked">Case Name and Actions are always shown.</div>
+        <div className="column-picker__locked">Matter Name and Actions are always shown.</div>
         {DEFAULT_CASE_COLUMNS
           .filter(key => key !== 'secondary_case_name' || showSecondaryCaseNameColumn)
           .map(key => (
@@ -717,16 +724,16 @@ export default function Cases({ apiBase }) {
       <div className="page-header">
         <h2>{casesPageTitle}</h2>
       </div>
-      {!isReadOnly && <div className="cases-primary-actions"><button className="btn" onClick={openNewCase}>New Case</button></div>}
+      {!isReadOnly && <div className="cases-primary-actions"><button className="btn" onClick={openNewCase}>New Matter</button></div>}
 
       {isRequestor && (
         <div className="card" style={{ marginBottom: '1rem', background: '#fefce8', border: '1px solid #fde68a' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h3 style={{ margin: '0 0 4px 0' }}>Need to start a new case?</h3>
-              <p style={{ margin: 0, color: '#92400e' }}>Use the case intake form to submit requests or add custodians/searches.</p>
+              <h3 style={{ margin: '0 0 4px 0' }}>Need to start a new matter?</h3>
+              <p style={{ margin: 0, color: '#92400e' }}>Use the matter intake form to submit requests or add custodians/searches.</p>
             </div>
-            <button className="btn" onClick={() => navigate('/requests')}>Open Case Intake</button>
+            <button className="btn" onClick={() => navigate('/requests')}>Open Matter Intake</button>
           </div>
         </div>
       )}
@@ -742,7 +749,7 @@ export default function Cases({ apiBase }) {
       )}
 
       <CasesGroupedTable
-        title="Active Cases"
+        title="Active Matters"
         items={openFiltered}
         groups={openGroups}
         emptyLabel="No active cases"
@@ -772,7 +779,7 @@ export default function Cases({ apiBase }) {
         style={{ marginBottom: '1rem' }}
       />
       <CasesGroupedTable
-        title="Inactive Cases"
+        title="Inactive Matters"
         items={closedFiltered}
         groups={closedGroups}
         emptyLabel="No inactive cases"
@@ -811,6 +818,7 @@ export default function Cases({ apiBase }) {
         useLegalCaseNameAsPrimary={useLegalCaseNameAsPrimary}
         internalCounselLabel={internalCounselLabel}
         onClose={closeModal}
+        matterTypes={matterTypes}
         onSubmit={submit}
         onLegalCaseNameChange={updateLegalCaseName}
         formatAnalystName={formatUserName}

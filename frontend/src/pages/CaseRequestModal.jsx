@@ -41,7 +41,7 @@ export default function CaseRequestModal({
   const employeeIdLabel = authConfig?.institution?.employee_id_label || 'Employee ID'
   const lookupInputPlaceholder = `Enter full name, email address or ${employeeIdLabel} to begin person lookup`
   const prefersLegalCaseLabel = requestorGroup === 'risk' || requestorGroup === 'legal'
-  const secondaryCaseNameLabel = prefersLegalCaseLabel ? 'Legal Case Name' : 'Case Name'
+  const secondaryCaseNameLabel = prefersLegalCaseLabel ? 'Legal Matter Name' : 'Matter Name'
   const isRequestor = role === 'requestor'
   const useWizard = !isSearch
   const autofillNonce = useMemo(() => Math.random().toString(36).slice(2), [])
@@ -503,7 +503,7 @@ export default function CaseRequestModal({
       try { created = await res.json() } catch { created = null }
       if (isRequestor && isCustodian && caseContext?.id && (created?.status || '').toLowerCase() === 'approved') {
         showToast(
-          'New custodian request is auto approved. Please allow 5-10 minutes for the system to apply the requested preservation. Case and custodian preservation status may change once complete.',
+          'New custodian request is auto approved. Please allow 5-10 minutes for the system to apply the requested preservation. Matter and custodian preservation status may change once complete.',
           { variant: 'info', duration: 12000 }
         )
       }
@@ -595,7 +595,7 @@ export default function CaseRequestModal({
         : (searchRequestFlowActive && !searchRequestsFinalized ? 'Submit Search Request' : 'Submit Request'))
       : 'Next')
     : (loading ? 'Submitting' : (searchRequestFlowActive && !searchRequestsFinalized ? 'Submit Search Request' : 'Submit Request'))
-  const sectionTitle = isNewCase ? 'Submit New Case Intake' : isCustodian ? 'Request Custodian Changes' : 'Request New Search'
+  const sectionTitle = isNewCase ? 'Submit New Matter Intake' : isCustodian ? 'Request Custodian Changes' : 'Request New Search'
   return (
     <>
       <CaseRequestModalShell

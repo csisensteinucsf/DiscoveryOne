@@ -1,5 +1,7 @@
 const PERSON_LOOKUP_FIELDS = {
   employment_end_date: null,
+  campus: null,
+  employment_status: null,
   external_id: null,
   first_name: null,
   last_name: null,
@@ -52,6 +54,8 @@ export function personLookupFieldsFromRecord(record) {
     department_id: departmentId,
     department,
     title,
+    campus: record?.campus || null,
+    employment_status: record?.employment_status || null,
     current_employee: currentEmployee,
   }
 }
@@ -71,6 +75,8 @@ export function editablePersonLookupFieldsFromRecord(record) {
     department_id: fields.department_id || '',
     department: fields.department || '',
     title: fields.title || '',
+    campus: fields.campus || '',
+    employment_status: fields.employment_status || '',
     current_employee: fields.current_employee,
   }
 }

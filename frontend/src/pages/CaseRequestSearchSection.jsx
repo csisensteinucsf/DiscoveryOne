@@ -117,7 +117,7 @@ function VersaSearchFields({
           {searchRequestsFinalized
             ? (isSearch
               ? 'Search requests captured. Click Submit Request to send the combined request.'
-              : 'Search requests captured. Click Submit Request to finish the case intake.')
+              : 'Search requests captured. Click Submit Request to finish the matter intake.')
             : 'Click Submit Search Request to capture this search and decide whether to add another.'}
         </p>
       )}

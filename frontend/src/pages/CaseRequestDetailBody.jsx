@@ -35,7 +35,7 @@ const searchesForRequest = (req) => {
 
 const requestCaseName = (req, caseLookup) => {
   const payload = req?.payload || {}
-  return req?.case_name || payload.name || (req?.case_id && caseLookup[req.case_id]?.name) || 'Pending case'
+  return req?.case_name || payload.name || (req?.case_id && caseLookup[req.case_id]?.name) || 'Pending matter'
 }
 
 const requestorLabel = (req) => req?.requestor?.email || req?.requestor?.username || ''
@@ -67,7 +67,7 @@ export default function CaseRequestDetailBody({ request: req, apiBase, caseLooku
 
       {(payload.legal_case_name || payload.claimant || payload.description || req.note || req.decline_reason) && (
         <div style={{ display: 'grid', gap: 6 }}>
-          {legalCaseName ? <div><strong>Legal Case Name:</strong> {legalCaseName}</div> : null}
+          {legalCaseName ? <div><strong>Legal Matter Name:</strong> {legalCaseName}</div> : null}
           {payload.claimant ? <div><strong>Claimant:</strong> {payload.claimant}</div> : null}
           {payload.description ? <div><strong>Description:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{payload.description}</span></div> : null}
           {req.note ? <div><strong>Note:</strong> <span style={{ whiteSpace: 'pre-wrap' }}>{req.note}</span></div> : null}
@@ -77,7 +77,7 @@ export default function CaseRequestDetailBody({ request: req, apiBase, caseLooku
 
       {req.request_type === 'close_case' && (
         <div style={{ padding: '8px 10px', borderRadius: 8, background: '#FEF3C7', border: '1px solid #FDE68A', color: '#92400E' }}>
-          Request to close the case and release all existing holds/preservation.
+          Request to close the matter and release all existing holds/preservation.
         </div>
       )}
 

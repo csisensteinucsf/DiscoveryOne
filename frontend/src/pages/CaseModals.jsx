@@ -15,6 +15,7 @@ export function CaseEditorModal({
   secondaryCaseNameLabel,
   useLegalCaseNameAsPrimary,
   internalCounselLabel = 'Internal Counsel',
+  matterTypes = [],
   onClose,
   onSubmit,
   onLegalCaseNameChange,
@@ -65,7 +66,7 @@ export function CaseEditorModal({
   return (
     <Modal
       open={open}
-      title={editingId ? 'Edit Case' : 'New Case'}
+      title={editingId ? 'Edit Matter' : 'New Matter'}
       onClose={onClose}
       width={560}
       bodyStyle={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto' }}
@@ -92,13 +93,13 @@ export function CaseEditorModal({
       >
         {!editingId && (
           <label>
-            New Case Template
+            New Matter Template
             <select
               className="input"
               value={form.case_template_id || ''}
               onChange={event => onTemplateChange?.(event.target.value)}
             >
-              <option value="">Standard case</option>
+              <option value="">Standard matter</option>
               {caseTemplates.map(template => (
                 <option key={template.id} value={template.id}>{template.name}</option>
               ))}
@@ -110,7 +111,7 @@ export function CaseEditorModal({
         )}
         {useLegalCaseNameAsPrimary ? (
           showField('legal_case_name') && <label>
-            {fieldLabel('Case Name', true)}
+            {fieldLabel('Matter Name', true)}
             <input
               className="input"
               name="case_name"
@@ -132,7 +133,7 @@ export function CaseEditorModal({
                 required
               />
               {!editingId && caseNamingMode === 'created_date' && (
-                <small style={{ color: 'var(--muted,#6b7280)' }}>Generated from the case create date.</small>
+                <small style={{ color: 'var(--muted,#6b7280)' }}>Generated from the matter create date.</small>
               )}
             </label>
 
@@ -154,7 +155,7 @@ export function CaseEditorModal({
           <span>
             <strong>{fieldLabel('Make case private', fieldRequired('is_private'))}</strong>
             <small style={{ display: 'block', color: '#0f766e', marginTop: 3 }}>
-              Only requestors on this case, admins, and analysts can see it.
+              Only requestors on this matter, admins, and analysts can see it.
             </small>
           </span>
         </label>}
@@ -166,9 +167,9 @@ export function CaseEditorModal({
               onChange={e => setForm(f => ({ ...f, is_test_case: e.target.checked }))}
             />
             <span>
-              <strong>{fieldLabel('Test case', fieldRequired('is_test_case'))}</strong>
+              <strong>{fieldLabel('Test matter', fieldRequired('is_test_case'))}</strong>
               <small>
-                Marks this case as designated test data.
+                Marks this matter as designated test data.
               </small>
             </span>
           </label>
@@ -193,6 +194,37 @@ export function CaseEditorModal({
               value={form.start_date || ''}
               onChange={e => setForm(f => ({ ...f, start_date: e.target.value }))}
               required={fieldRequired('start_date')}
+            />
+          </label>}
+          {showField('campus') && <label>
+            {fieldLabel('Campus', fieldRequired('campus'))}
+            <input
+              className="input"
+              value={form.campus || ''}
+              onChange={e => setForm(f => ({ ...f, campus: e.target.value }))}
+              required={fieldRequired('campus')}
+            />
+          </label>}
+          {showField('matter_type') && <label>
+            {fieldLabel('Matter Type', fieldRequired('matter_type'))}
+            <select
+              className="input"
+              value={form.matter_type || ''}
+              onChange={e => setForm(f => ({ ...f, matter_type: e.target.value, matter_type_other: e.target.value === 'Other' ? f.matter_type_other : '' }))}
+              required={fieldRequired('matter_type')}
+            >
+              <option value="">-- Select matter type --</option>
+              {matterTypes.map(option => <option key={option} value={option}>{option}</option>)}
+              <option value="Other">Other</option>
+            </select>
+          </label>}
+          {showField('matter_type') && form.matter_type === 'Other' && <label>
+            {fieldLabel('Other Matter Type', fieldRequired('matter_type'))}
+            <input
+              className="input"
+              value={form.matter_type_other || ''}
+              onChange={e => setForm(f => ({ ...f, matter_type_other: e.target.value }))}
+              required={fieldRequired('matter_type')}
             />
           </label>}
           {showField('internal_counsel') && <label>
@@ -267,13 +299,13 @@ export function CaseEditorModal({
             rows={4}
             value={form.description}
             onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-            placeholder="Context that should be visible from the Active Cases dashboard."
+            placeholder="Context that should be visible from the Active Matters dashboard."
             required={fieldRequired('description')}
           />
         </label>}
 
         {showField('closure_nag_days') && <label>
-          {fieldLabel('Send case status notification to requestor every (days)', fieldRequired('closure_nag_days'))}
+          {fieldLabel('Send matter status notification to requestor every (days)', fieldRequired('closure_nag_days'))}
           <input
             className="input"
             type="number"
@@ -307,7 +339,7 @@ export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm, 
   return (
     <Modal
       open
-      title="Close Case"
+      title="Close Matter"
       onClose={busy ? undefined : onClose}
       width={blocked ? 620 : 500}
       footer={(
@@ -315,7 +347,7 @@ export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm, 
           <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>Cancel</button>
           {!blocked && (
             <button type="button" className="btn" onClick={onConfirm} disabled={busy}>
-              {busy ? 'Closing' : 'Close Case'}
+              {busy ? 'Closing' : 'Close Matter'}
             </button>
           )}
         </div>
@@ -323,8 +355,8 @@ export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm, 
     >
       {blocked ? (
         <div className="alert warning">
-          <strong>This case cannot be closed yet.</strong>
-          <p>Close every active Hold and release every active preservation item first. This gate preserves an accurate record and prevents sources from being left on hold after the case is inactive.</p>
+          <strong>This matter cannot be closed yet.</strong>
+          <p>Close every active Hold and release every active preservation item first. This gate preserves an accurate record and prevents sources from being left on hold after the matter is inactive.</p>
           {activeHolds.length > 0 && (
             <>
               <h4>Active Holds</h4>
@@ -356,7 +388,7 @@ export function CaseClosureModal({ target, readiness, busy, onClose, onConfirm, 
           )}
         </div>
       ) : (
-        <p>Close <strong>{target.legal_case_name || target.name}</strong> and move it to Inactive Cases? Its full history will be retained.</p>
+        <p>Close <strong>{target.legal_case_name || target.name}</strong> and move it to Inactive Matters? Its full history will be retained.</p>
       )}
     </Modal>
   )
@@ -451,11 +483,11 @@ export function CaseDeleteModal({
       )}
     >
       <p style={{ marginTop: 0 }}>
-        Delete <strong>{target.legal_case_name || target.name}</strong> permanently? Closing the case is the normal way to retain its record.
+        Delete <strong>{target.legal_case_name || target.name}</strong> permanently? Closing the matter is the normal way to retain its record.
       </p>
       {requiresOverride && (
         <div className="alert warning">
-          <strong>This case has recorded activity.</strong>
+          <strong>This matter has recorded activity.</strong>
           <ul style={{ marginBottom: 10 }}>
             {Object.entries(history).filter(([, count]) => Number(count) > 0).map(([label, count]) => (
               <li key={label}>{label.replaceAll('_', ' ')}: {count}</li>

@@ -19,6 +19,7 @@ import { SystemNotificationsPanel, SystemSmtpPanel } from './SystemMessagingPane
 import SystemClamavPanel from './SystemClamavPanel.jsx'
 import SystemPreferencesPanel from './SystemPreferencesPanel.jsx'
 import SystemCaseTemplatesPanel from './SystemCaseTemplatesPanel.jsx'
+import SystemMatterTypesPanel from './SystemMatterTypesPanel.jsx'
 import SystemEmailIntakeWorkspace from './SystemEmailIntakeWorkspace.jsx'
 import Logs from './Logs.jsx'
 import { useSystemNtpTemplates } from './useSystemNtpTemplates.js'
@@ -403,7 +404,7 @@ export default function System({ apiBase = '/api' }) {
       views: [
         { id: 'institution', label: 'Institution' },
         { id: 'branding', label: 'Branding' },
-        { id: 'case_naming', label: 'Case Settings' },
+        { id: 'case_naming', label: 'Matter Settings' },
         { id: 'preferences', label: 'My Preferences' },
       ],
     },
@@ -413,15 +414,16 @@ export default function System({ apiBase = '/api' }) {
       views: [
         { id: 'preservation', label: 'Preservation' },
         { id: 'ticket_workflows', label: 'Ticket Workflows' },
-        { id: 'imports', label: 'Bulk Case Import' },
+        { id: 'imports', label: 'Bulk Matter Import' },
       ],
     },
     {
       id: 'templates',
       label: 'Templates',
       views: [
-        { id: 'case_templates', label: 'New Case Templates' },
+        { id: 'case_templates', label: 'New Matter Templates' },
         { id: 'ntp', label: 'NTP Templates' },
+        { id: 'matter_types', label: 'Matter Types' },
         { id: 'notifications', label: 'Notification Templates' },
         { id: 'email_intake_templates', label: 'Email Intake Templates' },
       ],
@@ -631,6 +633,14 @@ export default function System({ apiBase = '/api' }) {
           apiBase={apiBase}
           isSysAdmin={isSysAdmin}
           analystOptions={analystOptions}
+          titleStyle={titleStyle}
+        />
+      )}
+
+      {activeTab === 'matter_types' && (
+        <SystemMatterTypesPanel
+          apiBase={apiBase}
+          isSysAdmin={isSysAdmin}
           titleStyle={titleStyle}
         />
       )}

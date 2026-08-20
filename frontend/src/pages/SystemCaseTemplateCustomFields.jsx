@@ -65,7 +65,7 @@ export default function SystemCaseTemplateCustomFields({ editor, setEditor }) {
       <div className="case-template-custom-fields__heading">
         <div>
           <strong>Custom fields</strong>
-          <p>Add organization-specific information to this template and its New Case form.</p>
+          <p>Add organization-specific information to this template and its New Matter form.</p>
         </div>
         <button className="btn secondary compact" type="button" onClick={addField} disabled={fields.length >= 25}>
           <Plus size={15} /> Add Field

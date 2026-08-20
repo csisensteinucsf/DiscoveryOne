@@ -113,6 +113,12 @@ def _hold_detail_event_state(action: str, status: str, *, enable: Optional[bool]
             return "released"
         return "released"
 
+    if a.startswith("case_hold_preservation"):
+        if s in {"pending", "active", "released", "failed", "not_started", "off"}:
+            return "off" if s == "not_started" else s
+        if enable is not None:
+            return "active" if bool(enable) else "released"
+
     if "apply" in a:
         if s in {"on_hold", "already_on_hold"}:
             return "active"
@@ -230,6 +236,8 @@ def build_case_holds_detail(*, case_id: int, limit: int, db: Session, actor: mod
         "purview_hold_apply_attempt",
         "purview_hold_apply",
         "purview_hold_apply_failed",
+        "case_hold_preservation_update",
+        "case_hold_preservation_automation",
         "purview_hold_release",
         "purview_hold_release_failed",
         "purview_hold_auto_apply",
@@ -331,6 +339,7 @@ def build_case_holds_detail(*, case_id: int, limit: int, db: Session, actor: mod
 
         requested_keys = _hold_detail_keys_from_sources(details.get("requested_sources"))
         requested_keys.update(_hold_detail_keys_from_sources(details.get("sources")))
+        requested_keys.update(_hold_detail_keys_from_sources(details.get("source")))
         if action.startswith("slack_hold_sync"):
             requested_keys.add("holds_slack")
         if action.startswith("hold_source_sync"):

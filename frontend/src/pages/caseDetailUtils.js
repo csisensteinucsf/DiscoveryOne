@@ -24,7 +24,7 @@ import {
   ticketWorkflowUsesAccessLogDetails,
 } from './ticketWorkflowCatalog.js'
 
-// Display helper: Title/Sentence case for names (handles spaces & hyphens)
+// Display helper: Title/Sentence matter for names (handles spaces & hyphens)
 function formatNameRaw(s) {
   if (!s) return s
   const parts = String(s).trim().split(/\s+/).map(word => {

@@ -4,18 +4,37 @@ import FileDropZone from '../components/FileDropZone.jsx'
 import Modal from '../components/Modal.jsx'
 import RequiredFieldLabel from '../components/RequiredFieldLabel.jsx'
 
-const emptyRow = () => ({ name: '', email: '' })
+const CSV_HEADERS = ['first_name', 'last_name', 'email', 'campus', 'department', 'employee_id', 'job_title', 'employment_status']
+const emptyRow = () => ({
+  first_name: '', last_name: '', email: '', campus: '', department: '',
+  employee_id: '', title: '', employment_status: '',
+})
 const validEmail = value => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || '').trim())
 
 function parseRows(text) {
-  return String(text || '')
+  const lines = String(text || '')
     .split(/\r?\n/)
     .map(line => line.trim())
     .filter(Boolean)
-    .map(line => line.split(/[,\t;]+/).map(value => value.trim()))
-    .filter((parts, index) => !(index === 0 && /name/i.test(parts[0] || '') && /email/i.test(parts[1] || '')))
-    .map(parts => ({ name: parts[0] || '', email: parts[1] || '' }))
-    .filter(row => row.name || row.email)
+  const values = lines.map(line => line.split(/[,\t]+/).map(value => value.trim().replace(/^"|"$/g, '')))
+  const hasHeader = values[0]?.some(value => CSV_HEADERS.includes(value.toLowerCase().replace(/\s+/g, '_')))
+  const headers = hasHeader
+    ? values.shift().map(value => value.toLowerCase().replace(/\s+/g, '_'))
+    : CSV_HEADERS
+  return values.map(parts => {
+    const source = Object.fromEntries(headers.map((header, index) => [header, parts[index] || '']))
+    return {
+      ...emptyRow(),
+      first_name: source.first_name || '',
+      last_name: source.last_name || '',
+      email: source.email || '',
+      campus: source.campus || '',
+      department: source.department || '',
+      employee_id: source.employee_id || '',
+      title: source.job_title || source.title || '',
+      employment_status: source.employment_status || '',
+    }
+  }).filter(row => Object.values(row).some(Boolean))
 }
 
 export default function D1CustodianDirectoryModal({
@@ -31,10 +50,12 @@ export default function D1CustodianDirectoryModal({
   const [error, setError] = useState('')
 
   const activeRows = useMemo(
-    () => rows.filter(row => row.name.trim() || row.email.trim()),
+    () => rows.filter(row => Object.values(row).some(value => String(value || '').trim())),
     [rows],
   )
-  const invalid = activeRows.find(row => !row.name.trim() || !validEmail(row.email))
+  const invalid = activeRows.find(row => (
+    !row.first_name.trim() || !row.last_name.trim() || !validEmail(row.email) || !row.campus.trim()
+  ))
   const canSave = activeRows.length > 0 && !invalid && !busy
 
   const updateRow = (index, field, value) => {
@@ -62,9 +83,19 @@ export default function D1CustodianDirectoryModal({
     reader.readAsText(file)
   }
 
+  const downloadCsvTemplate = () => {
+    const blob = new Blob([CSV_HEADERS.join(',') + '\n'], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'discoveryone-custodian-import-template.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const save = async () => {
     if (!canSave) {
-      setError('Enter a name and valid email address for every custodian.')
+      setError('Missing required fields. Enter first name, last name, a valid email, and campus for every custodian.')
       return
     }
     setBusy(true)
@@ -76,8 +107,14 @@ export default function D1CustodianDirectoryModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           custodians: activeRows.map(row => ({
-            name: row.name.trim(),
+            first_name: row.first_name.trim(),
+            last_name: row.last_name.trim(),
             email: row.email.trim(),
+            campus: row.campus.trim(),
+            department: row.department.trim() || null,
+            employee_id: row.employee_id.trim() || null,
+            title: row.title.trim() || null,
+            employment_status: row.employment_status.trim() || null,
           })),
         }),
       })
@@ -100,7 +137,7 @@ export default function D1CustodianDirectoryModal({
       open
       title="Add D1 Custodians"
       onClose={busy ? undefined : onClose}
-      width={820}
+      width={1040}
       footer={(
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <button type="button" className="btn secondary" onClick={onClose} disabled={busy}>Cancel</button>
@@ -121,21 +158,35 @@ export default function D1CustodianDirectoryModal({
         </div>
 
       <p className="d1-custodian-directory-intro">
-        Save names and email addresses to DiscoveryOne now. They can be selected when custodians are added to a case later.
+        Save reusable custodian profiles now so they can be selected when custodians are added to a matter later.
       </p>
 
       {mode === 'manual' ? (
         <div className="d1-custodian-manual-list">
           {rows.map((row, index) => (
-            <div className="d1-custodian-entry-row" key={index}>
+            <div className="d1-custodian-profile-card" key={index}>
+              <div className="d1-custodian-profile-grid">
               <label>
-                <RequiredFieldLabel>Name</RequiredFieldLabel>
-                <input className="input" required value={row.name} onChange={event => updateRow(index, 'name', event.target.value)} />
+                <RequiredFieldLabel>First name</RequiredFieldLabel>
+                <input className="input" required value={row.first_name} onChange={event => updateRow(index, 'first_name', event.target.value)} />
+              </label>
+              <label>
+                <RequiredFieldLabel>Last name</RequiredFieldLabel>
+                <input className="input" required value={row.last_name} onChange={event => updateRow(index, 'last_name', event.target.value)} />
               </label>
               <label>
                 <RequiredFieldLabel>Email</RequiredFieldLabel>
                 <input className="input" required type="email" value={row.email} onChange={event => updateRow(index, 'email', event.target.value)} />
               </label>
+              <label>
+                <RequiredFieldLabel>Campus</RequiredFieldLabel>
+                <input className="input" required value={row.campus} onChange={event => updateRow(index, 'campus', event.target.value)} />
+              </label>
+              <label>Department<input className="input" value={row.department} onChange={event => updateRow(index, 'department', event.target.value)} /></label>
+              <label>Employee ID<input className="input" value={row.employee_id} onChange={event => updateRow(index, 'employee_id', event.target.value)} /></label>
+              <label>Job Title<input className="input" value={row.title} onChange={event => updateRow(index, 'title', event.target.value)} /></label>
+              <label>Employment Status<input className="input" value={row.employment_status} onChange={event => updateRow(index, 'employment_status', event.target.value)} /></label>
+              </div>
               <div className="row d1-custodian-row-actions">
                 <button type="button" className="icon-button" title="Add another custodian" aria-label="Add another custodian" onClick={addRow}>
                   <Plus size={18} aria-hidden="true" />
@@ -149,6 +200,14 @@ export default function D1CustodianDirectoryModal({
         </div>
       ) : (
         <div className="d1-custodian-import-panel">
+          <div className="d1-custodian-import-heading">
+            <p className="d1-custodian-import-help">
+              Use the downloadable header template. First name, last name, email, and campus are required. Remaining columns may be left blank.
+            </p>
+            <button type="button" className="btn secondary compact" onClick={downloadCsvTemplate}>
+              Download CSV template
+            </button>
+          </div>
           <label className="d1-custodian-import-list">
             <RequiredFieldLabel>Custodian list</RequiredFieldLabel>
             <textarea
@@ -157,7 +216,7 @@ export default function D1CustodianDirectoryModal({
               className="input"
               required
               onChange={event => applyText(event.target.value)}
-              placeholder={"Jane Doe, jane.doe@example.com\nJohn Smith, john.smith@example.com"}
+              placeholder={"First name, Last name, Email, Campus, Department, Employee ID, Job Title, Employment Status"}
             />
           </label>
           <FileDropZone onFiles={onFiles} prompt="Drag and drop a CSV or text file here">

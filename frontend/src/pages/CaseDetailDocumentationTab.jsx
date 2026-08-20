@@ -144,7 +144,7 @@ export default function CaseDetailDocumentationTab({
                   ) : docsError ? (
                     <p style={{ color: '#b91c1c' }}>{docsError}</p>
                   ) : !proofs.length ? (
-                    <p>No consent proofs are available for this case yet.</p>
+                    <p>No consent proofs are available for this matter yet.</p>
                   ) : (
                     <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
                       {proofs.map((proof) => {
@@ -159,7 +159,7 @@ export default function CaseDetailDocumentationTab({
                         if (uploader) timeline.push(`by ${uploader}`)
                         timeline.push(
                           proof.source === 'case_request'
-                            ? 'via case request'
+                            ? 'via matter request'
                             : (proof.source === 'manual' ? 'uploaded manually' : `downloaded from ${esignDisplayName}`)
                         )
                         const disableDelete = deletingProofId === proof.id

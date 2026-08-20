@@ -4,7 +4,7 @@ export const INTEGRATION_CATALOG = [
   { key: 'oidc', name: 'OIDC single sign-on', category: 'Identity', configKey: 'oidc', description: 'Authenticate users through your organization\'s OpenID Connect identity provider.' },
   { key: 'person_lookup', name: 'Person lookup', category: 'Identity', configKey: 'person_lookup', description: 'Find custodians through a directory export or a live identity and HR API.' },
   { key: 'smtp', name: 'SMTP', category: 'Communication', description: 'Deliver notices, reminders, and application email through your mail server.', externalEditor: 'smtp' },
-  { key: 'email_intake', name: 'Email intake', category: 'Communication', configKey: 'email_intake', description: 'Monitor an Exchange Online mailbox for new case requests.' },
+  { key: 'email_intake', name: 'Email intake', category: 'Communication', configKey: 'email_intake', description: 'Monitor an Exchange Online mailbox for new matter requests.' },
   { key: 'ntp_ack_bridge', name: 'NTP acknowledgment bridge', category: 'Communication', configKey: 'ntp_ack_bridge', description: 'Receive external Notice to Preserve acknowledgments through a DMZ service.' },
   { key: 'servicenow', name: 'ServiceNow', category: 'Legal workflows', configKey: 'servicenow', description: 'Create and reconcile preservation tickets with ServiceNow.' },
   { key: 'docusign', name: 'DocuSign', category: 'Legal workflows', configKey: 'docusign', description: 'Send and track custodian consent documents for electronic signature.' },

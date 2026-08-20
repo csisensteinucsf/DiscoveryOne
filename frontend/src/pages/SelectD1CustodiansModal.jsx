@@ -1,17 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import Modal from '../components/Modal.jsx'
-import HoldAssignmentPicker from './HoldAssignmentPicker.jsx'
 import { Button } from './caseDetailControls.jsx'
 
 const rowKey = row => String(row.directory_id || row.email || row.name || '')
 
 export default function SelectD1CustodiansModal({
   apiBase = '/api',
-  caseId,
-  holds = [],
-  selectedHoldIds = [],
-  onSelectedHoldIdsChange,
-  onHoldCreated,
   existingCustodians = [],
   onClose,
   onSave,
@@ -92,7 +86,7 @@ export default function SelectD1CustodiansModal({
         <div className="row" style={{ justifyContent: 'flex-end', gap: 8 }}>
           <Button variant="ghost" onClick={onClose} disabled={saving}>Cancel</Button>
           <Button
-            onClick={() => onSave(chosenRows.map(row => ({ name: row.name, email: row.email })))}
+            onClick={() => onSave(chosenRows)}
             disabled={!chosenRows.length || saving}
           >
             {saving ? 'Adding...' : `Add selected (${chosenRows.length})`}
@@ -105,16 +99,6 @@ export default function SelectD1CustodiansModal({
         <Button variant="subtle" onClick={onSwitchToImport} disabled={saving}>Import from list</Button>
         <Button variant="primary" disabled>Select from D1 Custodians</Button>
       </div>
-
-      <HoldAssignmentPicker
-        apiBase={apiBase}
-        caseId={caseId}
-        holds={holds}
-        selectedHoldIds={selectedHoldIds}
-        onSelectedHoldIdsChange={onSelectedHoldIdsChange}
-        onHoldCreated={onHoldCreated}
-        disabled={saving}
-      />
 
       <div className="d1-custodian-picker-toolbar">
         <input
@@ -145,13 +129,16 @@ export default function SelectD1CustodiansModal({
               <span>
                 <strong>{row.name || row.email}</strong>
                 <small>{row.email}</small>
+                {row.campus || row.department ? (
+                  <small>{[row.campus, row.department].filter(Boolean).join(' • ')}</small>
+                ) : null}
               </span>
             </label>
           )
         })}
       </div>
       <p className="muted">
-        Custodians already on this case are hidden. Select one or more people, then add them to the matter and any chosen Holds.
+        Custodians already on this matter are hidden. Select one or more people, then add them to the matter.
       </p>
     </Modal>
   )

@@ -13,24 +13,24 @@ import {
   ntpStatusBadgeVariant,
   ntpStatusLabel,
 } from '../../src/pages/custodianStatusCatalog.js'
-import {
-  buildCustodianWorkflowQuery,
-  normalizeOptionalHoldIds,
-} from '../../src/pages/holdAssignmentUtils.js'
+test('admin custodian entry adds custodians only to the matter', async () => {
+  const [manual, imported, directory, controller, workflow, caseDetail] = await Promise.all([
+    readFile(new URL('../../src/pages/AddCustodiansModal.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/pages/ImportCustodiansModal.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/pages/SelectD1CustodiansModal.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/pages/CaseDetailCustodianEntryModals.jsx', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/pages/useCaseDetailCustodianImport.js', import.meta.url), 'utf8'),
+    readFile(new URL('../../src/pages/CaseDetail.jsx', import.meta.url), 'utf8'),
+  ])
 
-test('custodian workflow permits matter-level assignment without a Hold', () => {
-  assert.deepEqual(normalizeOptionalHoldIds([]), [])
-  const params = buildCustodianWorkflowQuery('add', [])
-  assert.equal(params.get('action'), 'custodians')
-  assert.equal(params.get('mode'), 'add')
-  assert.equal(params.has('hold_ids'), false)
-})
-
-test('custodian workflow preserves only explicit valid Hold selections', () => {
-  assert.deepEqual(normalizeOptionalHoldIds(['4', 4, 9, 0, 'bad']), [4, 9])
-  const params = buildCustodianWorkflowQuery('import', ['4', 9])
-  assert.equal(params.get('mode'), 'import')
-  assert.equal(params.get('hold_ids'), '4,9')
+  for (const modal of [manual, imported, directory]) {
+    assert.doesNotMatch(modal, /HoldAssignmentPicker|selectedHoldIds|onSelectedHoldIdsChange|onHoldCreated/)
+  }
+  assert.doesNotMatch(controller, /targetHoldIds|setTargetHoldIds|reloadNamedHolds/)
+  assert.match(workflow, /body: JSON\.stringify\(\{ custodians: toCreate \}\)/)
+  assert.doesNotMatch(workflow, /hold_ids|targetHoldIds|normalizeOptionalHoldIds/)
+  assert.doesNotMatch(caseDetail, /targetHoldIds|setTargetHoldIds|params\.get\('hold_ids'\)|params\.get\('hold_id'\)/)
+  assert.match(directory, /add them to the matter\./)
 })
 
 test('legacy NTP and consent statuses map to universal terminology', () => {

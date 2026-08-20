@@ -142,7 +142,7 @@ export default function NtpReminderModals({
               })}
             </div>
           ) : (
-            <p style={{ color: '#6b7280', margin: 0 }}>No reminder schedules found for this case.</p>
+            <p style={{ color: '#6b7280', margin: 0 }}>No reminder schedules found for this matter.</p>
           )}
         </Modal>
       )}

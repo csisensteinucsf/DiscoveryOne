@@ -54,14 +54,14 @@ export function useSystemPreferences({ apiBase, user, refreshUser, showToast }) 
       })
       if (!res.ok) {
         const text = await res.text().catch(() => '')
-        throw new Error(text || 'Unable to update case sort preference.')
+        throw new Error(text || 'Unable to update matter sort preference.')
       }
       await refreshUser()
-      showToast('Case sort preference saved.', { variant: 'success' })
+      showToast('Matter sort preference saved.', { variant: 'success' })
     } catch (err) {
       console.error(err)
       setCaseSortMode(previous)
-      showToast(err?.message || 'Unable to update case sort preference.', { variant: 'error' })
+      showToast(err?.message || 'Unable to update matter sort preference.', { variant: 'error' })
     } finally {
       setCaseSortSaving(false)
     }

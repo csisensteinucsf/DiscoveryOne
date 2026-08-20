@@ -158,7 +158,7 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
                 <label>Template ID<input className="input" value={integrationSettings.configs?.docusign?.template_id || ''} onChange={e => updateIntegrationConfig('docusign', 'template_id', e.target.value)} /></label>
                 <label>Signer role<input className="input" value={integrationSettings.configs?.docusign?.signer_role || ''} onChange={e => updateIntegrationConfig('docusign', 'signer_role', e.target.value)} placeholder="signer" /></label>
                 <div style={{ gridColumn: '1 / -1', color: 'var(--muted,#6b7280)', lineHeight: 1.45 }}>Match these values to the text tab labels in your DocuSign template. DiscoveryOne fills these tabs when it sends a consent request.</div>
-                <label>Case name tab label<input className="input" value={integrationSettings.configs?.docusign?.case_name_tab || ''} onChange={e => updateIntegrationConfig('docusign', 'case_name_tab', e.target.value)} placeholder="case_name" /></label>
+                <label>Matter name tab label<input className="input" value={integrationSettings.configs?.docusign?.case_name_tab || ''} onChange={e => updateIntegrationConfig('docusign', 'case_name_tab', e.target.value)} placeholder="case_name" /></label>
                 <label>Record type tab label<input className="input" value={integrationSettings.configs?.docusign?.record_type_tab || ''} onChange={e => updateIntegrationConfig('docusign', 'record_type_tab', e.target.value)} placeholder="recordtype" /></label>
                 <label>Date from tab label<input className="input" value={integrationSettings.configs?.docusign?.date_from_tab || ''} onChange={e => updateIntegrationConfig('docusign', 'date_from_tab', e.target.value)} placeholder="datefrom" /></label>
                 <label>Date to tab label<input className="input" value={integrationSettings.configs?.docusign?.date_to_tab || ''} onChange={e => updateIntegrationConfig('docusign', 'date_to_tab', e.target.value)} placeholder="dateto" /></label>
@@ -189,7 +189,7 @@ export default function SystemCoreIntegrationConfigSections({ integrationSetting
                 <label>Status poll delay seconds<input className="input" type="number" min="0" value={integrationSettings.configs?.purview?.status_poll_delay_seconds ?? 120} onChange={e => updateIntegrationConfig('purview', 'status_poll_delay_seconds', e.target.value)} /></label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                   <input type="checkbox" checked={!!integrationSettings.configs?.purview?.add_data_sources} onChange={e => updateIntegrationConfig('purview', 'add_data_sources', e.target.checked)} />
-                  Add Purview data sources when creating a case
+                  Add Purview data sources when creating a matter
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
                   <input type="checkbox" checked={!!integrationSettings.configs?.purview?.hold_missing_email_mark_failed} onChange={e => updateIntegrationConfig('purview', 'hold_missing_email_mark_failed', e.target.checked)} />

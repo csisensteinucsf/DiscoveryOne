@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, UserPlus } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, Search, UserPlus } from 'lucide-react'
 import DataTableHeader from '../components/DataTableHeader.jsx'
 import D1CustodianDirectoryModal from './D1CustodianDirectoryModal.jsx'
 
@@ -57,7 +57,7 @@ function CaseList({ items = [] }) {
           <Link to={'/cases/' + item.id} onClick={event => event.stopPropagation()} style={{ textDecoration: 'none', color: 'inherit' }}>
             {item.name}
           </Link>
-          {item.is_claimant ? <Chip kind="blue-letter" title="Claimant in this case">C</Chip> : null}
+          {item.is_claimant ? <Chip kind="blue-letter" title="Claimant in this matter">C</Chip> : null}
           {index < items.length - 1 ? ', ' : ''}
         </Fragment>
       ))}
@@ -80,6 +80,8 @@ export default function Custodians({ apiBase = '/api' }) {
     closedCases: '',
     holds: '',
   })
+  const [pageSize, setPageSize] = useState(25)
+  const [page, setPage] = useState(1)
   const [workflowMode, setWorkflowMode] = useState(null)
   const nav = useNavigate()
 
@@ -144,11 +146,21 @@ export default function Custodians({ apiBase = '/api' }) {
       return String(aValue).localeCompare(String(bValue), undefined, { numeric: true, sensitivity: 'base' }) * direction
     })
   }, [filters, q, rows, sort])
+  useEffect(() => { setPage(1) }, [q, filters, pageSize])
+  const totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize))
+  const safePage = Math.min(page, totalPages)
+  const pagedRows = visibleRows.slice((safePage - 1) * pageSize, safePage * pageSize)
+
   const openCustodianWorkflow = () => setWorkflowMode('manual')
   return (
     <div className="wrap">
-      <div className="page-header" style={{ marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0, color: 'var(--sidebar-fg)' }}>Custodians</h2>
+      <div className="page-header custodians-page-header" style={{ marginBottom: '1rem' }}>
+        <div>
+          <h2 style={{ margin: 0, color: 'var(--sidebar-fg)' }}>Custodians</h2>
+          <button type="button" className="btn ghost compact custodians-back-button" onClick={() => nav(-1)}>
+            <ArrowLeft size={15} aria-hidden="true" /> Back
+          </button>
+        </div>
         <button type="button" className="btn secondary" onClick={openCustodianWorkflow}>
           <UserPlus size={16} aria-hidden="true" /> Add Custodians
         </button>
@@ -214,7 +226,7 @@ export default function Custodians({ apiBase = '/api' }) {
                   onSort={toggleSort}
                   filterValue={filters.openCases}
                   onFilterChange={value => setFilters(current => ({ ...current, openCases: value }))}
-                  filterPlaceholder="Case name contains..."
+                  filterPlaceholder="Matter name contains..."
                 />
                 <DataTableHeader
                   label="Inactive cases"
@@ -223,7 +235,7 @@ export default function Custodians({ apiBase = '/api' }) {
                   onSort={toggleSort}
                   filterValue={filters.closedCases}
                   onFilterChange={value => setFilters(current => ({ ...current, closedCases: value }))}
-                  filterPlaceholder="Case name contains..."
+                  filterPlaceholder="Matter name contains..."
                 />
                 <DataTableHeader
                   label="Active preservation"
@@ -240,9 +252,9 @@ export default function Custodians({ apiBase = '/api' }) {
             <tbody>
               {loading ? (
                 <tr><td colSpan={5}>Loading...</td></tr>
-              ) : visibleRows.length === 0 ? (
+              ) : pagedRows.length === 0 ? (
                 <tr><td colSpan={5}>No custodians found.</td></tr>
-              ) : visibleRows.map((custodian, index) => (
+              ) : pagedRows.map((custodian, index) => (
                 <tr
                   key={custodian.id || (custodian.email || custodian.name || 'custodian') + '-' + index}
                   onClick={() => {
@@ -268,6 +280,27 @@ export default function Custodians({ apiBase = '/api' }) {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="custodians-pagination" aria-label="Custodian pagination">
+          <label>
+            Show
+            <select className="input" value={pageSize} onChange={event => setPageSize(Number(event.target.value))}>
+              {[25, 50, 100, 200].map(size => <option key={size} value={size}>{size}</option>)}
+            </select>
+            per page
+          </label>
+          <span>
+            {visibleRows.length
+              ? `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, visibleRows.length)} of ${visibleRows.length}`
+              : '0 results'}
+          </span>
+          <button type="button" className="icon-button" aria-label="Previous page" disabled={safePage <= 1} onClick={() => setPage(current => Math.max(1, current - 1))}>
+            <ChevronLeft size={17} aria-hidden="true" />
+          </button>
+          <span>Page {safePage} of {totalPages}</span>
+          <button type="button" className="icon-button" aria-label="Next page" disabled={safePage >= totalPages} onClick={() => setPage(current => Math.min(totalPages, current + 1))}>
+            <ChevronRight size={17} aria-hidden="true" />
+          </button>
         </div>
       </div>
       {workflowMode && (

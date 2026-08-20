@@ -14,8 +14,8 @@ const emptyTemplate = () => ({
   subject_pattern: '',
   body_markers: [],
   field_markers: {
-    case_name: 'Case Name:',
-    legal_case_name: 'Legal Case Name:',
+    case_name: 'Matter Name:',
+    legal_case_name: 'Legal Matter Name:',
     claimant: 'Claimant:',
     internal_counsel: 'Internal Counsel:',
     outside_counsel: 'Outside Counsel:',
@@ -31,7 +31,7 @@ const emptySample = () => ({
   recipients: 'ediscovery-intake@example.edu',
   subject: 'New matter request',
   body_content_type: 'text',
-  body: 'Case Name: Example Matter\nClaimant: Example Person\nMatter Number: MAT-100\nCustodians: Person One <person.one@example.edu>',
+  body: 'Matter Name: Example Matter\nClaimant: Example Person\nMatter Number: MAT-100\nCustodians: Person One <person.one@example.edu>',
 })
 
 const statusColor = status => ({
@@ -307,21 +307,21 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
             <label>Name<input className="input" value={editor.name || ''} onChange={e => setEditor(prev => ({ ...prev, name: e.target.value }))} /></label>
             <label>Priority<input className="input" type="number" min="1" max="10000" value={editor.priority ?? 100} onChange={e => setEditor(prev => ({ ...prev, priority: Number(e.target.value) }))} /></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}><input type="checkbox" checked={editor.enabled !== false} onChange={e => setEditor(prev => ({ ...prev, enabled: e.target.checked }))} />Enabled</label>
-            <label>Named Hold<input className="input" value={editor.hold_name || ''} onChange={e => setEditor(prev => ({ ...prev, hold_name: e.target.value }))} /><span className="form-help">Leave blank to create the case request and custodians without assigning them to a Hold.</span></label>
+            <label>Named Hold<input className="input" value={editor.hold_name || ''} onChange={e => setEditor(prev => ({ ...prev, hold_name: e.target.value }))} /><span className="form-help">Leave blank to create the matter request and custodians without assigning them to a Hold.</span></label>
             <label style={{ gridColumn: '1 / -1' }}>Description<textarea className="input" rows={2} value={editor.description || ''} onChange={e => setEditor(prev => ({ ...prev, description: e.target.value }))} /></label>
             <label>Sender match<input className="input" value={editor.sender_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, sender_pattern: e.target.value }))} placeholder="*@outside-counsel.com" /></label>
             <label>Recipient match<input className="input" value={editor.recipient_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, recipient_pattern: e.target.value }))} placeholder="ediscovery-intake@example.edu" /></label>
             <label style={{ gridColumn: '1 / -1' }}>Subject match<input className="input" value={editor.subject_pattern || ''} onChange={e => setEditor(prev => ({ ...prev, subject_pattern: e.target.value }))} placeholder="New matter*" /></label>
-            <label style={{ gridColumn: '1 / -1' }}>Required body markers<textarea className="input" rows={3} value={(editor.body_markers || []).join('\n')} onChange={e => setEditor(prev => ({ ...prev, body_markers: e.target.value.split('\n').map(value => value.trim()).filter(Boolean) }))} placeholder="One required phrase per line" /></label>
+            <label style={{ gridColumn: '1 / -1' }}>Required body markers<textarea className="input" rows={3} value={(editor.body_markers || []).join('\n')} onChange={e => setEditor(prev => ({ ...prev, body_markers: e.target.value.split('\n') }))} placeholder="One required phrase per line" /></label>
           </div>
           <h4>Field Labels</h4>
           <p className="form-help">Each value is the label that precedes the field in the plain-text message body.</p>
           <div className="form-grid">
-            {Object.entries({ case_name: 'Case Name', legal_case_name: 'Legal Case Name', claimant: 'Claimant', internal_counsel: 'Internal Counsel', outside_counsel: 'Outside Counsel', matter_number: 'Matter Number', custodians: 'Custodians', description: 'Additional Notes' }).map(([key, label]) => <label key={key}>{label}<input className="input" value={editor.field_markers?.[key] || ''} onChange={e => setEditor(prev => ({ ...prev, field_markers: { ...(prev.field_markers || {}), [key]: e.target.value } }))} placeholder={`${label}:`} /></label>)}
+            {Object.entries({ case_name: 'Matter Name', legal_case_name: 'Legal Matter Name', claimant: 'Claimant', internal_counsel: 'Internal Counsel', outside_counsel: 'Outside Counsel', matter_number: 'Matter Number', custodians: 'Custodians', description: 'Additional Notes' }).map(([key, label]) => <label key={key}>{label}<input className="input" value={editor.field_markers?.[key] || ''} onChange={e => setEditor(prev => ({ ...prev, field_markers: { ...(prev.field_markers || {}), [key]: e.target.value } }))} placeholder={`${label}:`} /></label>)}
           </div>
           <h4>Default Values</h4>
           <div className="form-grid">
-            {Object.entries({ case_name: 'Case Name', legal_case_name: 'Legal Case Name', claimant: 'Claimant', internal_counsel: 'Internal Counsel', outside_counsel: 'Outside Counsel', matter_number: 'Matter Number', description: 'Additional Notes' }).map(([key, label]) => <label key={key}>{label}<input className="input" value={editor.default_values?.[key] || ''} onChange={e => setEditor(prev => ({ ...prev, default_values: { ...(prev.default_values || {}), [key]: e.target.value } }))} /></label>)}
+            {Object.entries({ case_name: 'Matter Name', legal_case_name: 'Legal Matter Name', claimant: 'Claimant', internal_counsel: 'Internal Counsel', outside_counsel: 'Outside Counsel', matter_number: 'Matter Number', description: 'Additional Notes' }).map(([key, label]) => <label key={key}>{label}<input className="input" value={editor.default_values?.[key] || ''} onChange={e => setEditor(prev => ({ ...prev, default_values: { ...(prev.default_values || {}), [key]: e.target.value } }))} /></label>)}
           </div>
         </Modal>
       )}
@@ -335,7 +335,7 @@ export default function SystemEmailIntakeWorkspace({ apiBase, enabled, showToast
 
       {showOperations && detail && (
         <Modal open title={detail.subject || 'Email Intake Message'} onClose={() => setDetail(null)} width={760} bodyStyle={{ maxHeight: '68vh', overflowY: 'auto' }} footer={<button className="btn secondary" onClick={() => setDetail(null)}>Close</button>}>
-          <div style={{ display: 'grid', gap: 6, fontSize: 13 }}><div><strong>From:</strong> {detail.sender || '-'}</div><div><strong>To:</strong> {(detail.recipients || []).join(', ') || '-'}</div><div><strong>Status:</strong> {labelStatus(detail.status)}</div><div><strong>Template:</strong> {detail.template_name || '-'}</div><div><strong>Case Request:</strong> {detail.case_request_id || '-'}</div><div><strong>Attachments:</strong> {detail.attachment_count || 0}</div>{detail.last_error && <div style={{ color: '#b91c1c' }}><strong>Error:</strong> {detail.last_error}</div>}</div><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', background: 'var(--muted-bg,#f8fafc)', padding: 10, marginTop: 14 }}>{detail.body_text || '(empty body)'}</pre>
+          <div style={{ display: 'grid', gap: 6, fontSize: 13 }}><div><strong>From:</strong> {detail.sender || '-'}</div><div><strong>To:</strong> {(detail.recipients || []).join(', ') || '-'}</div><div><strong>Status:</strong> {labelStatus(detail.status)}</div><div><strong>Template:</strong> {detail.template_name || '-'}</div><div><strong>Matter Request:</strong> {detail.case_request_id || '-'}</div><div><strong>Attachments:</strong> {detail.attachment_count || 0}</div>{detail.last_error && <div style={{ color: '#b91c1c' }}><strong>Error:</strong> {detail.last_error}</div>}</div><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', background: 'var(--muted-bg,#f8fafc)', padding: 10, marginTop: 14 }}>{detail.body_text || '(empty body)'}</pre>
         </Modal>
       )}
     </section>

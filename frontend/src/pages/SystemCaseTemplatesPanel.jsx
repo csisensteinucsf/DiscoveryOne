@@ -12,19 +12,21 @@ import {
 } from './caseTemplateOrder.js'
 
 const TEMPLATE_FIELDS = [
-  ['legal_case_name', 'Case name', 'text'],
+  ['legal_case_name', 'Matter name', 'text'],
   ['claimant', 'Claimant', 'text'],
   ['internal_counsel', 'Internal counsel', 'text'],
   ['outside_counsel', 'Outside counsel', 'text'],
   ['matter_number', 'Matter or claim number', 'text'],
+  ['campus', 'Campus', 'text'],
+  ['matter_type', 'Matter type', 'matter_type'],
   ['requestor', 'Primary requestor email', 'email'],
   ['requestors', 'Additional requestor emails', 'requestors'],
   ['analyst_id', 'Analyst', 'analyst'],
-  ['is_private', 'Private case', 'boolean'],
-  ['is_test_case', 'Test case', 'boolean'],
+  ['is_private', 'Private matter', 'boolean'],
+  ['is_test_case', 'Test matter', 'boolean'],
   ['description', 'Additional notes / comments', 'textarea'],
   ['start_date', 'Start date', 'date'],
-  ['closure_nag_days', 'Case status notification interval', 'number'],
+  ['closure_nag_days', 'Matter status notification interval', 'number'],
 ]
 
 const emptyEditor = () => ({
@@ -67,6 +69,7 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
   const [editor, setEditor] = useState(null)
   const [busy, setBusy] = useState(false)
   const [status, setStatus] = useState('')
+  const [matterTypes, setMatterTypes] = useState([])
   const [reorderBusy, setReorderBusy] = useState(false)
   const [draggedTemplateId, setDraggedTemplateId] = useState(null)
   const [dropTarget, setDropTarget] = useState(null)
@@ -80,6 +83,13 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
     }
     setTemplates(await response.json())
   }, [apiBase, isSysAdmin])
+
+  useEffect(() => {
+    fetch(`${apiBase}/system/matter-types`, { credentials: 'include' })
+      .then(response => response.ok ? response.json() : Promise.reject(new Error('Unable to load matter types')))
+      .then(payload => setMatterTypes(Array.isArray(payload?.matter_types) ? payload.matter_types : []))
+      .catch(() => setMatterTypes([]))
+  }, [apiBase])
 
   useEffect(() => { load() }, [load])
 
@@ -151,13 +161,13 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
       const savedTemplate = await response.json()
       setTemplates(current => mergeSavedCaseTemplate(current, savedTemplate))
       setEditor(null)
-      setStatus('Case template saved.')
+      setStatus('Matter template saved.')
     } catch (error) {
       const requestTimedOut = error?.name === 'AbortError'
       setStatus(
         requestTimedOut
           ? 'Saving timed out. Check the connection, then reopen templates before trying again.'
-          : 'Unable to save the case template. Check the connection and try again.',
+          : 'Unable to save the matter template. Check the connection and try again.',
       )
     } finally {
       window.clearTimeout(timeoutId)
@@ -166,12 +176,12 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
   }
 
   const remove = async template => {
-    if (!window.confirm(`Delete case template "${template.name}"? Templates already used by a case must be disabled instead.`)) return
+    if (!window.confirm(`Delete matter template "${template.name}"? Templates already used by a matter must be disabled instead.`)) return
     setBusy(true)
     const response = await fetch(`${apiBase}/case-templates/${template.id}`, { method: 'DELETE', credentials: 'include' })
     if (!response.ok) setStatus(await responseError(response))
     else {
-      setStatus('Case template deleted.')
+      setStatus('Matter template deleted.')
       await load()
     }
     setBusy(false)
@@ -254,6 +264,13 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
       const emails = Array.isArray(value) ? value.map(item => item?.email).filter(Boolean).join(', ') : ''
       return <input value={emails} placeholder="email1@example.edu, email2@example.edu" onChange={event => updateDefault(field, event.target.value.split(',').map(email => ({ email: email.trim(), is_primary: false })).filter(item => item.email))} />
     }
+    if (type === 'matter_type') {
+      return <select value={value ?? ''} onChange={event => updateDefault(field, event.target.value)}>
+        <option value="">No default</option>
+        {matterTypes.map(option => <option key={option} value={option}>{option}</option>)}
+        <option value="Other">Other</option>
+      </select>
+    }
     if (type === 'date') {
       return <select value={editor.defaults.start_date_mode || ''} onChange={event => {
         setEditor(current => {
@@ -269,14 +286,14 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
     return <input type={type} min={type === 'number' ? 1 : undefined} value={value ?? ''} onChange={event => updateDefault(field, type === 'number' && event.target.value ? Number(event.target.value) : event.target.value)} />
   }
 
-  if (!isSysAdmin) return <div className="card">Only system administrators can manage case templates.</div>
+  if (!isSysAdmin) return <div className="card">Only system administrators can manage matter templates.</div>
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
         <div>
-          <div style={titleStyle}>New Case Templates</div>
-          <p style={{ color: 'var(--muted,#6b7280)', margin: 0 }}>Create choices for the New Case form. Each template can supply default values and decide which fields are visible or required.</p>
+          <div style={titleStyle}>New Matter Templates</div>
+          <p style={{ color: 'var(--muted,#6b7280)', margin: 0 }}>Create choices for the New Matter form. Each template can supply default values and decide which fields are visible or required.</p>
         </div>
         <button className="btn" type="button" onClick={() => { setStatus(''); setEditor(emptyEditor()) }} disabled={busy || reorderBusy}><Plus size={16} /> New Template</button>
       </div>
@@ -330,12 +347,12 @@ export default function SystemCaseTemplatesPanel({ apiBase, isSysAdmin, analystO
                 </tr>
               )
             })}
-            {!templates.length && <tr><td colSpan="5">No case templates configured. The standard New Case form remains available.</td></tr>}
+            {!templates.length && <tr><td colSpan="5">No matter templates configured. The standard New Matter form remains available.</td></tr>}
           </tbody>
         </table>
       </div>
 
-      {editor && <Modal open title={editor.id ? 'Edit New Case Template' : 'New Case Template'} onClose={() => setEditor(null)} width={900} bodyStyle={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto', overscrollBehavior: 'contain' }} footer={<><button type="button" className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button type="submit" form="case-template-form" className="btn" disabled={busy}>{busy ? 'Saving' : 'Save Template'}</button></>}>
+      {editor && <Modal open title={editor.id ? 'Edit New Matter Template' : 'New Matter Template'} onClose={() => setEditor(null)} width={900} bodyStyle={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto', overscrollBehavior: 'contain' }} footer={<><button type="button" className="btn secondary" onClick={() => setEditor(null)}>Cancel</button><button type="submit" form="case-template-form" className="btn" disabled={busy}>{busy ? 'Saving' : 'Save Template'}</button></>}>
         <form id="case-template-form" onSubmit={event => { event.preventDefault(); save() }}>
         <div className="form-grid">
           <label style={{ gridColumn: '1 / -1' }}>

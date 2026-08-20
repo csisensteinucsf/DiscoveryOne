@@ -112,7 +112,7 @@ export default function CaseDetailTicketWorkflowModals({
                 )
               })}
               {!availableCustodians.length && (
-                <p style={{ gridColumn:'1 / -1', color:'#9ca3af', fontSize:13 }}>No custodians are assigned to this case.</p>
+                <p style={{ gridColumn:'1 / -1', color:'#9ca3af', fontSize:13 }}>No custodians are assigned to this matter.</p>
               )}
             </div>
             <div className="row" style={{ justifyContent:'flex-end', gap:8 }}>
@@ -246,7 +246,7 @@ export default function CaseDetailTicketWorkflowModals({
         >
           <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
             <p style={{ margin:0, color:'#475467' }}>
-              Are you sure you want to delete {removeCustodianModal.custodian?.name || removeCustodianModal.custodian?.email || 'this custodian'} from the case? This will release any Email or OneDrive preservation currently in place.
+              Are you sure you want to delete {removeCustodianModal.custodian?.name || removeCustodianModal.custodian?.email || 'this custodian'} from the matter? This will release any Email or OneDrive preservation currently in place.
             </p>
             <label style={{ display:'flex', alignItems:'center', gap:8 }}>
               <input

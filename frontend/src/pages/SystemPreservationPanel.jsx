@@ -98,9 +98,9 @@ export function SystemCaseNamingPanel({
 
   return (
     <div className="card" style={{ marginBottom: 16 }}>
-      <div style={titleStyle}>eDiscovery Case Naming</div>
+      <div style={titleStyle}>eDiscovery Matter Naming</div>
       <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-        Choose how DiscoveryOne names new eDiscovery cases. Existing case names are not changed when this setting is updated.
+        Choose how DiscoveryOne names new eDiscovery matters. Existing matter names are not changed when this setting is updated.
       </p>
       <div style={{ display: 'grid', gap: 12 }}>
         {CASE_NAMING_OPTIONS.map(([mode, label, description]) => (
@@ -146,7 +146,7 @@ export function SystemCaseNamingPanel({
       <div style={{ borderTop: '1px solid var(--border,#d1d5db)', marginTop: 22, paddingTop: 18 }}>
         <div style={titleStyle}>Case Status SLA Thresholds</div>
         <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-          These values control when the case SLA tab flags NTP acknowledgements and consent requests as overdue. They are stored in System settings so each deployment can use its own legal operations expectations without editing the .env file.
+          These values control when the matter SLA tab flags NTP acknowledgements and consent requests as overdue. They are stored in System settings so each deployment can use its own legal operations expectations without editing the .env file.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -162,7 +162,7 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              Number of days after an NTP is sent before an unacknowledged custodian is marked overdue on the case SLA tab.
+              Number of days after an NTP is sent before an unacknowledged custodian is marked overdue on the matter SLA tab.
             </span>
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -178,7 +178,7 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              Number of days after a consent request is sent before an incomplete consent is marked overdue on the case SLA tab.
+              Number of days after a consent request is sent before an incomplete consent is marked overdue on the matter SLA tab.
             </span>
           </label>
         </div>
@@ -286,7 +286,7 @@ export function SystemCaseNamingPanel({
       <div style={{ borderTop: '1px solid var(--border,#d1d5db)', marginTop: 22, paddingTop: 18 }}>
         <div style={titleStyle}>Case Status Notifications</div>
         <p style={{ color: 'var(--muted,#6b7280)', marginTop: 0 }}>
-          These values control the case status notifications sent to requestors. New cases use the default interval unless a case-specific value is entered, while the scheduler interval and batch size control how often DiscoveryOne checks for due notifications and how many it sends per pass.
+          These values control the matter status notifications sent to requestors. New cases use the default interval unless a matter-specific value is entered, while the scheduler interval and batch size control how often DiscoveryOne checks for due notifications and how many it sends per pass.
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -302,7 +302,7 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              Number of days after case creation, and between later notifications, before DiscoveryOne asks the requestor for a case status update.
+              Number of days after case creation, and between later notifications, before DiscoveryOne asks the requestor for a matter status update.
             </span>
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -318,7 +318,7 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              How often the backend wakes up to look for case status notifications that are due. The default is once per hour.
+              How often the backend wakes up to look for matter status notifications that are due. The default is once per hour.
             </span>
           </label>
           <label style={{ display: 'block', fontWeight: 700 }}>
@@ -334,13 +334,13 @@ export function SystemCaseNamingPanel({
               style={{ marginTop: 6 }}
             />
             <span style={{ display: 'block', color: 'var(--muted,#6b7280)', fontSize: 13, fontWeight: 400, marginTop: 4 }}>
-              Maximum number of case status notification emails DiscoveryOne sends during one scheduler pass.
+              Maximum number of matter status notification emails DiscoveryOne sends during one scheduler pass.
             </span>
           </label>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18, flexWrap: 'wrap' }}>
           <button className="btn secondary" onClick={saveCaseClosureSettings} disabled={caseClosureSaving}>
-            {caseClosureSaving ? 'Saving' : 'Save Case Closure Settings'}
+            {caseClosureSaving ? 'Saving' : 'Save Matter Closure Settings'}
           </button>
           {caseClosureStatus && (
             <span style={{ color: caseClosureStatus.toLowerCase().includes('unable') ? '#b91c1c' : 'var(--muted,#6b7280)' }}>

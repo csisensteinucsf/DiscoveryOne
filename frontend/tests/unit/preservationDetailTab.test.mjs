@@ -4,26 +4,21 @@ import { existsSync, readFileSync } from 'node:fs'
 
 const readSource = relativePath => readFileSync(new URL(relativePath, import.meta.url), 'utf8')
 
-test('Preservation Detail is a dedicated case tab between Holds and Searches', () => {
+test('Preservation Detail is selected inside the Holds workspace', () => {
   const navSource = readSource('../../src/pages/CaseDetailTabNav.jsx')
-  const holdsIndex = navSource.indexOf("setActiveTab('holds')")
-  const preservationIndex = navSource.indexOf("setActiveTab('preservation')")
-  const searchesIndex = navSource.indexOf("setActiveTab('searches')")
-
-  assert.ok(holdsIndex >= 0)
-  assert.ok(preservationIndex > holdsIndex)
-  assert.ok(searchesIndex > preservationIndex)
-  assert.match(navSource, />\s*Preservation Detail\s*</)
+  assert.match(navSource, /setActiveTab\('holds'\)/)
+  assert.doesNotMatch(navSource, /setActiveTab\('preservation'\)/)
+  assert.doesNotMatch(navSource, />\s*Preservation Detail\s*</)
 
   const caseDetailSource = readSource('../../src/pages/CaseDetail.jsx')
-  assert.match(caseDetailSource, /activeTab === 'preservation'/)
+  assert.match(caseDetailSource, /activeTab === 'holds'/)
+  assert.match(caseDetailSource, /holdsView === 'preservation'/)
+  assert.match(caseDetailSource, />Preservation Detail<\/button>/)
   assert.match(caseDetailSource, /<CaseDetailPreservationDetailTab/)
 
   const bootstrapSource = readSource('../../src/pages/useCaseDetailBootstrap.js')
-  assert.match(bootstrapSource, /activeTab === 'preservation'.*loadHoldsDetail\(\)/s)
-  assert.doesNotMatch(bootstrapSource, /activeTab === 'holds'.*loadHoldsDetail\(\)/s)
+  assert.doesNotMatch(bootstrapSource, /activeTab === 'preservation'/)
 })
-
 test('Preservation Detail includes every named Hold membership and the case-wide provider timeline', () => {
   const preservationSource = readSource('../../src/pages/CaseDetailPreservationDetailTab.jsx')
   assert.match(preservationSource, /useCaseDetailNamedHolds/)

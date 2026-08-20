@@ -206,7 +206,7 @@ export default function CaseDetailNtpModals({
                   className="btn secondary"
                   type="button"
                   onClick={openNtpHistoryModal}
-                  title="View prior NTP sends, reminders, templates, and acknowledgements for this case"
+                  title="View prior NTP sends, reminders, templates, and acknowledgements for this matter"
                 >
                   See previous NTPs
                 </button>
@@ -215,14 +215,14 @@ export default function CaseDetailNtpModals({
                     className="btn secondary"
                     type="button"
                     onClick={copyPreviousNtpData}
-                    title={lastNtpSend?.data?.exists ? 'Copy the most recently sent NTP template + variables for this case' : 'No prior NTP found for this case'}
+                    title={lastNtpSend?.data?.exists ? 'Copy the most recently sent NTP template + variables for this matter' : 'No prior NTP found for this matter'}
                   >
                     Copy previous NTP data
                   </button>
                 )}
               </div>
               <label style={ntpFieldLabelStyle}>
-                <span>Legal Case Name</span>
+                <span>Legal Matter Name</span>
                 <TextInput value={ntpVariables.legal_case_name} onChange={e => setNtpVariables(prev => ({ ...prev, legal_case_name: e.target.value }))} />
               </label>
               <label style={ntpFieldLabelStyle}>

@@ -24,7 +24,7 @@ function makeId(prefix = 'id') {
 const WIDGET_CATALOG = [
   {
     type: 'case_counts',
-    title: 'Cases',
+    title: 'Matters',
     description: 'Active vs inactive cases, plus recently created.',
     defaultConfig: { created_last_days: 7 },
   },
@@ -67,7 +67,7 @@ const WIDGET_CATALOG = [
   {
     type: 'open_tickets',
     title: 'Open Tickets',
-    description: 'Non-completed external tickets attached to cases.',
+    description: 'Non-completed external tickets attached to matters.',
     defaultConfig: { open_only: true, refresh_live: true },
   },
 ]

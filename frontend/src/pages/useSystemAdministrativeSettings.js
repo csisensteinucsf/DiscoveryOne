@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const BRANDING_DEFAULTS = {
   app_name: 'DiscoveryOne',
-  app_tagline: 'eDiscovery Case Manager',
+  app_tagline: 'eDiscovery Matter Manager',
 }
 
 const DEPLOYMENT_DEFAULTS = {

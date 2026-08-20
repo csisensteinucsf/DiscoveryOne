@@ -225,7 +225,7 @@ export function useCaseDetailSearchWorkflow({
   async function copySearch(search) {
     if (isRequestor) return
     try {
-      const caseName = caseData?.name || 'Case'
+      const caseName = caseData?.name || 'Matter'
       const number = nextSearchNumber(caseName, searches)
       const assignedIds = (search.custodianIds ?? search.custodian_ids ?? []).map(Number)
       const normalized = normalizeSearchDraftFields(search)
